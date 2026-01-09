@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil - AutoAssist IA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            text-decoration: none;
+            color: white;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        /* Profile Container */
+        .profile-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .profile-header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin: 0 auto 20px;
+        }
+
+        .profile-header h2 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .profile-header p {
+            color: #93c5fd;
+            font-size: 16px;
+        }
+
+        .profile-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 32px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .profile-info h3 {
+            margin-bottom: 24px;
+            font-size: 22px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #93c5fd;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: white;
+            font-weight: 600;
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            margin-top: 24px;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        @media (max-width: 768px) {
+            .info-row {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                🚗 AutoAssist IA
+            </a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Início</a>
+                <a href="/chat" class="nav-link">Chat</a>
+                <a href="/perfil" class="nav-link">Perfil</a>
+                <button class="btn" onclick="logout()">Sair</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Profile Content -->
+    <div class="profile-container">
+        <div class="profile-header">
+            <div class="profile-avatar" id="profileAvatar">👤</div>
+            <h2 id="profileName">Carregando...</h2>
+            <p id="profileEmail">email@exemplo.com</p>
+        </div>
+
+        <div class="profile-info">
+            <h3>Informações da Conta</h3>
+            <div class="info-row">
+                <span class="info-label">Nome Completo</span>
+                <span class="info-value" id="infoName">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value" id="infoEmail">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Membro desde</span>
+                <span class="info-value" id="infoDate">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">ID do Usuário</span>
+                <span class="info-value" id="infoId">-</span>
+            </div>
+            
+            <button class="btn btn-full btn-danger" onclick="logout()">Sair da Conta</button>
+        </div>
+    </div>
+
+    <script>
+        // Verificar autenticação
+        document.addEventListener('DOMContentLoaded', function() {
+            const userStr = localStorage.getItem('autoassist_user');
+            
+            if (!userStr) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const user = JSON.parse(userStr);
+            loadProfileData(user);
+        });
+
+        function loadProfileData(user) {
+            // Avatar com inicial do nome
+            const inicial = user.nome.charAt(0).toUpperCase();
+            document.getElementById('profileAvatar').textContent = inicial;
+
+            // Header
+            document.getElementById('profileName').textContent = user.nome;
+            document.getElementById('profileEmail').textContent = user.email;
+
+            // Info rows
+            document.getElementById('infoName').textContent = user.nome;
+            document.getElementById('infoEmail').textContent = user.email;
+            document.getElementById('infoDate').textContent = user.dataCriacao || 'Não disponível';
+            document.getElementById('infoId').textContent = user.id || '-';
+        }
+
+        function logout() {
+            if (confirm('Tem certeza que deseja sair?')) {
+                localStorage.removeItem('autoassist_user');
+                window.location.href = '/';
+            }
+        }
+    </script>
+</body>
+</html>
