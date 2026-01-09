@@ -20,10 +20,10 @@ if not GEMINI_API_KEY:
 try:
     model = ChatGoogleGenerativeAI(
         api_key=GEMINI_API_KEY,
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash-8b",
         temperature=0.7
     )
-    logger.info("✓ Modelo de visão (gemini-2.0-flash) inicializado com sucesso")
+    logger.info("✓ Modelo de visão (gemini-1.5-flash-8b) inicializado com sucesso")
 except Exception as e:
     logger.error(f"Erro ao inicializar modelo de visão: {e}")
     raise

@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import logging
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import (
@@ -444,7 +444,7 @@ def chat():
                     """INSERT INTO chats 
                     (user_id, categoria, mensagem_usuario, resposta_ia, data_criacao) 
                     VALUES (?, ?, ?, ?, ?)""",
-                    (user_id, categoria, message, resposta, datetime.utcnow().isoformat())
+                    (user_id, categoria, message, resposta, datetime.now(timezone.utc).isoformat())
                 )
                 db.commit()
         except Exception as db_error:
@@ -488,7 +488,7 @@ def analyze_image():
                     """INSERT INTO chats 
                     (user_id, categoria, mensagem_usuario, resposta_ia, data_criacao) 
                     VALUES (?, ?, ?, ?, ?)""",
-                    (user_id, "analise", question or "[Análise de imagem]", resultado, datetime.utcnow().isoformat())
+                    (user_id, "analise", question or "[Análise de imagem]", resultado, datetime.now(timezone.utc).isoformat())
                 )
                 db.commit()
         except Exception as db_error:
