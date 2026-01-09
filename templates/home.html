@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoAssist IA - Home</title>
+    <title>AutoAssist IA - Seu Consultor Automotivo Inteligente</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -16,14 +17,19 @@
             background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
             min-height: 100vh;
             color: #fff;
+            overflow-x: hidden;
         }
 
         /* Navbar */
         .navbar {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
 
         .nav-container {
@@ -40,85 +46,100 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 26px;
+            font-weight: 800;
             cursor: pointer;
             text-decoration: none;
             color: white;
+            transition: all 0.3s;
+        }
+
+        .nav-logo:hover {
+            transform: scale(1.05);
         }
 
         .nav-menu {
             display: flex;
-            gap: 20px;
+            gap: 24px;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .nav-link {
-            color: white;
+            color: rgba(255, 255, 255, 0.8);
             text-decoration: none;
             padding: 8px 16px;
             border-radius: 8px;
             transition: all 0.3s;
+            font-weight: 500;
+            font-size: 14px;
         }
 
         .nav-link:hover {
-            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            background: rgba(59, 130, 246, 0.2);
         }
 
         .btn {
-            background: #3b82f6;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
             color: white;
             border: none;
-            padding: 10px 24px;
-            border-radius: 10px;
+            padding: 12px 28px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
             transition: all 0.3s;
             text-decoration: none;
             display: inline-block;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         }
 
         .btn:hover {
-            background: #2563eb;
             transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
         }
 
         .btn-outline {
             background: transparent;
-            border: 2px solid white;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-shadow: none;
         }
 
         .btn-outline:hover {
-            background: white;
-            color: #1e3a8a;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: white;
         }
 
         /* Hero Section */
         .hero {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 100px 20px;
+            padding: 100px 20px 60px;
             text-align: center;
+            animation: fadeInUp 0.8s ease-out;
         }
 
         .hero h1 {
-            font-size: 56px;
+            font-size: 64px;
             margin-bottom: 24px;
-            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            background: linear-gradient(to right, #60a5fa, #a78bfa, #f87171);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            font-weight: 800;
+            line-height: 1.2;
         }
 
         .hero p {
-            font-size: 20px;
-            color: #93c5fd;
-            margin-bottom: 40px;
-            max-width: 600px;
+            font-size: 22px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 48px;
+            max-width: 700px;
             margin-left: auto;
             margin-right: auto;
+            line-height: 1.6;
+            font-weight: 300;
         }
 
         .hero-buttons {
@@ -126,69 +147,240 @@
             gap: 20px;
             justify-content: center;
             flex-wrap: wrap;
+            margin-bottom: 60px;
+        }
+
+        /* Stats Section */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 60px auto 0;
+            padding: 0 20px 80px;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 30px;
+            animation: fadeInUp 0.8s ease-out;
+            animation-fill-mode: both;
+        }
+
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+
+        .stat-number {
+            font-size: 48px;
+            font-weight: 800;
+            color: #60a5fa;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 16px;
         }
 
         /* Features Section */
+        .features-section {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 100px 20px;
+            margin-top: 80px;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 16px;
+            font-weight: 800;
+            color: white;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 80px;
+        }
+
         .features {
             max-width: 1200px;
-            margin: 80px auto;
-            padding: 0 20px 80px;
+            margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 30px;
         }
 
         .feature-card {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(10px);
-            padding: 32px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 40px 32px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s;
+            animation: fadeInUp 0.8s ease-out;
         }
 
         .feature-card:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-8px);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
         }
 
         .feature-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
+            font-size: 56px;
+            margin-bottom: 20px;
+            display: inline-block;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(167, 139, 250, 0.2));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .feature-card h3 {
-            font-size: 22px;
-            margin-bottom: 12px;
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 700;
         }
 
         .feature-card p {
-            color: #93c5fd;
-            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.8;
+            font-size: 16px;
         }
 
+        /* CTA Section */
+        .cta-section {
+            max-width: 900px;
+            margin: 120px auto 0;
+            padding: 80px 40px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(167, 139, 250, 0.15));
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .cta-section h2 {
+            font-size: 42px;
+            margin-bottom: 24px;
+            font-weight: 800;
+        }
+
+        .cta-section p {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+        }
+
+        /* Footer */
+        .footer {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 60px 20px;
+            margin-top: 120px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-column h4 {
+            margin-bottom: 20px;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column li {
+            margin-bottom: 12px;
+        }
+
+        .footer-column a {
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            transition: color 0.3s;
+            font-size: 14px;
+        }
+
+        .footer-column a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
             .hero h1 {
-                font-size: 36px;
+                font-size: 42px;
             }
 
             .hero p {
-                font-size: 16px;
+                font-size: 18px;
+            }
+
+            .section-title {
+                font-size: 36px;
+            }
+
+            .nav-logo {
+                font-size: 20px;
+            }
+
+            .hero-buttons {
+                gap: 12px;
+            }
+
+            .btn {
+                padding: 10px 24px;
+                font-size: 13px;
             }
         }
     </style>
 </head>
 <body>
+<body>
     <!-- Navbar -->
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="nav-logo">
-                🚗 AutoAssist IA
+                <i class="fas fa-car" style="color: #60a5fa;"></i> AutoAssist IA
             </a>
             <div class="nav-menu" id="navMenu">
                 <a href="/" class="nav-link">Início</a>
                 <a href="/login" class="btn btn-outline">Login</a>
-                <a href="/cadastro" class="btn">Cadastrar</a>
+                <a href="/cadastro" class="btn">Começar Grátis</a>
             </div>
         </div>
     </nav>
@@ -196,46 +388,111 @@
     <!-- Hero Section -->
     <section class="hero">
         <h1>Seu Consultor Automotivo Inteligente</h1>
-        <p>Análise de imagens com IA, recomendações personalizadas e tudo que você precisa para tomar a melhor decisão sobre carros e peças</p>
+        <p>Análise com IA, recomendações personalizadas e tudo que você precisa para tomar a melhor decisão sobre carros e peças automotivas</p>
         <div class="hero-buttons">
-            <a href="/cadastro" class="btn">Comece Gratuitamente</a>
-            <a href="/login" class="btn btn-outline">Fazer Login</a>
+            <a href="/cadastro" class="btn">Começar Gratuitamente</a>
+            <a href="/login" class="btn btn-outline">Já tenho conta</a>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">500+</div>
+                <div class="stat-label">Usuários Satisfeitos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">10K+</div>
+                <div class="stat-label">Análises Realizadas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">98%</div>
+                <div class="stat-label">Taxa de Satisfação</div>
+            </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section class="features">
-        <div class="feature-card">
-            <div class="feature-icon">📸</div>
-            <h3>Análise de Imagens</h3>
-            <p>Faça upload de fotos e descubra modelo, ano, estado de conservação e possíveis problemas</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🚙</div>
-            <h3>Consultoria de Compra</h3>
-            <p>Recomendações personalizadas baseadas em seu perfil e orçamento</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">⚙️</div>
-            <h3>Comparação de Modelos</h3>
-            <p>Compare especificações, consumo, manutenção e custo-benefício</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🔧</div>
-            <h3>Peças e Manutenção</h3>
-            <p>Orientações sobre peças, marcas e manutenção preventiva</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">💰</div>
-            <h3>Estimativa de Preço</h3>
-            <p>Avalie o valor justo de veículos no mercado atual</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">🤖</div>
-            <h3>IA Avançada</h3>
-            <p>Powered by Google Gemini para respostas precisas e confiáveis</p>
+    <section class="features-section">
+        <h2 class="section-title">Funcionalidades Poderosas</h2>
+        <p class="section-subtitle">Tudo que você precisa em uma única plataforma</p>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📸</div>
+                <h3>Análise de Imagens</h3>
+                <p>Faça upload de fotos e descubra modelo, ano, estado de conservação e possíveis problemas com precisão de IA</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚙</div>
+                <h3>Consultoria de Compra</h3>
+                <p>Recomendações personalizadas baseadas em seu perfil, orçamento e necessidades específicas</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3>Comparação de Modelos</h3>
+                <p>Compare especificações, consumo, manutenção e custo-benefício de múltiplos veículos</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔧</div>
+                <h3>Peças e Manutenção</h3>
+                <p>Orientações sobre peças, marcas recomendadas e manutenção preventiva especializada</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <h3>Estimativa de Preço</h3>
+                <p>Avalie o valor justo de veículos no mercado atual com dados em tempo real</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>IA Avançada</h3>
+                <p>Powered by Google Gemini para respostas precisas, confiáveis e contextualmente relevantes</p>
+            </div>
         </div>
     </section>
+
+    <!-- CTA Section -->
+    <div class="cta-section">
+        <h2>Pronto para começar?</h2>
+        <p>Junte-se a centenas de usuários que já estão tomando melhores decisões automotivas</p>
+        <a href="/cadastro" class="btn" style="font-size: 16px; padding: 14px 40px;">Criar Conta Grátis</a>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-column">
+                <h4>AutoAssist IA</h4>
+                <p style="color: rgba(255, 255, 255, 0.6); font-size: 14px;">Sua plataforma completa para consultoria automotiva inteligente</p>
+            </div>
+            <div class="footer-column">
+                <h4>Produto</h4>
+                <ul>
+                    <li><a href="#">Funcionalidades</a></li>
+                    <li><a href="#">Preços</a></li>
+                    <li><a href="#">Segurança</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Empresa</h4>
+                <ul>
+                    <li><a href="#">Sobre</a></li>
+                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Contato</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">Privacidade</a></li>
+                    <li><a href="#">Termos</a></li>
+                    <li><a href="#">Cookies</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 AutoAssist IA. Todos os direitos reservados.</p>
+        </div>
+    </footer>
 
     <script>
         // Verificar se usuário está logado
@@ -255,8 +512,11 @@
         });
 
         function logout() {
-            localStorage.removeItem('autoassist_user');
-            window.location.href = '/';
+            if (confirm('Tem certeza que deseja sair?')) {
+                localStorage.removeItem('autoassist_user');
+                localStorage.removeItem('access_token');
+                window.location.href = '/';
+            }
         }
     </script>
 </body>

@@ -170,6 +170,77 @@
             background: #dc2626;
         }
 
+        /* Photo Upload */
+        .profile-photo-section {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+        }
+
+        .avatar-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+
+        .profile-avatar {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .profile-avatar:hover {
+            transform: scale(1.05);
+            filter: brightness(0.8);
+        }
+
+        .photo-upload-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 120px;
+            height: 120px;
+            background: rgba(59, 130, 246, 0.7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+            cursor: pointer;
+        }
+
+        .profile-avatar:hover .photo-upload-overlay {
+            opacity: 1;
+        }
+
+        .photo-upload-overlay i {
+            font-size: 24px;
+            color: white;
+        }
+
+        #photoInput {
+            display: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: white;
+        }
+
+        .photo-info {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 12px;
+        }
+
         @media (max-width: 768px) {
             .info-row {
                 flex-direction: column;
@@ -197,7 +268,16 @@
     <!-- Profile Content -->
     <div class="profile-container">
         <div class="profile-header">
-            <div class="profile-avatar" id="profileAvatar">👤</div>
+            <div class="avatar-container">
+                <div class="profile-avatar" id="profileAvatar" onclick="document.getElementById('photoInput').click()">
+                    👤
+                    <div class="photo-upload-overlay">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                </div>
+                <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(event)">
+                <div class="photo-info">Clique para mudar a foto</div>
+            </div>
             <h2 id="profileName">Carregando...</h2>
             <p id="profileEmail">email@exemplo.com</p>
         </div>
@@ -225,6 +305,7 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <script>
         // Verificar autenticação
         document.addEventListener('DOMContentLoaded', function() {
@@ -237,12 +318,38 @@
 
             const user = JSON.parse(userStr);
             loadProfileData(user);
+            loadProfilePhoto();
         });
 
         function loadProfileData(user) {
-            // Avatar com inicial do nome
-            const inicial = user.nome.charAt(0).toUpperCase();
-            document.getElementById('profileAvatar').textContent = inicial;
+            // Avatar com inicial do nome ou com foto
+            const profileAvatar = document.getElementById('profileAvatar');
+            const profilePhoto = localStorage.getItem(`profilePhoto_${user.email}`);
+            
+            if (profilePhoto) {
+                // Se houver foto salva, mostrar a foto
+                const img = document.createElement('img');
+                img.src = profilePhoto;
+                img.style.cssText = 'width: 120px; height: 120px; border-radius: 50%; object-fit: cover; display: flex; align-items: center; justify-content: center;';
+                profileAvatar.textContent = '';
+                profileAvatar.appendChild(img);
+                
+                // Adicionar overlay
+                const overlay = document.createElement('div');
+                overlay.className = 'photo-upload-overlay';
+                overlay.innerHTML = '<i class="fas fa-camera"></i>';
+                profileAvatar.appendChild(overlay);
+            } else {
+                // Senão, mostrar inicial do nome
+                const inicial = user.nome.charAt(0).toUpperCase();
+                profileAvatar.textContent = inicial;
+                
+                // Adicionar overlay
+                const overlay = document.createElement('div');
+                overlay.className = 'photo-upload-overlay';
+                overlay.innerHTML = '<i class="fas fa-camera"></i>';
+                profileAvatar.appendChild(overlay);
+            }
 
             // Header
             document.getElementById('profileName').textContent = user.nome;
@@ -255,9 +362,82 @@
             document.getElementById('infoId').textContent = user.id || '-';
         }
 
+        function loadProfilePhoto() {
+            const userStr = localStorage.getItem('autoassist_user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const profilePhoto = localStorage.getItem(`profilePhoto_${user.email}`);
+                if (profilePhoto) {
+                    const profileAvatar = document.getElementById('profileAvatar');
+                    const img = profileAvatar.querySelector('img');
+                    if (img) {
+                        img.src = profilePhoto;
+                    }
+                }
+            }
+        }
+
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            
+            if (!file) return;
+
+            // Validar tipo de arquivo
+            if (!file.type.startsWith('image/')) {
+                alert('Por favor, selecione um arquivo de imagem');
+                return;
+            }
+
+            // Validar tamanho (máximo 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('A imagem deve ter no máximo 5MB');
+                return;
+            }
+
+            // Ler a imagem
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const userStr = localStorage.getItem('autoassist_user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    
+                    // Salvar a foto no localStorage
+                    localStorage.setItem(`profilePhoto_${user.email}`, e.target.result);
+                    
+                    // Atualizar a exibição
+                    const profileAvatar = document.getElementById('profileAvatar');
+                    let img = profileAvatar.querySelector('img');
+                    
+                    if (!img) {
+                        img = document.createElement('img');
+                        img.style.cssText = 'width: 120px; height: 120px; border-radius: 50%; object-fit: cover;';
+                        profileAvatar.textContent = '';
+                        profileAvatar.appendChild(img);
+                        
+                        // Adicionar overlay
+                        const overlay = document.createElement('div');
+                        overlay.className = 'photo-upload-overlay';
+                        overlay.innerHTML = '<i class="fas fa-camera"></i>';
+                        profileAvatar.appendChild(overlay);
+                    }
+                    
+                    img.src = e.target.result;
+                    
+                    // Feedback visual
+                    alert('✓ Foto de perfil atualizada com sucesso!');
+                }
+            };
+            
+            reader.readAsDataURL(file);
+            
+            // Limpar o input
+            event.target.value = '';
+        }
+
         function logout() {
             if (confirm('Tem certeza que deseja sair?')) {
                 localStorage.removeItem('autoassist_user');
+                localStorage.removeItem('access_token');
                 window.location.href = '/';
             }
         }
