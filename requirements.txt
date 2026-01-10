@@ -6,4 +6,4 @@ passlib
 bcrypt<4.0
 python-dotenv
 Pillow
-langchain-google-genai
+google-genai

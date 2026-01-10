@@ -3,247 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro - AutoAssist IA</title>
+    <title>Cadastro - NOG Assistente</title>
+    
+    <!-- FONT -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- ICONS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+            background: linear-gradient(180deg, #0b1a3a, #0a1430);
             min-height: 100vh;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Navbar */
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            padding: 16px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .nav-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .nav-logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 24px;
-            font-weight: 800;
-            text-decoration: none;
-            color: white;
-            transition: all 0.3s;
-        }
-
-        .nav-logo:hover {
-            transform: scale(1.05);
-        }
-
-        .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-
-        .nav-link:hover {
-            background: rgba(59, 130, 246, 0.2);
-        }
-
-        /* Auth Wrapper */
-        .auth-wrapper {
-            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 40px 20px;
+            padding: 20px;
         }
 
-        .auth-container {
+        .cadastro-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+            padding: 40px;
             width: 100%;
-            max-width: 500px;
-            animation: slideIn 0.6s ease-out;
-        }
-
-        .auth-card {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(20px);
-            padding: 48px 40px;
-            border-radius: 24px;
+            max-width: 420px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
 
-        .auth-card-header {
+        .logo {
             text-align: center;
-            margin-bottom: 36px;
+            margin-bottom: 30px;
         }
 
-        .auth-card-header h2 {
-            font-size: 36px;
-            margin-bottom: 12px;
-            font-weight: 800;
-            background: linear-gradient(to right, #60a5fa, #a78bfa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .logo h1 {
+            color: #fff;
+            font-size: 32px;
+            margin-bottom: 8px;
         }
 
-        .auth-card-header p {
+        .logo p {
             color: rgba(255, 255, 255, 0.6);
             font-size: 14px;
         }
 
         .form-group {
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
-        .form-group label {
+        label {
             display: block;
-            margin-bottom: 10px;
-            color: rgba(255, 255, 255, 0.7);
+            color: #fff;
+            font-weight: 500;
+            margin-bottom: 8px;
             font-size: 14px;
-            font-weight: 600;
         }
 
-        .form-group input {
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        input {
             width: 100%;
-            padding: 14px 16px;
+            padding: 14px 14px 14px 42px;
             border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
+            outline: none;
             font-size: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
             transition: all 0.3s;
         }
 
-        .form-group input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            background: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .form-group input::placeholder {
+        input::placeholder {
             color: rgba(255, 255, 255, 0.4);
         }
 
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+        input:focus {
+            border-color: #2563eb;
+            background: rgba(255, 255, 255, 0.08);
         }
 
-        .form-row .form-group {
-            margin-bottom: 0;
+        .password-strength {
+            font-size: 12px;
+            margin-top: 6px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .password-strength.weak {
+            color: #ef4444;
+        }
+
+        .password-strength.medium {
+            color: #fbbf24;
+        }
+
+        .password-strength.strong {
+            color: #10b981;
         }
 
         .btn {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            width: 100%;
+            padding: 14px;
+            background: #2563eb;
             color: white;
             border: none;
-            padding: 14px 24px;
             border-radius: 12px;
-            cursor: pointer;
             font-size: 16px;
             font-weight: 600;
+            cursor: pointer;
             transition: all 0.3s;
-            width: 100%;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-            margin-top: 8px;
+            margin-top: 10px;
         }
 
-        .btn:hover {
+        .btn:hover:not(:disabled) {
+            background: #1e40af;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
         }
 
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .auth-footer {
-            text-align: center;
-            margin-top: 24px;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-        }
-
-        .auth-footer a {
-            color: #60a5fa;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-
-        .auth-footer a:hover {
-            color: #a78bfa;
-            text-decoration: underline;
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .alert {
-            padding: 14px 16px;
-            border-radius: 12px;
-            margin-bottom: 24px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
             font-size: 14px;
-            border-left: 4px solid;
-            animation: slideDown 0.3s ease-out;
-        }
-
-        .alert-error {
-            background: rgba(239, 68, 68, 0.15);
-            border-color: #ef4444;
-            color: #fca5a5;
-        }
-
-        .alert-success {
-            background: rgba(34, 197, 94, 0.15);
-            border-color: #22c55e;
-            color: #86efac;
-        }
-
-        .password-requirements {
-            margin-top: 12px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-            background: rgba(255, 255, 255, 0.05);
-            padding: 12px;
-            border-radius: 8px;
             display: none;
-        }
-
-        .password-requirements.active {
-            display: block;
+            animation: slideIn 0.3s ease-out;
         }
 
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes slideDown {
             from {
                 opacity: 0;
                 transform: translateY(-10px);
@@ -254,143 +164,311 @@
             }
         }
 
-        @media (max-width: 480px) {
-            .auth-card {
-                padding: 32px 24px;
-            }
+        .alert-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
 
-            .auth-card-header h2 {
-                font-size: 28px;
-            }
+        .alert-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
 
-            .form-row {
-                grid-template-columns: 1fr;
-            }
+        .links {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .links a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+        }
+
+        .loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-logo">
-                <i class="fas fa-car" style="color: #60a5fa;"></i> AutoAssist IA
-            </a>
-            <a href="/" class="nav-link"><i class="fas fa-arrow-left"></i> Voltar</a>
+    <div class="cadastro-container">
+        <div class="logo">
+            <h1>🚗 NOG</h1>
+            <p>Crie sua conta</p>
         </div>
-    </nav>
 
-    <!-- Auth Wrapper -->
-    <div class="auth-wrapper">
-        <div class="auth-container">
-            <div class="auth-card">
-                <div class="auth-card-header">
-                    <h2>Criar Conta</h2>
-                    <p>Junte-se à AutoAssist IA em 2 minutos</p>
-                </div>
-                
-                <div id="cadastroAlert"></div>
-                
-                <form id="cadastroForm">
-                    <div class="form-group">
-                        <label>Nome Completo</label>
-                        <input type="text" id="cadastroNome" placeholder="Seu nome completo" required autocomplete="name">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" id="cadastroEmail" placeholder="seu@email.com" required autocomplete="email">
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Senha</label>
-                            <input type="password" id="cadastroPassword" placeholder="Mínimo 6 caracteres" required autocomplete="new-password">
-                        </div>
-                        <div class="form-group">
-                            <label>Confirmar Senha</label>
-                            <input type="password" id="cadastroConfirmPassword" placeholder="Confirme a senha" required autocomplete="new-password">
-                        </div>
-                    </div>
-                    
-                    <div class="password-requirements" id="passwordRequirements">
-                        <div>✓ Mínimo 6 caracteres</div>
-                        <div id="passwordMatch">○ Senhas coincidem</div>
-                    </div>
-                    
-                    <button type="submit" class="btn">Criar Conta Grátis</button>
-                </form>
-                
-                <div class="auth-footer">
-                    Já tem uma conta? <a href="/login">Faça login aqui</a>
+        <div id="errorAlert" class="alert alert-error"></div>
+        <div id="successAlert" class="alert alert-success"></div>
+
+        <form id="cadastroForm">
+            <div class="form-group">
+                <label for="nome">Nome Completo</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-user"></i>
+                    <input 
+                        type="text" 
+                        id="nome" 
+                        name="nome" 
+                        placeholder="Seu nome completo" 
+                        required
+                        autocomplete="name"
+                    >
                 </div>
             </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-envelope"></i>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="seu@email.com" 
+                        required
+                        autocomplete="email"
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-lock"></i>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="Mínimo 6 caracteres" 
+                        required
+                        autocomplete="new-password"
+                        maxlength="72"
+                    >
+                </div>
+                <div id="passwordStrength" class="password-strength"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirmar Senha</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-lock"></i>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        placeholder="Digite a senha novamente" 
+                        required
+                        autocomplete="new-password"
+                        maxlength="72"
+                    >
+                </div>
+            </div>
+
+            <button type="submit" class="btn" id="cadastroBtn">
+                <i class="fas fa-user-plus"></i> Criar Conta
+            </button>
+            
+            <div class="loading" id="loading">
+                <i class="fas fa-spinner"></i> Criando conta...
+            </div>
+        </form>
+
+        <div class="links">
+            Já tem conta? <a href="/login">Faça login</a>
         </div>
     </div>
 
     <script>
-        // Redirecionar se já estiver logado
-        document.addEventListener('DOMContentLoaded', function() {
-            const user = localStorage.getItem('autoassist_user');
-            if (user) {
-                window.location.href = '/chat';
+        // ==================== CONFIG ====================
+        const TOKEN_KEY = 'access_token';
+
+        // Elementos do DOM
+        const form = document.getElementById('cadastroForm');
+        const nomeInput = document.getElementById('nome');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const cadastroBtn = document.getElementById('cadastroBtn');
+        const loading = document.getElementById('loading');
+        const errorAlert = document.getElementById('errorAlert');
+        const successAlert = document.getElementById('successAlert');
+        const passwordStrength = document.getElementById('passwordStrength');
+
+        // ==================== VERIFICAR SE JÁ ESTÁ LOGADO ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem(TOKEN_KEY);
+            if (token) {
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                    console.log('✓ Usuário já autenticado, redirecionando...');
+                    window.location.href = '/chat';
+                    return;
+                }
+            }
+            console.log('🔓 Usuário não autenticado');
+        });
+
+        // ==================== FORÇA DA SENHA ====================
+        passwordInput.addEventListener('input', () => {
+            const password = passwordInput.value;
+            
+            if (password.length === 0) {
+                passwordStrength.textContent = '';
+                passwordStrength.className = 'password-strength';
+                return;
+            }
+
+            let strength = 0;
+            if (password.length >= 6) strength++;
+            if (password.length >= 10) strength++;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+
+            if (strength <= 2) {
+                passwordStrength.textContent = '⚠️ Senha fraca';
+                passwordStrength.className = 'password-strength weak';
+            } else if (strength <= 4) {
+                passwordStrength.textContent = '✓ Senha média';
+                passwordStrength.className = 'password-strength medium';
+            } else {
+                passwordStrength.textContent = '✓ Senha forte';
+                passwordStrength.className = 'password-strength strong';
             }
         });
 
-        // Handle Cadastro
-        document.getElementById('cadastroForm').addEventListener('submit', async function(e) {
+        // ==================== FUNÇÕES DE ALERTA ====================
+        function showError(message) {
+            errorAlert.textContent = message;
+            errorAlert.style.display = 'block';
+            successAlert.style.display = 'none';
+            console.error('❌', message);
+        }
+
+        function showSuccess(message) {
+            successAlert.textContent = message;
+            successAlert.style.display = 'block';
+            errorAlert.style.display = 'none';
+            console.log('✓', message);
+        }
+
+        function clearAlerts() {
+            errorAlert.style.display = 'none';
+            successAlert.style.display = 'none';
+        }
+
+        // ==================== SUBMIT DO FORMULÁRIO ====================
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const nome = document.getElementById('cadastroNome').value;
-            const email = document.getElementById('cadastroEmail').value;
-            const password = document.getElementById('cadastroPassword').value;
-            const confirmPassword = document.getElementById('cadastroConfirmPassword').value;
+            clearAlerts();
+
+            const nome = nomeInput.value.trim();
+            const email = emailInput.value.trim().toLowerCase();
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
 
             // Validações
-            if (password !== confirmPassword) {
-                showAlert('As senhas não coincidem', 'error');
+            if (!nome || !email || !password || !confirmPassword) {
+                showError('Preencha todos os campos');
+                return;
+            }
+
+            if (nome.length < 2) {
+                showError('Nome deve ter pelo menos 2 caracteres');
+                return;
+            }
+
+            if (!email.includes('@') || !email.includes('.')) {
+                showError('Email inválido');
                 return;
             }
 
             if (password.length < 6) {
-                showAlert('A senha deve ter no mínimo 6 caracteres', 'error');
+                showError('Senha deve ter pelo menos 6 caracteres');
                 return;
             }
 
+            if (password.length > 72) {
+                showError('Senha não pode ter mais de 72 caracteres');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showError('As senhas não coincidem');
+                return;
+            }
+
+            // Desabilitar form
+            cadastroBtn.disabled = true;
+            loading.style.display = 'block';
+            cadastroBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aguarde...';
+
             try {
+                console.log('📡 Enviando requisição de cadastro...');
+                
                 const response = await fetch('/api/cadastro', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ nome, email, password })
                 });
 
                 const data = await response.json();
+                console.log('Resposta do servidor:', response.status, data);
 
-                if (response.ok && data.success) {
-                    showAlert('Conta criada com sucesso! Redirecionando...', 'success');
+                if (response.ok) {
+                    console.log('✓ Cadastro realizado com sucesso!');
+                    
+                    // Mostrar sucesso
+                    showSuccess('Cadastro realizado! Redirecionando para login...');
+
+                    // Redirecionar após 2 segundos
                     setTimeout(() => {
                         window.location.href = '/login';
-                    }, 1500);
+                    }, 2000);
+
                 } else {
-                    showAlert(data.error || data.message || 'Erro ao criar conta', 'error');
+                    // Erro no cadastro
+                    const errorMessage = data.error || 'Erro ao realizar cadastro';
+                    showError(errorMessage);
+                    console.error('❌ Erro de cadastro:', data);
                 }
+
             } catch (error) {
-                showAlert('Erro ao conectar com o servidor', 'error');
-                console.error('Erro:', error);
+                console.error('❌ Erro ao fazer cadastro:', error);
+                showError('Erro de conexão. Verifique sua internet.');
+            } finally {
+                // Re-habilitar form
+                cadastroBtn.disabled = false;
+                loading.style.display = 'none';
+                cadastroBtn.innerHTML = '<i class="fas fa-user-plus"></i> Criar Conta';
             }
         });
 
-        function showAlert(message, type) {
-            const alertDiv = document.getElementById('cadastroAlert');
-            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            setTimeout(() => {
-                if (type !== 'success') {
-                    alertDiv.innerHTML = '';
-                }
-            }, 5000);
-        }
+        // ==================== LOGS DE DEBUG ====================
+        console.log('📝 Página de cadastro carregada');
     </script>
 </body>
 </html>

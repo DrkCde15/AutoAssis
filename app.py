@@ -3,11 +3,13 @@ import os
 import sqlite3
 import logging
 from datetime import timedelta, datetime, timezone
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from flask_jwt_extended import (
-    JWTManager, create_access_token,
-    jwt_required, get_jwt_identity
+    JWTManager,
+    create_access_token,
+    jwt_required,
+    get_jwt_identity
 )
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -16,13 +18,9 @@ from dotenv import load_dotenv
 from autoai import gerar_resposta
 from vision_ai import analisar_imagem
 
-# Importar exceções JWT
-from flask_jwt_extended.exceptions import JWTExtendedException
-
 # ======================================================
 # LOGGING
 # ======================================================
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -32,7 +30,6 @@ logger = logging.getLogger(__name__)
 # ======================================================
 # CONFIG
 # ======================================================
-
 load_dotenv()
 
 # Validar variáveis de ambiente críticas
@@ -43,31 +40,37 @@ if missing_env:
     raise ValueError(f"Variáveis de ambiente obrigatórias não encontradas: {missing_env}")
 
 app = Flask(__name__)
-
 app.config.update(
     JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY"),
-    JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=24)
+    JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=24),
+    JWT_TOKEN_LOCATION=['headers'],
+    JWT_HEADER_NAME='Authorization',
+    JWT_HEADER_TYPE='Bearer'
 )
 
 jwt = JWTManager(app)
+logger.info(f"JWT configurado com sucesso")
 
-logger.info(f"JWT_SECRET_KEY carregado: {bool(app.config['JWT_SECRET_KEY'])}")
-logger.info(f"JWT_SECRET_KEY primeiros 10 chars: {app.config['JWT_SECRET_KEY'][:10] if app.config['JWT_SECRET_KEY'] else 'NÃO CONFIGURADO'}")
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
-CORS(app)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
 )
 
 DATABASE = "database.db"
-logger.info(f"Banco de dados: {DATABASE}")
 
 # ======================================================
 # DATABASE
 # ======================================================
-
 def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
@@ -102,43 +105,10 @@ def init_db():
                 )
             """)
             
-            # Tabela de sessões/tokens
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS sessoes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    token TEXT UNIQUE NOT NULL,
-                    data_criacao TEXT NOT NULL,
-                    data_expiracao TEXT NOT NULL,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            """)
-            
-            # Criar índices para melhor performance
-            db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_users_email 
-                ON users(email)
-            """)
-            
-            db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_chats_user_id 
-                ON chats(user_id)
-            """)
-            
-            db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_chats_data 
-                ON chats(data_criacao)
-            """)
-            
-            db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_sessoes_user_id 
-                ON sessoes(user_id)
-            """)
-            
-            db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_sessoes_token 
-                ON sessoes(token)
-            """)
+            # Criar índices
+            db.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_chats_user_id ON chats(user_id)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_chats_data ON chats(data_criacao)")
             
             db.commit()
             logger.info("✓ Banco de dados inicializado com sucesso")
@@ -151,29 +121,39 @@ init_db()
 # ======================================================
 # HELPERS
 # ======================================================
-
 def hash_password(pwd):
-    """Hash de senha com limite de 72 bytes (limitação do bcrypt)"""
-    # bcrypt limita a 72 bytes
-    pwd_truncated = pwd[:72].encode('utf-8')[:72].decode('utf-8')
-    return bcrypt.hash(pwd_truncated)
+    """Hash de senha com bcrypt"""
+    pwd_bytes = pwd[:72].encode('utf-8')
+    return bcrypt.hash(pwd_bytes)
 
 def verify_password(pwd, hashed):
-    """Verifica senha com limite de 72 bytes"""
-    pwd_truncated = pwd[:72].encode('utf-8')[:72].decode('utf-8')
-    return bcrypt.verify(pwd_truncated, hashed)
+    """Verifica senha com bcrypt"""
+    pwd_bytes = pwd[:72].encode('utf-8')
+    try:
+        return bcrypt.verify(pwd_bytes, hashed)
+    except Exception as e:
+        logger.error(f"Erro ao verificar senha: {e}")
+        return False
 
-def get_user(email):
+def get_user_by_email(email):
+    """Buscar usuário por email"""
     with get_db() as db:
         return db.execute(
             "SELECT * FROM users WHERE email = ?",
             (email,)
         ).fetchone()
 
+def get_user_by_id(user_id):
+    """Buscar usuário por ID"""
+    with get_db() as db:
+        return db.execute(
+            "SELECT * FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+
 # ======================================================
 # ROTAS HTML
 # ======================================================
-
 @app.route("/", methods=["GET"])
 def home():
     """Página inicial"""
@@ -222,109 +202,93 @@ def perfil_page():
 # ======================================================
 # AUTH
 # ======================================================
-
 @app.route("/api/cadastro", methods=["POST"])
 @limiter.limit("5/minute")
 def cadastro():
     """Registrar novo usuário"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify(error="JSON inválido"), 400
+        
         nome = data.get("nome", "").strip()
         email = data.get("email", "").lower().strip()
         password = data.get("password", "").strip()
-
+        
         # Validações
         if not nome or len(nome) < 2:
-            logger.warning(f"Cadastro falhou: nome inválido")
             return jsonify(error="Nome deve ter pelo menos 2 caracteres"), 400
         
-        if not email or "@" not in email:
-            logger.warning(f"Cadastro falhou: email inválido")
+        if not email or "@" not in email or "." not in email:
             return jsonify(error="Email inválido"), 400
         
         if len(password) < 6:
-            logger.warning(f"Cadastro falhou: senha muito curta")
             return jsonify(error="Senha deve ter pelo menos 6 caracteres"), 400
         
         if len(password) > 72:
-            logger.warning(f"Cadastro falhou: senha muito longa")
             return jsonify(error="Senha não pode ter mais de 72 caracteres"), 400
-
+        
         # Verificar email duplicado
-        if get_user(email):
-            logger.warning(f"Cadastro falhou: email já existe - {email}")
+        if get_user_by_email(email):
             return jsonify(error="Email já cadastrado"), 409
-
+        
         # Inserir novo usuário
         with get_db() as db:
             db.execute(
-                "INSERT INTO users VALUES (NULL, ?, ?, ?, ?)",
-                (
-                    nome,
-                    email,
-                    hash_password(password),
-                    datetime.utcnow().isoformat()
-                )
+                "INSERT INTO users (nome, email, password, data_criacao) VALUES (?, ?, ?, ?)",
+                (nome, email, hash_password(password), datetime.now(timezone.utc).isoformat())
             )
             db.commit()
         
         logger.info(f"✓ Novo usuário cadastrado: {email}")
         return jsonify(success=True, message="Cadastro realizado com sucesso"), 201
-
+    
     except Exception as e:
         logger.error(f"Erro ao cadastrar usuário: {e}", exc_info=True)
         return jsonify(error="Erro ao processar cadastro"), 500
 
 @app.route("/api/login", methods=["POST"])
-@limiter.limit("5/minute")
+@limiter.limit("10/minute")
 def login():
     """Fazer login de usuário"""
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify(error="JSON inválido"), 400
+        
         email = data.get("email", "").lower().strip()
         password = data.get("password", "")
-
-        if not email or not password:
-            logger.warning(f"Login falhou: credenciais ausentes")
-            return jsonify(error="Email e senha são obrigatórios"), 400
-
-        # Buscar usuário
-        user = get_user(email)
-        if not user or not verify_password(password, user["password"]):
-            logger.warning(f"Login falhou: credenciais inválidas para {email}")
-            return jsonify(error="Email ou senha incorretos"), 401
-
-        # Criar token JWT (identity deve ser string)
-        token = create_access_token(identity=str(user["id"]))
         
-        # Salvar token na tabela de sessões
-        try:
-            data_criacao = datetime.utcnow().isoformat()
-            data_expiracao = (datetime.utcnow() + timedelta(hours=24)).isoformat()
-            
-            with get_db() as db:
-                db.execute(
-                    """INSERT INTO sessoes 
-                    (user_id, token, data_criacao, data_expiracao) 
-                    VALUES (?, ?, ?, ?)""",
-                    (user["id"], token, data_criacao, data_expiracao)
-                )
-                db.commit()
-            logger.info(f"✓ Sessão salva no banco para usuário: {email}")
-        except Exception as db_error:
-            logger.error(f"Erro ao salvar sessão no banco: {db_error}")
-            # Continua mesmo se não conseguir salvar a sessão
+        if not email or not password:
+            return jsonify(error="Email e senha são obrigatórios"), 400
+        
+        # Buscar usuário
+        user = get_user_by_email(email)
+        if not user:
+            logger.warning(f"Login falhou: usuário não encontrado - {email}")
+            return jsonify(error="Email ou senha incorretos"), 401
+        
+        # Verificar senha
+        if not verify_password(password, user["password"]):
+            logger.warning(f"Login falhou: senha incorreta para {email}")
+            return jsonify(error="Email ou senha incorretos"), 401
+        
+        # Criar token JWT
+        access_token = create_access_token(
+            identity=str(user["id"]),
+            additional_claims={"email": email}
+        )
         
         logger.info(f"✓ Login bem-sucedido: {email}")
         return jsonify(
-            access_token=token,
+            access_token=access_token,
             user={
                 "id": user["id"],
                 "nome": user["nome"],
                 "email": user["email"]
             }
         ), 200
-
+    
     except Exception as e:
         logger.error(f"Erro ao fazer login: {e}", exc_info=True)
         return jsonify(error="Erro ao processar login"), 500
@@ -332,22 +296,15 @@ def login():
 # ======================================================
 # USUARIO
 # ======================================================
-
 @app.route("/api/user", methods=["GET"])
 @jwt_required()
 def get_user_info():
     """Obter informações do usuário autenticado"""
     try:
-        user_id = int(get_jwt_identity())  # Converter de volta para int
-        logger.info(f"✓ JWT válido - user_id: {user_id}")
-        with get_db() as db:
-            user = db.execute(
-                "SELECT id, nome, email, data_criacao FROM users WHERE id = ?",
-                (user_id,)
-            ).fetchone()
+        user_id = int(get_jwt_identity())
+        user = get_user_by_id(user_id)
         
         if not user:
-            logger.warning(f"Usuário não encontrado: {user_id}")
             return jsonify(error="Usuário não encontrado"), 404
         
         return jsonify({
@@ -361,142 +318,181 @@ def get_user_info():
         logger.error(f"Erro ao buscar informações do usuário: {e}", exc_info=True)
         return jsonify(error="Erro ao buscar informações"), 500
 
-@app.route("/api/debug-headers", methods=["GET"])
-def debug_headers():
-    """Rota de debug que mostra exatamente o que está chegando"""
-    auth_header = request.headers.get('Authorization', 'AUSENTE')
-    logger.error(f"DEBUG - Authorization Header: {auth_header}")
-    logger.error(f"DEBUG - Todos os headers: {dict(request.headers)}")
-    return jsonify({
-        "authorization_header": auth_header,
-        "all_headers": dict(request.headers)
-    }), 200
-
 @app.route("/api/verify-token", methods=["GET"])
 @jwt_required()
 def verify_token():
-    """Verificar se token é válido (para debug)"""
+    """Verificar se token é válido"""
     try:
-        logger.debug(f"Headers recebidos: {dict(request.headers)}")
-        user_id = int(get_jwt_identity())  # Converter de volta para int
+        user_id = int(get_jwt_identity())
         logger.info(f"✓ Token verificado para user: {user_id}")
-        return jsonify(success=True, user_id=user_id, message="Token válido"), 200
+        return jsonify(success=True, user_id=user_id), 200
     except Exception as e:
-        logger.error(f"Erro ao verificar token: {e}", exc_info=True)
-        logger.error(f"JWT_SECRET_KEY configurado: {bool(os.getenv('JWT_SECRET_KEY'))}")
+        logger.error(f"Erro ao verificar token: {e}")
         return jsonify(success=False, error=str(e)), 401
 
 @app.route("/api/logout", methods=["POST"])
 @jwt_required()
 def logout():
-    """Fazer logout (invalidar token)"""
+    """Fazer logout"""
     try:
-        user_id = int(get_jwt_identity())  # Converter de volta para int
+        user_id = int(get_jwt_identity())
         logger.info(f"✓ Logout: usuário {user_id}")
         return jsonify(success=True, message="Logout realizado com sucesso"), 200
-    
     except Exception as e:
-        logger.error(f"Erro ao fazer logout: {e}", exc_info=True)
+        logger.error(f"Erro ao fazer logout: {e}")
         return jsonify(error="Erro ao fazer logout"), 500
 
 # ======================================================
 # CHAT IA
 # ======================================================
-
 @app.route("/api/chat", methods=["POST"])
 @jwt_required()
 @limiter.limit("20/minute")
 def chat():
     """Enviar mensagem e receber resposta da IA"""
     try:
-
+        user_id = int(get_jwt_identity())
+        data = request.get_json()
         
-        user_id = int(get_jwt_identity())  # Converter de volta para int
-        logger.info(f"✓ Chat: usuário autenticado - {user_id}")
-        
-        data = request.json
         if not data:
-            logger.warning(f"Chat: JSON vazio")
-            return jsonify(error="JSON vazio"), 400
+            logger.error("JSON vazio ou inválido")
+            return jsonify(error="JSON inválido"), 400
         
         message = data.get("message", "").strip()
         categoria = data.get("category", "geral").lower()
-
-        logger.info(f"Chat: mensagem='{message[:50]}...', categoria={categoria}")
-
-        # Validações
-        if not message:
-            logger.warning(f"Chat: mensagem vazia do usuário {user_id}")
-            return jsonify(error="Mensagem não pode estar vazia"), 400
+        image_b64 = data.get("image")  # Base64 da imagem
         
-        if len(message) > 2000:
-            logger.warning(f"Chat: mensagem muito longa do usuário {user_id}")
+        logger.info(f"Chat request - user_id: {user_id}, categoria: {categoria}, tem_imagem: {bool(image_b64)}")
+        
+        # Validar se tem mensagem ou imagem
+        if not message and not image_b64:
+            logger.warning("Mensagem e imagem vazias")
+            return jsonify(error="Envie uma mensagem ou uma imagem"), 400
+        
+        # Validar tamanho da mensagem
+        if message and len(message) > 2000:
             return jsonify(error="Mensagem não pode exceder 2000 caracteres"), 400
-
-        # Gerar resposta
-        logger.info(f"Chat: processando mensagem do usuário {user_id} (categoria: {categoria})")
-        resposta = gerar_resposta(message, user_id, categoria)
-
-        # Salvar chat no histórico
-        try:
-            with get_db() as db:
-                db.execute(
-                    """INSERT INTO chats 
-                    (user_id, categoria, mensagem_usuario, resposta_ia, data_criacao) 
-                    VALUES (?, ?, ?, ?, ?)""",
-                    (user_id, categoria, message, resposta, datetime.now(timezone.utc).isoformat())
-                )
-                db.commit()
-        except Exception as db_error:
-            logger.error(f"Erro ao salvar chat no banco: {db_error}")
-            # Continua mesmo se não conseguir salvar
         
-        logger.info(f"✓ Chat processado com sucesso para usuário {user_id}")
-        return jsonify(success=True, response=resposta), 200
-
-    except Exception as e:
-        logger.error(f"Erro ao processar chat: {e}", exc_info=True)
-        return jsonify(error="Erro ao processar sua mensagem"), 500
-
-# ======================================================
-# IMAGE ANALYSIS
-# ======================================================
-
-@app.route("/api/analyze_image", methods=["POST"])
-@jwt_required()
-@limiter.limit("5/minute")
-def analyze_image():
-    """Analisar imagem com IA"""
-    try:
-        user_id = int(get_jwt_identity())  # Converter de volta para int
-        data = request.json
-        image_b64 = data.get("image", "").strip()
-        question = data.get("question", "").strip()
-
-        # Validações
-        if not image_b64:
-            logger.warning(f"Análise: imagem ausente do usuário {user_id}")
-            return jsonify(error="Imagem é obrigatória"), 400
-
-        logger.info(f"Análise: processando imagem do usuário {user_id}")
-        resultado = analisar_imagem(image_b64, question)
-
+        # Se tem imagem, usar análise de imagem
+        if image_b64:
+            logger.info(f"Processando imagem para usuário {user_id}")
+            try:
+                # Remover prefixo data:image/...;base64, se existir
+                if ',' in image_b64:
+                    image_b64 = image_b64.split(',')[1]
+                
+                resposta = analisar_imagem(image_b64, message or "Analise esta imagem")
+                tipo_resposta = "analise_imagem"
+            except Exception as img_error:
+                logger.error(f"Erro ao analisar imagem: {img_error}", exc_info=True)
+                return jsonify(error="Erro ao processar imagem"), 500
+        else:
+            # Chat normal
+            logger.info(f"Processando mensagem de texto para usuário {user_id}")
+            try:
+                resposta = gerar_resposta(message, user_id, categoria)
+                tipo_resposta = "chat"
+            except Exception as chat_error:
+                logger.error(f"Erro ao gerar resposta: {chat_error}", exc_info=True)
+                return jsonify(error="Erro ao processar mensagem"), 500
+        
         # Salvar no histórico
         try:
             with get_db() as db:
                 db.execute(
-                    """INSERT INTO chats 
-                    (user_id, categoria, mensagem_usuario, resposta_ia, data_criacao) 
-                    VALUES (?, ?, ?, ?, ?)""",
-                    (user_id, "analise", question or "[Análise de imagem]", resultado, datetime.now(timezone.utc).isoformat())
+                    """INSERT INTO chats (user_id, categoria, mensagem_usuario, resposta_ia, data_criacao) 
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (user_id, categoria, message or "[Imagem enviada]", resposta, 
+                     datetime.now(timezone.utc).isoformat())
+                )
+                db.commit()
+                logger.info(f"✓ Chat salvo no banco para usuário {user_id}")
+        except Exception as db_error:
+            logger.error(f"Erro ao salvar chat: {db_error}")
+            # Continua mesmo se não salvar
+        
+        logger.info(f"✓ Chat processado com sucesso para usuário {user_id}")
+        logger.info(f"📊 Tamanho da resposta: {len(resposta)} caracteres")
+        logger.info(f"📝 Primeiros 200 chars da resposta: {resposta[:200]}...")
+        
+        # Retornar resposta (suporta ambos os formatos)
+        return jsonify(
+            success=True, 
+            response=resposta,
+            text=resposta,  # Compatibilidade com formato antigo
+            tipo=tipo_resposta
+        ), 200
+    
+    except Exception as e:
+        logger.error(f"Erro ao processar chat: {e}", exc_info=True)
+        return jsonify(error="Erro ao processar sua mensagem"), 500
+
+@app.route("/api/chat/history", methods=["GET"])
+@jwt_required()
+def chat_history():
+    """Obter histórico de mensagens"""
+    try:
+        user_id = int(get_jwt_identity())
+        limit = request.args.get('limit', 20, type=int)
+        
+        with get_db() as db:
+            chats = db.execute(
+                """SELECT mensagem_usuario, resposta_ia, categoria, data_criacao 
+                   FROM chats WHERE user_id = ? 
+                   ORDER BY data_criacao DESC LIMIT ?""",
+                (user_id, min(limit, 100))
+            ).fetchall()
+        
+        return jsonify(chats=[dict(c) for c in reversed(list(chats))]), 200
+    
+    except Exception as e:
+        logger.error(f"Erro ao buscar histórico: {e}")
+        return jsonify(error="Erro ao buscar histórico"), 500
+
+# ======================================================
+# IMAGE ANALYSIS (Legacy endpoint - mantido para compatibilidade)
+# ======================================================
+@app.route("/api/analyze_image", methods=["POST"])
+@jwt_required()
+@limiter.limit("5/minute")
+def analyze_image():
+    """Analisar imagem com IA (endpoint legacy)"""
+    try:
+        user_id = int(get_jwt_identity())
+        data = request.get_json()
+        
+        if not data:
+            return jsonify(error="JSON inválido"), 400
+        
+        image_b64 = data.get("image", "").strip()
+        question = data.get("question", "").strip()
+        
+        if not image_b64:
+            return jsonify(error="Imagem é obrigatória"), 400
+        
+        # Remover prefixo data:image/...;base64, se existir
+        if ',' in image_b64:
+            image_b64 = image_b64.split(',')[1]
+        
+        logger.info(f"Análise: processando imagem do usuário {user_id}")
+        resultado = analisar_imagem(image_b64, question or "Analise esta imagem")
+        
+        # Salvar no histórico
+        try:
+            with get_db() as db:
+                db.execute(
+                    """INSERT INTO chats (user_id, categoria, mensagem_usuario, resposta_ia, data_criacao) 
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (user_id, "analise", question or "[Análise de imagem]", resultado, 
+                     datetime.now(timezone.utc).isoformat())
                 )
                 db.commit()
         except Exception as db_error:
-            logger.error(f"Erro ao salvar análise no banco: {db_error}")
-
-        logger.info(f"✓ Imagem analisada com sucesso para usuário {user_id}")
+            logger.error(f"Erro ao salvar análise: {db_error}")
+        
+        logger.info(f"✓ Imagem analisada para usuário {user_id}")
         return jsonify(success=True, analysis=resultado), 200
-
+    
     except Exception as e:
         logger.error(f"Erro ao analisar imagem: {e}", exc_info=True)
         return jsonify(error="Erro ao analisar imagem"), 500
@@ -504,10 +500,8 @@ def analyze_image():
 # ======================================================
 # ERROR HANDLERS
 # ======================================================
-
 @app.errorhandler(404)
 def not_found(error):
-    logger.warning(f"404 - Rota não encontrada: {request.path}")
     return jsonify(error="Rota não encontrada"), 404
 
 @app.errorhandler(429)
@@ -517,45 +511,26 @@ def ratelimit_handler(e):
 
 @app.errorhandler(500)
 def internal_error(error):
-    logger.error(f"Erro interno do servidor: {error}", exc_info=True)
+    logger.error(f"Erro interno: {error}", exc_info=True)
     return jsonify(error="Erro interno do servidor"), 500
 
-# Handlers JWT
-@jwt.additional_claims_loader
-def add_claims_to_jwt(identity):
-    # identity já é uma string neste ponto
-    return {}
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    logger.warning("Token expirado")
+    return jsonify(error="Token expirado", code="token_expired"), 401
 
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    logger.warning(f"Token inválido: {error}")
+    return jsonify(error="Token inválido", code="invalid_token"), 401
 
-
-@app.errorhandler(JWTExtendedException)
-def handle_jwt_error(e):
-    logger.error(f"❌ Erro JWT completo: {e}", exc_info=True)
-    logger.error(f"Tipo exato: {type(e).__name__}")
-    logger.error(f"Args: {e.args}")
-    logger.error(f"Headers recebidos: {dict(request.headers)}")
-    logger.error(f"Authorization: {request.headers.get('Authorization', 'NÃO ENVIADO')}")
-    return jsonify(error=f"Erro JWT: {str(e)}", error_type=type(e).__name__), 401
-
-@app.errorhandler(Exception)
-def handle_generic_error(e):
-    """Capturar TODOS os erros para ver o que está acontecendo"""
-    if isinstance(e, JWTExtendedException):
-        return handle_jwt_error(e)
-    
-    logger.error(f"⚠️ ERRO NÃO TRATADO: {type(e).__name__}: {e}", exc_info=True)
-    
-    # Se for erro 422, logar detalhes
-    if hasattr(e, 'code') and e.code == 422:
-        logger.error(f"❌ Erro 422 detectado")
-        logger.error(f"Path: {request.path}")
-        logger.error(f"Headers: {dict(request.headers)}")
-    
-    return None  # Deixar Flask lidar com o erro padrão
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    logger.warning(f"Token ausente: {error}")
+    return jsonify(error="Token de autenticação ausente", code="missing_token"), 401
 
 # ======================================================
 # ENTRYPOINT
 # ======================================================
-
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=5000)
