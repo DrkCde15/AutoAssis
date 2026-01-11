@@ -452,6 +452,40 @@
                 max-width: 800px;
             }
         }
+        /* ===== COMPACTAÇÃO DE TEXTO DA IA ===== */
+        .ai .bubble {
+            line-height: 1.45; /* antes 1.6 */
+        }
+
+        .ai .bubble p {
+            margin: 4px 0; /* antes 8px */
+        }
+
+        .ai .bubble ul,
+        .ai .bubble ol {
+            margin: 6px 0;
+            padding-left: 20px;
+        }
+
+        .ai .bubble li {
+            margin: 4px 0;
+        }
+
+        .ai .bubble h1,
+        .ai .bubble h2,
+        .ai .bubble h3 {
+            margin: 8px 0 4px;
+        }
+
+        .ai .bubble br {
+            line-height: 1;
+        }
+
+        /* Evita espaçamento exagerado por quebras do Markdown */
+        .ai .bubble {
+            white-space: normal;
+        }
+
     </style>
 </head>
 <body>
