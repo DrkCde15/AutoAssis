@@ -1,4 +1,4 @@
-# autoai.py
+# nogai.py
 import os
 import logging
 from dotenv import load_dotenv
@@ -13,7 +13,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY não configurada no .env")
 
-# Cliente Gemini (singleton)
+# Cliente Gemini 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 MODEL_TEXT = "gemini-2.5-flash"
