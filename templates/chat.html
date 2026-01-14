@@ -2,524 +2,136 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>NOG • Assistente Automotivo</title>
+    <title>NOG • Chat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="chat.css">
 
-    <!-- MARKDOWN -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    
-    <!-- DOMPurify para sanitização XSS -->
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
-
-    <!-- FONT -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    
-    <!-- ICONS -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
-    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            background: #0a1430;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 16px;
+            background: #0b1a3a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            background: #2563eb;
+            border: none;
+            padding: 10px 14px;
+            color: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        #messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .msg-user {
+            margin-bottom: 14px;
+            color: #93c5fd;
+        }
+
+        .msg-bot {
+            margin-bottom: 20px;
+            color: #e5e7eb;
+        }
+
+        footer {
+            padding: 16px;
+            background: #0b1a3a;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            outline: none;
+        }
+    </style>
 </head>
 <body>
 
-<div class="chat-container">
-    <div class="chat-header">
-        <div class="header-title">NOG • Assistente Automotivo Virtual</div>
-        <div class="header-actions">
-            <!-- <span class="user-name" id="userName">Carregando...</span>
-            <select id="category" class="category-select">
-                <option value="geral">📌 Geral</option>
-                <option value="tecnico">🔧 Técnico</option>
-                <option value="manutencao">🛠️ Manutenção</option>
-                <option value="pecas">⚙️ Peças</option>
-                <option value="diagnostico">🔍 Diagnóstico</option>
-            </select> -->
-            <button class="logout-btn" onclick="handleLogout()">
-                <i class="fas fa-sign-out-alt"></i> Sair
-            </button>
-        </div>
-    </div>
+<header>
+    <strong>NOG • Chat</strong>
+    <button id="logout">Sair</button>
+</header>
 
-    <div class="chat-messages" id="chat"></div>
+<div id="messages"></div>
 
-    <div class="chat-input">
-        <div class="input-wrapper">
-            <input 
-                type="text" 
-                id="input" 
-                placeholder="Digite sua mensagem..." 
-                maxlength="2000"
-            />
-            <button id="imageBtn" class="icon-btn" title="Carregar imagem">
-                <i class="fas fa-image"></i>
-            </button>
-            <input type="file" id="imageInput" accept="image/*" />
-        </div>
-        <button id="sendBtn" class="icon-btn send-btn" title="Enviar mensagem">
-            <i class="fas fa-paper-plane"></i>
-        </button>
-    </div>
-    <div class="char-count" id="charCount"></div>
-</div>
+<footer>
+    <input id="messageInput" placeholder="Digite sua mensagem...">
+    <button id="send">Enviar</button>
+</footer>
 
 <script>
-    // ==================== CONFIG ====================
-    const MAX_MESSAGE_LENGTH = 2000;
-    const TOKEN_KEY = 'access_token'; // CORRIGIDO: usar mesmo nome do auth.js
-    
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("input");
-    const sendBtn = document.getElementById("sendBtn");
-    const imageBtn = document.getElementById("imageBtn");
-    const imageInput = document.getElementById("imageInput");
-    const categorySelect = document.getElementById("category");
-    const charCountEl = document.getElementById("charCount");
-    const userNameEl = document.getElementById("userName");
-    
-    let isLoading = false;
-    let selectedImage = null;
-    let selectedImageData = null;
+const TOKEN_KEY = 'access_token';
+const token = localStorage.getItem(TOKEN_KEY);
 
-    // ==================== INIT ====================
-    document.addEventListener("DOMContentLoaded", () => {
-        console.log('🚀 Inicializando chat...');
-        checkAuth();
-        loadUserInfo();
-        loadChatHistory();
-        setupEventListeners();
-    });
+if (!token) {
+    window.location.href = '/login';
+}
 
-    // ==================== AUTENTICAÇÃO ====================
-    function checkAuth() {
-        const token = localStorage.getItem(TOKEN_KEY);
-        console.log('🔐 Verificando token...', token ? 'Token encontrado' : 'Token não encontrado');
-        
-        if (!token) {
-            showError("Você precisa estar autenticado. Redirecionando...");
-            setTimeout(() => window.location.href = "/login", 2000);
-            return;
-        }
+const messagesDiv = document.getElementById('messages');
+const input = document.getElementById('messageInput');
 
-        // Validar formato do token (deve ter 3 partes)
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-            console.error('❌ Token inválido (não tem 3 partes)');
-            localStorage.removeItem(TOKEN_KEY);
-            showError("Token inválido. Redirecionando para login...");
-            setTimeout(() => window.location.href = "/login", 2000);
-            return;
-        }
+function addMessage(text, cls) {
+    const div = document.createElement('div');
+    div.className = cls;
+    div.textContent = text;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
-        console.log('✓ Token válido');
-    }
+document.getElementById('send').addEventListener('click', async () => {
+    const msg = input.value.trim();
+    if (!msg) return;
 
-    function getAuthHeaders() {
-        const token = localStorage.getItem(TOKEN_KEY);
-        if (!token) {
-            console.error('❌ Tentando criar headers sem token');
-            return {
-                "Content-Type": "application/json"
-            };
-        }
+    addMessage('Você: ' + msg, 'msg-user');
+    input.value = '';
 
-        console.log('📡 Headers criados com token');
-        return {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        };
-    }
-
-    async function loadUserInfo() {
-        try {
-            console.log('👤 Carregando informações do usuário...');
-            const res = await fetch("/api/user", {
-                method: "GET",
-                headers: getAuthHeaders()
-            });
-
-            if (res.status === 401) {
-                console.error('❌ Token expirado ou inválido');
-                handleUnauthorized();
-                return;
-            }
-
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}`);
-            }
-
-            const data = await res.json();
-            if (data.nome) {
-                userNameEl.textContent = data.nome;
-                console.log('✓ Usuário carregado:', data.nome);
-            }
-        } catch (err) {
-            console.error('Erro ao carregar usuário:', err);
-            userNameEl.textContent = 'Usuário';
-        }
-    }
-
-    function handleUnauthorized() {
-        showError("Sessão expirada. Faça login novamente.");
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem('user_data');
-        setTimeout(() => window.location.href = "/login", 2000);
-    }
-
-    async function handleLogout() {
-        if (!confirm('Deseja realmente sair?')) {
-            return;
-        }
-
-        try {
-            // Tentar chamar API de logout
-            await fetch("/api/logout", {
-                method: "POST",
-                headers: getAuthHeaders()
-            });
-        } catch (error) {
-            console.error('Erro ao fazer logout:', error);
-        } finally {
-            // Limpar dados locais
-            localStorage.removeItem(TOKEN_KEY);
-            localStorage.removeItem('user_data');
-            window.location.href = "/login";
-        }
-    }
-
-    // ==================== EVENT LISTENERS ====================
-    function setupEventListeners() {
-        sendBtn.addEventListener("click", sendMessage);
-        input.addEventListener("keydown", e => {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ message: msg })
         });
-        
-        imageBtn.addEventListener("click", () => imageInput.click());
-        imageInput.addEventListener("change", handleImageUpload);
-        input.addEventListener("input", updateCharCount);
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erro no chat');
+
+        addMessage('NOG: ' + data.response, 'msg-bot');
+
+    } catch (err) {
+        addMessage('Erro: ' + err.message, 'msg-bot');
     }
+});
 
-    // ==================== CHAR COUNT ====================
-    function updateCharCount() {
-        const len = input.value.length;
-        if (len === 0) {
-            charCountEl.textContent = "";
-            charCountEl.className = "char-count";
-            return;
-        }
-
-        charCountEl.textContent = `${len}/${MAX_MESSAGE_LENGTH}`;
-        charCountEl.className = "char-count";
-
-        if (len > MAX_MESSAGE_LENGTH * 0.8) {
-            charCountEl.classList.add("warning");
-        }
-        if (len >= MAX_MESSAGE_LENGTH) {
-            charCountEl.classList.add("error");
-        }
-    }
-
-    // ==================== IMAGENS ====================
-    function handleImageUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        // Validar tipo
-        if (!file.type.startsWith("image/")) {
-            showError("Por favor, selecione uma imagem válida.");
-            return;
-        }
-
-        // Validar tamanho (máx 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            showError("A imagem não pode exceder 5MB.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            selectedImageData = e.target.result;
-            selectedImage = file.name;
-            imageBtn.style.color = "#10b981";
-            imageBtn.title = `Imagem carregada: ${file.name}`;
-            console.log('✓ Imagem carregada:', file.name);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    // ==================== MENSAGENS ====================
-    function sanitizeHTML(content) {
-        // Parse markdown para HTML
-        const parsed = marked.parse(content);
-        
-        // Sanitizar com DOMPurify (configuração mais permissiva)
-        const sanitized = DOMPurify.sanitize(parsed, {
-            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'code', 'pre', 'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div'],
-            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'style'],
-            KEEP_CONTENT: true,
-            RETURN_DOM: false,
-            RETURN_DOM_FRAGMENT: false
-        });
-        
-        return sanitized;
-    }
-
-    function addMessage(role, content, imageUrl = null) {
-        const message = document.createElement("div");
-        message.className = `message ${role}`;
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble";
-        
-        // Adicionar wrapper para conteúdo
-        const contentWrapper = document.createElement("div");
-        contentWrapper.className = "message-content";
-
-        if (content) {
-            if (role === "ai") {
-                // Log antes de processar
-                console.log('📥 Conteúdo recebido:', {
-                    tamanho: content.length,
-                    primeiros100: content.substring(0, 100),
-                    ultimos100: content.substring(content.length - 100)
-                });
-                
-                // Renderizar markdown e sanitizar
-                const htmlContent = sanitizeHTML(content);
-                
-                // Log após processar
-                console.log('📤 HTML gerado:', {
-                    tamanho: htmlContent.length,
-                    primeiros200: htmlContent.substring(0, 200),
-                    ultimos200: htmlContent.substring(htmlContent.length - 200)
-                });
-                
-                contentWrapper.innerHTML = htmlContent;
-                
-                // Verificar o que foi renderizado no DOM
-                setTimeout(() => {
-                    console.log('🎨 Texto final no DOM:', {
-                        tamanhoTexto: bubble.textContent.length,
-                        tamanhoHTML: bubble.innerHTML.length,
-                        visivelNaTela: bubble.offsetHeight > 0
-                    });
-                }, 100);
-            } else {
-                contentWrapper.textContent = content;
-            }
-        }
-
-        bubble.appendChild(contentWrapper);
-
-        if (imageUrl) {
-            const img = document.createElement("img");
-            img.src = imageUrl;
-            img.alt = "Imagem do chat";
-            bubble.appendChild(img);
-        }
-
-        message.appendChild(bubble);
-        chat.appendChild(message);
-        
-        // Scroll suave para o final
-        setTimeout(() => {
-            chat.scrollTop = chat.scrollHeight;
-        }, 100);
-    }
-
-    function addLoadingMessage() {
-        const message = document.createElement("div");
-        message.className = "message loading";
-        message.id = "loading-message";
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble";
-
-        const spinner = document.createElement("div");
-        spinner.className = "loading-spinner";
-        spinner.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-
-        bubble.appendChild(spinner);
-        message.appendChild(bubble);
-        chat.appendChild(message);
-        chat.scrollTop = chat.scrollHeight;
-    }
-
-    function removeLoadingMessage() {
-        const loadingMsg = document.getElementById("loading-message");
-        if (loadingMsg) loadingMsg.remove();
-    }
-
-    // ==================== ENVIO DE MENSAGEM ====================
-    async function sendMessage() {
-        const text = input.value.trim();
-        
-        if (!text && !selectedImageData) {
-            showError("Digite uma mensagem ou selecione uma imagem.");
-            return;
-        }
-
-        if (text.length > MAX_MESSAGE_LENGTH) {
-            showError(`Mensagem muito longa (máx ${MAX_MESSAGE_LENGTH} caracteres).`);
-            return;
-        }
-
-        if (isLoading) return;
-
-        // Mostrar mensagem do usuário
-        addMessage("user", text || "(Imagem enviada)", selectedImageData);
-        
-        const messageToSend = text;
-        const imageToSend = selectedImageData;
-        
-        // Limpar inputs
-        input.value = "";
-        selectedImage = null;
-        selectedImageData = null;
-        imageBtn.style.color = "";
-        imageBtn.title = "Carregar imagem";
-        updateCharCount();
-
-        isLoading = true;
-        sendBtn.disabled = true;
-        addLoadingMessage();
-
-        try {
-            console.log('📤 Enviando mensagem...');
-            
-            const payload = {
-                message: messageToSend,
-                category: categorySelect.value
-            };
-
-            if (imageToSend) {
-                payload.image = imageToSend;
-            }
-
-            const res = await fetch("/api/chat", {
-                method: "POST",
-                headers: getAuthHeaders(),
-                body: JSON.stringify(payload)
-            });
-
-            removeLoadingMessage();
-
-            // Tratamento de erros HTTP
-            if (!res.ok) {
-                if (res.status === 401) {
-                    handleUnauthorized();
-                    return;
-                } else if (res.status === 403) {
-                    showError("Você não tem permissão para acessar este recurso.");
-                    addMessage("error", "❌ Acesso negado.");
-                    return;
-                } else if (res.status === 429) {
-                    showError("Muitas requisições. Aguarde um momento.");
-                    addMessage("error", "❌ Limite de requisições atingido. Aguarde alguns instantes.");
-                    return;
-                }
-                throw new Error(`HTTP ${res.status}`);
-            }
-
-            const data = await res.json();
-            console.log('✓ Resposta recebida:', data);
-            console.log('📊 Análise da resposta:', {
-                sucesso: data.success,
-                temResponse: !!data.response,
-                temText: !!data.text,
-                tamanhoResponse: data.response?.length || 0,
-                tamanhoText: data.text?.length || 0,
-                tipo: data.tipo
-            });
-
-            // Verificar resposta
-            if (data.error) {
-                addMessage("error", `❌ Erro: ${data.error}`);
-                return;
-            }
-
-            // Adaptar resposta para diferentes formatos
-            const responseText = data.response || data.text || "Não consegui gerar resposta.";
-            const responseImage = data.image || null;
-
-            console.log('📝 Texto que será adicionado:', {
-                tamanho: responseText.length,
-                inicio: responseText.substring(0, 100),
-                fim: responseText.substring(responseText.length - 100)
-            });
-
-            addMessage("ai", responseText, responseImage);
-            console.log('✓ Mensagem adicionada ao chat');
-
-        } catch (err) {
-            removeLoadingMessage();
-            console.error("❌ Erro:", err);
-            addMessage("error", `❌ Erro ao se comunicar com o servidor: ${err.message}`);
-        } finally {
-            isLoading = false;
-            sendBtn.disabled = false;
-        }
-    }
-
-    // ==================== HISTÓRICO ====================
-    async function loadChatHistory() {
-        try {
-            console.log('📜 Carregando histórico...');
-            
-            const res = await fetch("/api/chat/history", {
-                method: "GET",
-                headers: getAuthHeaders()
-            });
-
-            if (res.status === 401) {
-                handleUnauthorized();
-                return;
-            }
-
-            if (!res.ok) {
-                console.warn('Erro ao carregar histórico:', res.status);
-                return;
-            }
-
-            const data = await res.json();
-            console.log('Histórico recebido:', data);
-
-            if (data.chats && Array.isArray(data.chats) && data.chats.length > 0) {
-                console.log(`✓ ${data.chats.length} mensagens carregadas`);
-                
-                data.chats.forEach(item => {
-                    addMessage("user", item.mensagem_usuario);
-                    addMessage("ai", item.resposta_ia);
-                });
-            } else {
-                console.log('Nenhum histórico encontrado');
-            }
-        } catch (err) {
-            console.warn("Erro ao carregar histórico:", err);
-        }
-    }
-
-    // ==================== NOTIFICAÇÕES ====================
-    function showError(message) {
-        console.error('❌', message);
-        
-        const toast = document.createElement("div");
-        toast.className = "error-toast";
-        toast.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.animation = "slideInRight 0.3s ease-out reverse";
-            setTimeout(() => toast.remove(), 300);
-        }, 4000);
-    }
-
-    // Log inicial
-    console.log('🔐 Estado da autenticação:');
-    console.log('Token presente:', !!localStorage.getItem(TOKEN_KEY));
-    console.log('Usuário:', localStorage.getItem('user_data'));
+document.getElementById('logout').addEventListener('click', () => {
+    localStorage.removeItem(TOKEN_KEY);
+    window.location.href = '/login';
+});
 </script>
 
 </body>

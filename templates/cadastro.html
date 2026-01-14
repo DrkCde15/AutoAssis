@@ -2,276 +2,262 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <title>NOG • Cadastro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro - NOG Assistente</title>
-    <link rel="stylesheet" href="cadastro.css">
 
-    <!-- FONT -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    
-    <!-- ICONS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
-       
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(180deg, #0b1a3a, #0a1430);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .cadastro-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #fff;
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .logo p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #fff;
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 14px 14px 42px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            outline: none;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            transition: all 0.3s;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        input:focus {
+            border-color: #2563eb;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #1e40af;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .links {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .links a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-    <div class="cadastro-container">
-        <div class="logo">
-            <h1>🚗 NOG</h1>
-            <p>Crie sua conta</p>
-        </div>
 
-        <div id="errorAlert" class="alert alert-error"></div>
-        <div id="successAlert" class="alert alert-success"></div>
+<div class="cadastro-container">
+    <div class="logo">
+        <h1>NOG</h1>
+        <p>Criar nova conta</p>
+    </div>
 
-        <form id="cadastroForm">
-            <div class="form-group">
-                <label for="nome">Nome Completo</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-user"></i>
-                    <input 
-                        type="text" 
-                        id="nome" 
-                        name="nome" 
-                        placeholder="Seu nome completo" 
-                        required
-                        autocomplete="name"
-                    >
-                </div>
-            </div>
+    <div class="alert alert-error" id="alertError"></div>
 
-            <div class="form-group">
-                <label for="email">Email</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-envelope"></i>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        placeholder="seu@email.com" 
-                        required
-                        autocomplete="email"
-                    >
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="password">Senha</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-lock"></i>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        placeholder="Mínimo 6 caracteres" 
-                        required
-                        autocomplete="new-password"
-                        maxlength="72"
-                    >
-                </div>
-                <div id="passwordStrength" class="password-strength"></div>
-            </div>
-
-            <div class="form-group">
-                <label for="confirmPassword">Confirmar Senha</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-lock"></i>
-                    <input 
-                        type="password" 
-                        id="confirmPassword" 
-                        name="confirmPassword" 
-                        placeholder="Digite a senha novamente" 
-                        required
-                        autocomplete="new-password"
-                        maxlength="72"
-                    >
-                </div>
-            </div>
-
-            <button type="submit" class="btn" id="cadastroBtn">
-                <i class="fas fa-user-plus"></i> Criar Conta
-            </button>
-            
-            <div class="loading" id="loading">
-                <i class="fas fa-spinner"></i> Criando conta...
-            </div>
-        </form>
-
-        <div class="links">
-            Já tem conta? <a href="/login">Faça login</a>
+    <div class="form-group">
+        <label>Nome</label>
+        <div class="input-wrapper">
+            <i class="fas fa-user"></i>
+            <input id="nome" placeholder="Seu nome completo">
         </div>
     </div>
 
-    <script>
-        // ==================== CONFIG ====================
-        const TOKEN_KEY = 'access_token';
+    <div class="form-group">
+        <label>Email</label>
+        <div class="input-wrapper">
+            <i class="fas fa-envelope"></i>
+            <input id="email" type="email" placeholder="seu@email.com">
+        </div>
+    </div>
 
-        // Elementos do DOM
-        const form = document.getElementById('cadastroForm');
-        const nomeInput = document.getElementById('nome');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const confirmPasswordInput = document.getElementById('confirmPassword');
-        const cadastroBtn = document.getElementById('cadastroBtn');
-        const loading = document.getElementById('loading');
-        const errorAlert = document.getElementById('errorAlert');
-        const successAlert = document.getElementById('successAlert');
-        const passwordStrength = document.getElementById('passwordStrength');
+    <div class="form-group">
+        <label>Senha</label>
+        <div class="input-wrapper">
+            <i class="fas fa-lock"></i>
+            <input id="senha" type="password" placeholder="••••••••">
+        </div>
+    </div>
 
-        // ==================== VERIFICAR SE JÁ ESTÁ LOGADO ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem(TOKEN_KEY);
-            if (token) {
-                const parts = token.split('.');
-                if (parts.length === 3) {
-                    console.log('✓ Usuário já autenticado, redirecionando...');
-                    window.location.href = '/chat';
-                    return;
-                }
-            }
-            console.log('🔓 Usuário não autenticado');
-        });
+    <button class="btn" id="btnCadastrar">Cadastrar</button>
 
-        // ==================== FORÇA DA SENHA ====================
-        passwordInput.addEventListener('input', () => {
-            const password = passwordInput.value;
-            
-            if (password.length === 0) {
-                passwordStrength.textContent = '';
-                passwordStrength.className = 'password-strength';
-                return;
-            }
+    <div class="links">
+        Já tem conta?
+        <a href="/login">Entrar</a>
+    </div>
+</div>
 
-            let strength = 0;
-            if (password.length >= 6) strength++;
-            if (password.length >= 10) strength++;
-            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-            if (/[0-9]/.test(password)) strength++;
-            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+<script>
+    const btn = document.getElementById("btnCadastrar");
+    const alertError = document.getElementById("alertError");
 
-            if (strength <= 2) {
-                passwordStrength.textContent = '⚠️ Senha fraca';
-                passwordStrength.className = 'password-strength weak';
-            } else if (strength <= 4) {
-                passwordStrength.textContent = '✓ Senha média';
-                passwordStrength.className = 'password-strength medium';
-            } else {
-                passwordStrength.textContent = '✓ Senha forte';
-                passwordStrength.className = 'password-strength strong';
-            }
-        });
+    function showError(msg) {
+        alertError.textContent = msg;
+        alertError.style.display = "block";
+    }
 
-        // ==================== FUNÇÕES DE ALERTA ====================
-        function showError(message) {
-            errorAlert.textContent = message;
-            errorAlert.style.display = 'block';
-            successAlert.style.display = 'none';
-            console.error('❌', message);
+    btn.addEventListener("click", async () => {
+        alertError.style.display = "none";
+
+        const nome = document.getElementById("nome").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const senha = document.getElementById("senha").value;
+
+        if (!nome || !email || !senha) {
+            showError("Preencha todos os campos.");
+            return;
         }
 
-        function showSuccess(message) {
-            successAlert.textContent = message;
-            successAlert.style.display = 'block';
-            errorAlert.style.display = 'none';
-            console.log('✓', message);
+        btn.disabled = true;
+
+        try {
+            const res = await fetch("/api/cadastro", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    nome,
+                    email,
+                    password: senha
+                })
+            });
+
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(data.error || "Erro ao cadastrar.");
+                btn.disabled = false;
+                return;
+            }
+
+            if (data.access_token) {
+                localStorage.setItem("access_token", data.access_token);
+            }
+
+            window.location.href = "/chat";
+
+        } catch (err) {
+            showError("Erro de conexão com o servidor.");
+            btn.disabled = false;
         }
+    });
+</script>
 
-        function clearAlerts() {
-            errorAlert.style.display = 'none';
-            successAlert.style.display = 'none';
-        }
-
-        // ==================== SUBMIT DO FORMULÁRIO ====================
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearAlerts();
-
-            const nome = nomeInput.value.trim();
-            const email = emailInput.value.trim().toLowerCase();
-            const password = passwordInput.value;
-            const confirmPassword = confirmPasswordInput.value;
-
-            // Validações
-            if (!nome || !email || !password || !confirmPassword) {
-                showError('Preencha todos os campos');
-                return;
-            }
-
-            if (nome.length < 2) {
-                showError('Nome deve ter pelo menos 2 caracteres');
-                return;
-            }
-
-            if (!email.includes('@') || !email.includes('.')) {
-                showError('Email inválido');
-                return;
-            }
-
-            if (password.length < 6) {
-                showError('Senha deve ter pelo menos 6 caracteres');
-                return;
-            }
-
-            if (password.length > 72) {
-                showError('Senha não pode ter mais de 72 caracteres');
-                return;
-            }
-
-            if (password !== confirmPassword) {
-                showError('As senhas não coincidem');
-                return;
-            }
-
-            // Desabilitar form
-            cadastroBtn.disabled = true;
-            loading.style.display = 'block';
-            cadastroBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aguarde...';
-
-            try {
-                console.log('📡 Enviando requisição de cadastro...');
-                
-                const response = await fetch('/api/cadastro', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ nome, email, password })
-                });
-
-                const data = await response.json();
-                console.log('Resposta do servidor:', response.status, data);
-
-                if (response.ok) {
-                    console.log('✓ Cadastro realizado com sucesso!');
-                    
-                    // Mostrar sucesso
-                    showSuccess('Cadastro realizado! Redirecionando para login...');
-
-                    // Redirecionar após 2 segundos
-                    setTimeout(() => {
-                        window.location.href = '/login';
-                    }, 2000);
-
-                } else {
-                    // Erro no cadastro
-                    const errorMessage = data.error || 'Erro ao realizar cadastro';
-                    showError(errorMessage);
-                    console.error('❌ Erro de cadastro:', data);
-                }
-
-            } catch (error) {
-                console.error('❌ Erro ao fazer cadastro:', error);
-                showError('Erro de conexão. Verifique sua internet.');
-            } finally {
-                // Re-habilitar form
-                cadastroBtn.disabled = false;
-                loading.style.display = 'none';
-                cadastroBtn.innerHTML = '<i class="fas fa-user-plus"></i> Criar Conta';
-            }
-        });
-
-        // ==================== LOGS DE DEBUG ====================
-        console.log('📝 Página de cadastro carregada');
-    </script>
 </body>
 </html>

@@ -3,217 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - NOG Assistente</title>
-    <link rel="stylesheet" href="login.css">
+    <title>Login • NOG</title>
 
-    <!-- FONT -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    
-    <!-- ICONS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
-    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            background: linear-gradient(180deg, #0b1a3a, #0a1430);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 18px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        h1 {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        p {
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        label {
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .alert {
+            display: none;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .error {
+            background: rgba(239,68,68,0.2);
+            color: #fecaca;
+        }
+
+        .links {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .links a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="logo">
-            <h1>🚗 NOG</h1>
-            <p>Assistente Automotivo Virtual</p>
-        </div>
 
-        <div id="errorAlert" class="alert alert-error"></div>
-        <div id="successAlert" class="alert alert-success"></div>
+<div class="container">
+    <h1>NOG</h1>
+    <p>Login</p>
 
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="email">Email</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-envelope"></i>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        placeholder="seu@email.com" 
-                        required
-                        autocomplete="email"
-                    >
-                </div>
-            </div>
+    <div id="error" class="alert error"></div>
 
-            <div class="form-group">
-                <label for="password">Senha</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-lock"></i>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        placeholder="••••••••" 
-                        required
-                        autocomplete="current-password"
-                    >
-                </div>
-            </div>
+    <form id="loginForm">
+        <label>Email</label>
+        <input type="email" id="email" required placeholder="Email">
 
-            <button type="submit" class="btn" id="loginBtn">
-                <i class="fas fa-sign-in-alt"></i> Entrar
-            </button>
-            
-            <div class="loading" id="loading">
-                <i class="fas fa-spinner"></i> Autenticando...
-            </div>
-        </form>
+        <label>Senha</label>
+        <input type="password" id="password" required placeholder="Senha">
 
-        <div class="links">
-            Não tem conta? <a href="/cadastro">Cadastre-se aqui</a>
-        </div>
+        <button type="submit">Entrar</button>
+    </form>
+
+    <div class="links">
+        Não tem conta? <a href="/cadastro">Cadastre-se</a>
     </div>
+</div>
 
-    <script>
-        // ==================== CONFIG ====================
-        const TOKEN_KEY = 'access_token';
-        const USER_KEY = 'user_data';
+<script>
+const TOKEN_KEY = 'access_token';
+const form = document.getElementById('loginForm');
+const errorBox = document.getElementById('error');
 
-        // Elementos do DOM
-        const form = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const loginBtn = document.getElementById('loginBtn');
-        const loading = document.getElementById('loading');
-        const errorAlert = document.getElementById('errorAlert');
-        const successAlert = document.getElementById('successAlert');
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorBox.style.display = 'none';
 
-        // ==================== VERIFICAR SE JÁ ESTÁ LOGADO ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem(TOKEN_KEY);
-            if (token) {
-                // Verificar se token é válido
-                const parts = token.split('.');
-                if (parts.length === 3) {
-                    console.log('✓ Usuário já autenticado, redirecionando...');
-                    window.location.href = '/chat';
-                    return;
-                }
-            }
-            console.log('🔓 Usuário não autenticado');
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: document.getElementById('email').value.trim().toLowerCase(),
+                password: document.getElementById('password').value
+            })
         });
 
-        // ==================== FUNÇÕES DE ALERTA ====================
-        function showError(message) {
-            errorAlert.textContent = message;
-            errorAlert.style.display = 'block';
-            successAlert.style.display = 'none';
-            console.error('❌', message);
-        }
+        const data = await res.json();
 
-        function showSuccess(message) {
-            successAlert.textContent = message;
-            successAlert.style.display = 'block';
-            errorAlert.style.display = 'none';
-            console.log('✓', message);
-        }
+        if (!res.ok) throw new Error(data.error || 'Erro no login');
 
-        function clearAlerts() {
-            errorAlert.style.display = 'none';
-            successAlert.style.display = 'none';
-        }
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+        window.location.href = '/chat';
 
-        // ==================== SUBMIT DO FORMULÁRIO ====================
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearAlerts();
+    } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = 'block';
+    }
+});
+</script>
 
-            const email = emailInput.value.trim().toLowerCase();
-            const password = passwordInput.value;
-
-            // Validações básicas
-            if (!email || !password) {
-                showError('Preencha todos os campos');
-                return;
-            }
-
-            if (!email.includes('@') || !email.includes('.')) {
-                showError('Email inválido');
-                return;
-            }
-
-            if (password.length < 6) {
-                showError('Senha deve ter pelo menos 6 caracteres');
-                return;
-            }
-
-            // Desabilitar form
-            loginBtn.disabled = true;
-            loading.style.display = 'block';
-            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aguarde...';
-
-            try {
-                console.log('📡 Enviando requisição de login...');
-                
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-                console.log('Resposta do servidor:', response.status, data);
-
-                if (response.ok && data.access_token) {
-                    console.log('✓ Login bem-sucedido!');
-                    console.log('Token recebido (primeiros 20 chars):', data.access_token.substring(0, 20) + '...');
-                    
-                    // Validar token antes de salvar
-                    const tokenParts = data.access_token.split('.');
-                    if (tokenParts.length !== 3) {
-                        throw new Error('Token JWT inválido recebido do servidor');
-                    }
-                    
-                    // Salvar token e dados do usuário
-                    localStorage.setItem(TOKEN_KEY, data.access_token);
-                    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-                    
-                    // Verificar se salvou corretamente
-                    const savedToken = localStorage.getItem(TOKEN_KEY);
-                    if (!savedToken) {
-                        throw new Error('Falha ao salvar token no localStorage');
-                    }
-
-                    console.log('✓ Token salvo no localStorage');
-                    console.log('✓ Token tem', tokenParts.length, 'partes (correto para JWT)');
-                    
-                    // Mostrar sucesso
-                    showSuccess('Login realizado! Redirecionando...');
-
-                    // Redirecionar após 1 segundo
-                    setTimeout(() => {
-                        window.location.href = '/chat';
-                    }, 1000);
-
-                } else {
-                    // Erro na autenticação
-                    const errorMessage = data.error || 'Erro ao fazer login';
-                    showError(errorMessage);
-                    console.error('❌ Erro de login:', data);
-                }
-
-            } catch (error) {
-                console.error('❌ Erro ao fazer login:', error);
-                showError('Erro de conexão. Verifique sua internet.');
-            } finally {
-                // Re-habilitar form
-                loginBtn.disabled = false;
-                loading.style.display = 'none';
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
-            }
-        });
-
-        // ==================== LOGS DE DEBUG ====================
-        console.log('🔐 Página de login carregada');
-        console.log('Token presente no localStorage:', !!localStorage.getItem(TOKEN_KEY));
-        console.log('Dados do usuário:', localStorage.getItem(USER_KEY));
-    </script>
 </body>
 </html>

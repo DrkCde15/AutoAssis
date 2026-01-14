@@ -4,200 +4,348 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfil - AutoAssist IA</title>
-    <link rel="stylesheet" href="perfil.css">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            text-decoration: none;
+            color: white;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        /* Profile Container */
+        .profile-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .profile-header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .avatar-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .profile-avatar:hover {
+            transform: scale(1.05);
+            filter: brightness(0.85);
+        }
+
+        .photo-upload-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(59, 130, 246, 0.7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .profile-avatar:hover .photo-upload-overlay {
+            opacity: 1;
+        }
+
+        .photo-upload-overlay i {
+            font-size: 24px;
+            color: white;
+        }
+
+        #photoInput {
+            display: none;
+        }
+
+        .photo-info {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 12px;
+        }
+
+        .profile-header h2 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .profile-header p {
+            color: #93c5fd;
+            font-size: 16px;
+        }
+
+        .profile-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 32px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .profile-info h3 {
+            margin-bottom: 24px;
+            font-size: 22px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #93c5fd;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-weight: 600;
+        }
+
+        .btn-full {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            margin-top: 24px;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        @media (max-width: 768px) {
+            .info-row {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-logo">
-                🚗 AutoAssist IA
-            </a>
-            <div class="nav-menu">
-                <a href="/" class="nav-link">Início</a>
-                <a href="/chat" class="nav-link">Chat</a>
-                <a href="/perfil" class="nav-link">Perfil</a>
-                <button class="btn" onclick="logout()">Sair</button>
-            </div>
-        </div>
-    </nav>
 
-    <!-- Profile Content -->
-    <div class="profile-container">
-        <div class="profile-header">
-            <div class="avatar-container">
-                <div class="profile-avatar" id="profileAvatar" onclick="document.getElementById('photoInput').click()">
-                    👤
-                    <div class="photo-upload-overlay">
-                        <i class="fas fa-camera"></i>
-                    </div>
-                </div>
-                <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(event)">
-                <div class="photo-info">Clique para mudar a foto</div>
-            </div>
-            <h2 id="profileName">Carregando...</h2>
-            <p id="profileEmail">email@exemplo.com</p>
-        </div>
-
-        <div class="profile-info">
-            <h3>Informações da Conta</h3>
-            <div class="info-row">
-                <span class="info-label">Nome Completo</span>
-                <span class="info-value" id="infoName">-</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Email</span>
-                <span class="info-value" id="infoEmail">-</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Membro desde</span>
-                <span class="info-value" id="infoDate">-</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">ID do Usuário</span>
-                <span class="info-value" id="infoId">-</span>
-            </div>
-            
-            <button class="btn btn-full btn-danger" onclick="logout()">Sair da Conta</button>
+<nav class="navbar">
+    <div class="nav-container">
+        <a href="/" class="nav-logo">🚗 AutoAssist IA</a>
+        <div class="nav-menu">
+            <a href="/" class="nav-link">Início</a>
+            <a href="/chat" class="nav-link">Chat</a>
+            <a href="/perfil" class="nav-link">Perfil</a>
+            <button class="btn" onclick="logout()">Sair</button>
         </div>
     </div>
+</nav>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-    <script>
-        // Verificar autenticação
-        document.addEventListener('DOMContentLoaded', function() {
-            const userStr = localStorage.getItem('autoassist_user');
-            
-            if (!userStr) {
-                window.location.href = '/login';
-                return;
-            }
+<div class="profile-container">
+    <div class="profile-header">
+        <div class="avatar-container">
+            <div class="profile-avatar" id="profileAvatar" onclick="photoInput.click()">
+                👤
+                <div class="photo-upload-overlay">
+                    <i class="fas fa-camera"></i>
+                </div>
+            </div>
+            <input type="file" id="photoInput" accept="image/*">
+            <div class="photo-info">Clique para mudar a foto</div>
+        </div>
 
-            const user = JSON.parse(userStr);
-            loadProfileData(user);
-            loadProfilePhoto();
-        });
+        <h2 id="profileName">Carregando...</h2>
+        <p id="profileEmail">email@exemplo.com</p>
+    </div>
 
-        function loadProfileData(user) {
-            // Avatar com inicial do nome ou com foto
-            const profileAvatar = document.getElementById('profileAvatar');
-            const profilePhoto = localStorage.getItem(`profilePhoto_${user.email}`);
-            
-            if (profilePhoto) {
-                // Se houver foto salva, mostrar a foto
-                const img = document.createElement('img');
-                img.src = profilePhoto;
-                img.style.cssText = 'width: 120px; height: 120px; border-radius: 50%; object-fit: cover; display: flex; align-items: center; justify-content: center;';
-                profileAvatar.textContent = '';
-                profileAvatar.appendChild(img);
-                
-                // Adicionar overlay
-                const overlay = document.createElement('div');
-                overlay.className = 'photo-upload-overlay';
-                overlay.innerHTML = '<i class="fas fa-camera"></i>';
-                profileAvatar.appendChild(overlay);
-            } else {
-                // Senão, mostrar inicial do nome
-                const inicial = user.nome.charAt(0).toUpperCase();
-                profileAvatar.textContent = inicial;
-                
-                // Adicionar overlay
-                const overlay = document.createElement('div');
-                overlay.className = 'photo-upload-overlay';
-                overlay.innerHTML = '<i class="fas fa-camera"></i>';
-                profileAvatar.appendChild(overlay);
-            }
+    <div class="profile-info">
+        <h3>Informações da Conta</h3>
 
-            // Header
-            document.getElementById('profileName').textContent = user.nome;
-            document.getElementById('profileEmail').textContent = user.email;
+        <div class="info-row">
+            <span class="info-label">Nome</span>
+            <span class="info-value" id="infoName">-</span>
+        </div>
 
-            // Info rows
-            document.getElementById('infoName').textContent = user.nome;
-            document.getElementById('infoEmail').textContent = user.email;
-            document.getElementById('infoDate').textContent = user.dataCriacao || 'Não disponível';
-            document.getElementById('infoId').textContent = user.id || '-';
+        <div class="info-row">
+            <span class="info-label">Email</span>
+            <span class="info-value" id="infoEmail">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Membro desde</span>
+            <span class="info-value" id="infoDate">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">ID</span>
+            <span class="info-value" id="infoId">-</span>
+        </div>
+
+        <button class="btn btn-full btn-danger" onclick="logout()">Sair da Conta</button>
+    </div>
+</div>
+
+<script>
+    const USER_KEY = 'autoassist_user';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const userStr = localStorage.getItem(USER_KEY);
+        if (!userStr) {
+            location.href = '/login';
+            return;
         }
 
-        function loadProfilePhoto() {
-            const userStr = localStorage.getItem('autoassist_user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const profilePhoto = localStorage.getItem(`profilePhoto_${user.email}`);
-                if (profilePhoto) {
-                    const profileAvatar = document.getElementById('profileAvatar');
-                    const img = profileAvatar.querySelector('img');
-                    if (img) {
-                        img.src = profilePhoto;
-                    }
-                }
-            }
+        const user = JSON.parse(userStr);
+        preencherPerfil(user);
+        carregarFoto(user);
+    });
+
+    function preencherPerfil(user) {
+        document.getElementById('profileName').textContent = user.nome;
+        document.getElementById('profileEmail').textContent = user.email;
+        document.getElementById('infoName').textContent = user.nome;
+        document.getElementById('infoEmail').textContent = user.email;
+        document.getElementById('infoDate').textContent = user.dataCriacao || '—';
+        document.getElementById('infoId').textContent = user.id || '—';
+
+        document.getElementById('profileAvatar').firstChild.textContent =
+            user.nome.charAt(0).toUpperCase();
+    }
+
+    function carregarFoto(user) {
+        const foto = localStorage.getItem(`profilePhoto_${user.email}`);
+        if (!foto) return;
+
+        const avatar = document.getElementById('profileAvatar');
+        avatar.innerHTML = `
+            <img src="${foto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+            <div class="photo-upload-overlay"><i class="fas fa-camera"></i></div>
+        `;
+    }
+
+    photoInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file || !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+            alert('Imagem inválida (máx 5MB)');
+            return;
         }
 
-        function handlePhotoUpload(event) {
-            const file = event.target.files[0];
-            
-            if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const user = JSON.parse(localStorage.getItem(USER_KEY));
+            localStorage.setItem(`profilePhoto_${user.email}`, ev.target.result);
+            carregarFoto(user);
+            alert('✓ Foto atualizada');
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    });
 
-            // Validar tipo de arquivo
-            if (!file.type.startsWith('image/')) {
-                alert('Por favor, selecione um arquivo de imagem');
-                return;
-            }
-
-            // Validar tamanho (máximo 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('A imagem deve ter no máximo 5MB');
-                return;
-            }
-
-            // Ler a imagem
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const userStr = localStorage.getItem('autoassist_user');
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    
-                    // Salvar a foto no localStorage
-                    localStorage.setItem(`profilePhoto_${user.email}`, e.target.result);
-                    
-                    // Atualizar a exibição
-                    const profileAvatar = document.getElementById('profileAvatar');
-                    let img = profileAvatar.querySelector('img');
-                    
-                    if (!img) {
-                        img = document.createElement('img');
-                        img.style.cssText = 'width: 120px; height: 120px; border-radius: 50%; object-fit: cover;';
-                        profileAvatar.textContent = '';
-                        profileAvatar.appendChild(img);
-                        
-                        // Adicionar overlay
-                        const overlay = document.createElement('div');
-                        overlay.className = 'photo-upload-overlay';
-                        overlay.innerHTML = '<i class="fas fa-camera"></i>';
-                        profileAvatar.appendChild(overlay);
-                    }
-                    
-                    img.src = e.target.result;
-                    
-                    // Feedback visual
-                    alert('✓ Foto de perfil atualizada com sucesso!');
-                }
-            };
-            
-            reader.readAsDataURL(file);
-            
-            // Limpar o input
-            event.target.value = '';
+    function logout() {
+        if (confirm('Deseja sair da conta?')) {
+            localStorage.removeItem(USER_KEY);
+            localStorage.removeItem('access_token');
+            location.href = '/';
         }
+    }
+</script>
 
-        function logout() {
-            if (confirm('Tem certeza que deseja sair?')) {
-                localStorage.removeItem('autoassist_user');
-                localStorage.removeItem('access_token');
-                window.location.href = '/';
-            }
-        }
-    </script>
 </body>
 </html>
