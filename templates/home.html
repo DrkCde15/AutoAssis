@@ -5,490 +5,112 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoAssist IA - Seu Consultor Automotivo Inteligente</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
-            min-height: 100vh;
-            color: #fff;
-            overflow-x: hidden;
-        }
-
-        /* Navbar */
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            padding: 16px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .nav-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .nav-logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 26px;
-            font-weight: 800;
-            cursor: pointer;
-            text-decoration: none;
-            color: white;
-            transition: all 0.3s;
-        }
-
-        .nav-logo:hover {
-            transform: scale(1.05);
-        }
-
-        .nav-menu {
-            display: flex;
-            gap: 24px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            transition: all 0.3s;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .nav-link:hover {
-            color: white;
-            background: rgba(59, 130, 246, 0.2);
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            border: none;
-            padding: 12px 28px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            box-shadow: none;
-        }
-
-        .btn-outline:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: white;
-        }
-
-        /* Hero Section */
-        .hero {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 100px 20px 60px;
-            text-align: center;
-            animation: fadeInUp 0.8s ease-out;
-        }
-
-        .hero h1 {
-            font-size: 64px;
-            margin-bottom: 24px;
-            background: linear-gradient(to right, #60a5fa, #a78bfa, #f87171);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-
-        .hero p {
-            font-size: 22px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 48px;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-            line-height: 1.6;
-            font-weight: 300;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 60px;
-        }
-
-        /* Stats Section */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            max-width: 1200px;
-            margin: 60px auto 0;
-            padding: 0 20px 80px;
-        }
-
-        .stat-card {
-            text-align: center;
-            padding: 30px;
-            animation: fadeInUp 0.8s ease-out;
-            animation-fill-mode: both;
-        }
-
-        .stat-card:nth-child(1) { animation-delay: 0.1s; }
-        .stat-card:nth-child(2) { animation-delay: 0.2s; }
-        .stat-card:nth-child(3) { animation-delay: 0.3s; }
-
-        .stat-number {
-            font-size: 48px;
-            font-weight: 800;
-            color: #60a5fa;
-            margin-bottom: 8px;
-        }
-
-        .stat-label {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 16px;
-        }
-
-        /* Features Section */
-        .features-section {
-            background: rgba(255, 255, 255, 0.02);
-            padding: 100px 20px;
-            margin-top: 80px;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 48px;
-            margin-bottom: 16px;
-            font-weight: 800;
-            color: white;
-        }
-
-        .section-subtitle {
-            text-align: center;
-            font-size: 20px;
-            color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 80px;
-        }
-
-        .features {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 30px;
-        }
-
-        .feature-card {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(10px);
-            padding: 40px 32px;
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s;
-            animation: fadeInUp 0.8s ease-out;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-8px);
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
-        }
-
-        .feature-icon {
-            font-size: 56px;
-            margin-bottom: 20px;
-            display: inline-block;
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(167, 139, 250, 0.2));
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .feature-card h3 {
-            font-size: 24px;
-            margin-bottom: 16px;
-            font-weight: 700;
-        }
-
-        .feature-card p {
-            color: rgba(255, 255, 255, 0.6);
-            line-height: 1.8;
-            font-size: 16px;
-        }
-
-        /* CTA Section */
-        .cta-section {
-            max-width: 900px;
-            margin: 120px auto 0;
-            padding: 80px 40px;
-            text-align: center;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(167, 139, 250, 0.15));
-            border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .cta-section h2 {
-            font-size: 42px;
-            margin-bottom: 24px;
-            font-weight: 800;
-        }
-
-        .cta-section p {
-            font-size: 18px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 40px;
-        }
-
-        /* Footer */
-        .footer {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 60px 20px;
-            margin-top: 120px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 40px;
-            margin-bottom: 40px;
-        }
-
-        .footer-column h4 {
-            margin-bottom: 20px;
-            font-weight: 700;
-            font-size: 16px;
-        }
-
-        .footer-column ul {
-            list-style: none;
-        }
-
-        .footer-column li {
-            margin-bottom: 12px;
-        }
-
-        .footer-column a {
-            color: rgba(255, 255, 255, 0.6);
-            text-decoration: none;
-            transition: color 0.3s;
-            font-size: 14px;
-        }
-
-        .footer-column a:hover {
-            color: white;
-        }
-
-        .footer-bottom {
-            text-align: center;
-            padding-top: 40px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 14px;
-        }
-
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 42px;
-            }
-
-            .hero p {
-                font-size: 18px;
-            }
-
-            .section-title {
-                font-size: 36px;
-            }
-
-            .nav-logo {
-                font-size: 20px;
-            }
-
-            .hero-buttons {
-                gap: 12px;
-            }
-
-            .btn {
-                padding: 10px 24px;
-                font-size: 13px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="home.css">
 </head>
-<body>
 <body>
     <!-- Navbar -->
     <nav class="navbar">
         <div class="nav-container">
-            <a href="/" class="nav-logo">
-                <i class="fas fa-car" style="color: #60a5fa;"></i> AutoAssist IA
-            </a>
-            <div class="nav-menu" id="navMenu">
-                <a href="/" class="nav-link">Início</a>
-                <a href="/login" class="btn btn-outline">Login</a>
-                <a href="/cadastro" class="btn">Começar Grátis</a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">Home</a>
+                <a href="#services" class="nav-link">Services</a>
+                <a href="#portfolio" class="nav-link">Portfolio</a>
+                <div class="nav-logo-minimal">A</div>
+                <a href="#about" class="nav-link">About Us</a>
+                <a href="/login" class="nav-link">Journal</a>
+                <a href="/cadastro" class="nav-link">Contact</a>
             </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
     <section class="hero">
-        <h1>Seu Consultor Automotivo Inteligente</h1>
-        <p>Análise com IA, recomendações personalizadas e tudo que você precisa para tomar a melhor decisão sobre carros e peças automotivas</p>
-        <div class="hero-buttons">
-            <a href="/cadastro" class="btn">Começar Gratuitamente</a>
-            <a href="/login" class="btn btn-outline">Já tenho conta</a>
+        <div class="hero-content">
+            <div class="hero-tag">
+                <span>•</span> seu consultor <span>•</span>
+            </div>
+            <h1>AUTOASSIST</h1>
+            <div class="hero-subtitle">
+                <span>inteligência artificial</span> | <span>automotivo</span> | <span>especializado</span>
+            </div>
+            <p class="hero-description">
+                Análise de veículos com IA, recomendações personalizadas e consultoria especializada. Tome decisões inteligentes sobre carros, peças e manutenção com o poder da tecnologia Gemini.
+            </p>
         </div>
+    </section>
 
-        <!-- Stats -->
-        <div class="stats">
-            <div class="stat-card">
-                <div class="stat-number">500+</div>
-                <div class="stat-label">Usuários Satisfeitos</div>
+    <!-- White Section -->
+    <section class="white-section">
+        <h2 class="section-title-minimal">Transformamos a experiência automotiva com tecnologia.</h2>
+        <div class="divider"></div>
+        <p class="section-text">
+            Seu veículo, sua escolha, sua jornada... tudo começa aqui. Utilizamos inteligência artificial avançada para ajudar você a tomar as melhores decisões sobre compra, manutenção e cuidados com seu automóvel.
+        </p>
+
+        <div class="features-grid">
+            <div class="feature-minimal">
+                <div class="feature-icon-minimal"><i class="fas fa-lightbulb"></i></div>
+                <div class="feature-title">Análise IA</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-number">10K+</div>
-                <div class="stat-label">Análises Realizadas</div>
+            <div class="feature-minimal">
+                <div class="feature-icon-minimal"><i class="fas fa-car"></i></div>
+                <div class="feature-title">Consultoria</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-number">98%</div>
-                <div class="stat-label">Taxa de Satisfação</div>
+            <div class="feature-minimal">
+                <div class="feature-icon-minimal"><i class="fas fa-chart-line"></i></div>
+                <div class="feature-title">Comparação</div>
+            </div>
+            <div class="feature-minimal">
+                <div class="feature-icon-minimal"><i class="fas fa-check-circle"></i></div>
+                <div class="feature-title">Qualidade</div>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section class="features-section">
-        <h2 class="section-title">Funcionalidades Poderosas</h2>
-        <p class="section-subtitle">Tudo que você precisa em uma única plataforma</p>
-
-        <div class="features">
-            <div class="feature-card">
-                <div class="feature-icon">📸</div>
-                <h3>Análise de Imagens</h3>
-                <p>Faça upload de fotos e descubra modelo, ano, estado de conservação e possíveis problemas com precisão de IA</p>
+    <!-- Dark Section -->
+    <section class="dark-section">
+        <div class="dark-content">
+            <div>
+                <h2>Consultoria automotiva inteligente com IA avançada</h2>
+                <p>Ajudamos motoristas, entusiastas e compradores a tomar decisões informadas sobre veículos. Nossa plataforma analisa fotos, compara modelos e oferece recomendações personalizadas baseadas em IA.</p>
+                <p>Com tecnologia Google Gemini, identificamos problemas, avaliamos condições e fornecemos insights valiosos sobre manutenção, peças e valor de mercado.</p>
+                <a href="/cadastro" class="btn-minimal">Começar agora</a>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🚙</div>
-                <h3>Consultoria de Compra</h3>
-                <p>Recomendações personalizadas baseadas em seu perfil, orçamento e necessidades específicas</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">⚙️</div>
-                <h3>Comparação de Modelos</h3>
-                <p>Compare especificações, consumo, manutenção e custo-benefício de múltiplos veículos</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🔧</div>
-                <h3>Peças e Manutenção</h3>
-                <p>Orientações sobre peças, marcas recomendadas e manutenção preventiva especializada</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">💰</div>
-                <h3>Estimativa de Preço</h3>
-                <p>Avalie o valor justo de veículos no mercado atual com dados em tempo real</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🤖</div>
-                <h3>IA Avançada</h3>
-                <p>Powered by Google Gemini para respostas precisas, confiáveis e contextualmente relevantes</p>
+            <div class="logos-grid">
+                <div class="logo-item"><i class="fas fa-camera"></i> Análise de Imagens</div>
+                <div class="logo-item"><i class="fas fa-comments"></i> Consultoria IA</div>
+                <div class="logo-item"><i class="fas fa-balance-scale"></i> Comparação</div>
+                <div class="logo-item"><i class="fas fa-tools"></i> Manutenção</div>
+                <div class="logo-item"><i class="fas fa-dollar-sign"></i> Avaliação</div>
+                <div class="logo-item"><i class="fas fa-robot"></i> Gemini AI</div>
             </div>
         </div>
     </section>
 
-    <!-- CTA Section -->
-    <div class="cta-section">
-        <h2>Pronto para começar?</h2>
-        <p>Junte-se a centenas de usuários que já estão tomando melhores decisões automotivas</p>
-        <a href="/cadastro" class="btn" style="font-size: 16px; padding: 14px 40px;">Criar Conta Grátis</a>
-    </div>
+    <!-- Recent Work -->
+    <section class="recent-work">
+        <h2 class="section-title-minimal">Funcionalidades da plataforma</h2>
+        <div class="divider"></div>
+        
+        <div class="filter-buttons">
+            <button class="filter-btn active">Todos</button>
+            <button class="filter-btn">Análise IA</button>
+            <button class="filter-btn">Consultoria</button>
+            <button class="filter-btn">Comparação</button>
+            <button class="filter-btn">Manutenção</button>
+        </div>
+
+        <div style="text-align: center; padding: 60px 20px; color: #64748b;">
+            <p style="font-size: 18px; margin-bottom: 30px; line-height: 1.6;">
+                Pronto para revolucionar sua experiência automotiva?<br>
+                Junte-se a centenas de usuários que já estão tomando decisões mais inteligentes
+            </p>
+            <a href="/cadastro" class="btn-minimal" style="border-color: #1e3a8a; color: #1e3a8a;">Criar conta gratuita</a>
+        </div>
+    </section>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-column">
-                <h4>AutoAssist IA</h4>
-                <p style="color: rgba(255, 255, 255, 0.6); font-size: 14px;">Sua plataforma completa para consultoria automotiva inteligente</p>
-            </div>
-            <div class="footer-column">
-                <h4>Produto</h4>
-                <ul>
-                    <li><a href="#">Funcionalidades</a></li>
-                    <li><a href="#">Preços</a></li>
-                    <li><a href="#">Segurança</a></li>
-                </ul>
-            </div>
-            <div class="footer-column">
-                <h4>Empresa</h4>
-                <ul>
-                    <li><a href="#">Sobre</a></li>
-                    <li><a href="#">Blog</a></li>
-                    <li><a href="#">Contato</a></li>
-                </ul>
-            </div>
-            <div class="footer-column">
-                <h4>Legal</h4>
-                <ul>
-                    <li><a href="#">Privacidade</a></li>
-                    <li><a href="#">Termos</a></li>
-                    <li><a href="#">Cookies</a></li>
-                </ul>
-            </div>
-        </div>
         <div class="footer-bottom">
             <p>&copy; 2026 AutoAssist IA. Todos os direitos reservados.</p>
         </div>
@@ -498,7 +120,7 @@
         // Verificar se usuário está logado
         document.addEventListener('DOMContentLoaded', function() {
             const user = localStorage.getItem('autoassist_user');
-            const navMenu = document.getElementById('navMenu');
+            const navMenu = document.querySelector('.nav-menu');
             
             if (user) {
                 const userData = JSON.parse(user);
@@ -506,6 +128,7 @@
                     <a href="/" class="nav-link">Início</a>
                     <a href="/chat" class="nav-link">Chat</a>
                     <a href="/perfil" class="nav-link">Perfil</a>
+                    <div class="nav-logo-minimal">A</div>
                     <button class="btn" onclick="logout()">Sair</button>
                 `;
             }
