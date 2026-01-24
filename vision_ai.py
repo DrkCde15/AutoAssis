@@ -1,4 +1,4 @@
-# vision_ai.py
+# vision_ai.py - Integração com Gemini (google.genai) para análise de imagens
 import os
 import io
 import base64

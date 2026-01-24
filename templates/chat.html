@@ -8,63 +8,176 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --header-bg: rgba(30, 41, 59, 0.8);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary-bg: #1e293b;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --input-bg: #334155;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
         body {
-            background: #0a1430;
-            color: #fff;
+            background: var(--bg-color);
+            background-image: radial-gradient(circle at top right, #1e293b, #0f172a);
+            color: var(--text-color);
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
+        /* --- HEADER --- */
         header {
-            padding: 16px;
-            background: #0b1a3a;
+            padding: 16px 24px;
+            background: var(--header-bg);
+            backdrop-filter: blur(10px);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--shadow);
         }
 
+        header strong {
+            font-size: 1.2rem;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* --- BOTÕES GERAIS --- */
         button {
-            background: #2563eb;
             border: none;
-            padding: 10px 14px;
-            color: #fff;
-            border-radius: 10px;
+            border-radius: var(--radius);
             cursor: pointer;
             font-weight: 600;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
+        /* Botão Padrão (Azul) */
+        #send, #logout {
+            background: var(--primary);
+            color: #fff;
+            padding: 10px 18px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        #send:hover, #logout:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        #logout {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+        #logout:hover { background: rgba(239, 68, 68, 0.8); }
+
+        /* --- ÁREA DE MENSAGENS --- */
         #messages {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #messages::-webkit-scrollbar { width: 8px; }
+        #messages::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        #messages div {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            line-height: 1.5;
+            font-size: 0.95rem;
+            animation: slideIn 0.3s ease-out forwards;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            word-wrap: break-word;
         }
 
         .msg-user {
-            margin-bottom: 14px;
-            color: #93c5fd;
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 2px !important;
         }
 
         .msg-bot {
-            margin-bottom: 20px;
-            color: #e5e7eb;
+            align-self: flex-start;
+            background: var(--secondary-bg);
+            color: var(--text-color);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom-left-radius: 2px !important;
         }
 
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- FOOTER & INPUT --- */
         footer {
-            padding: 16px;
-            background: #0b1a3a;
+            padding: 16px 20px;
+            background: var(--header-bg);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
-            gap: 10px;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Estilo do Botão de Ícone (Anexo) */
+        .btn-icon {
+            background: transparent;
+            color: var(--text-muted);
+            padding: 10px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%; /* Redondo */
+            flex-shrink: 0;
+        }
+
+        .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            transform: rotate(15deg); /* Pequena rotação charmosa */
         }
 
         input {
             flex: 1;
-            padding: 12px;
-            border-radius: 10px;
-            border: none;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: var(--input-bg);
+            color: white;
+            font-size: 1rem;
             outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Responsividade */
+        @media (max-width: 600px) {
+            footer { padding: 12px; gap: 8px; }
+            .btn-icon { width: 40px; height: 40px; padding: 8px; }
+            #send { padding: 10px 14px; }
         }
     </style>
 </head>
@@ -78,61 +191,112 @@
 <div id="messages"></div>
 
 <footer>
+    <input type="file" id="fileInput" style="display: none;">
+    <button id="attach" class="btn-icon" aria-label="Anexar imagem">
+        <svg id="icon-clip" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+        </svg>
+    </button>
+
     <input id="messageInput" placeholder="Digite sua mensagem...">
     <button id="send">Enviar</button>
 </footer>
 
 <script>
-const TOKEN_KEY = 'access_token';
-const token = localStorage.getItem(TOKEN_KEY);
+    const TOKEN_KEY = 'access_token';
+    const token = localStorage.getItem(TOKEN_KEY);
 
-if (!token) {
-    window.location.href = '/login';
-}
-
-const messagesDiv = document.getElementById('messages');
-const input = document.getElementById('messageInput');
-
-function addMessage(text, cls) {
-    const div = document.createElement('div');
-    div.className = cls;
-    div.textContent = text;
-    messagesDiv.appendChild(div);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-document.getElementById('send').addEventListener('click', async () => {
-    const msg = input.value.trim();
-    if (!msg) return;
-
-    addMessage('Você: ' + msg, 'msg-user');
-    input.value = '';
-
-    try {
-        const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify({ message: msg })
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Erro no chat');
-
-        addMessage('NOG: ' + data.response, 'msg-bot');
-
-    } catch (err) {
-        addMessage('Erro: ' + err.message, 'msg-bot');
+    if (!token) {
+        window.location.href = '/login';
     }
-});
 
-document.getElementById('logout').addEventListener('click', () => {
-    localStorage.removeItem(TOKEN_KEY);
-    window.location.href = '/login';
-});
+    const messagesDiv = document.getElementById('messages');
+    const input = document.getElementById('messageInput');
+    const fileInput = document.getElementById('fileInput');
+    const attachBtn = document.getElementById('attach');
+
+    // Função para adicionar mensagens na tela
+    function addMessage(text, cls) {
+        const div = document.createElement('div');
+        div.className = cls;
+        div.textContent = text;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Lógica do botão de anexo (abrir seletor de arquivos)
+    attachBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Feedback visual quando um arquivo é selecionado
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            const fileName = fileInput.files[0].name;
+            attachBtn.style.color = '#3b82f6'; // Muda para azul
+            attachBtn.style.background = 'rgba(59, 130, 246, 0.1)';
+            input.placeholder = `Arquivo selecionado: ${fileName}`;
+        }
+    });
+
+    // Lógica de envio de mensagem
+    document.getElementById('send').addEventListener('click', async () => {
+        const msg = input.value.trim();
+        const file = fileInput.files[0];
+
+        if (!msg && !file) return;
+
+        // Mostrar na tela imediatamente
+        let userDisplay = 'Você: ' + msg;
+        if (file) userDisplay += ` [Anexando imagem...]`;
+        addMessage(userDisplay, 'msg-user');
+
+        // Limpar UI
+        input.value = '';
+        input.placeholder = "Digite sua mensagem...";
+        attachBtn.style.color = ''; 
+        attachBtn.style.background = '';
+
+        try {
+            let payload = { message: msg, category: "geral" };
+
+            // Se houver arquivo, converte para Base64
+            if (file) {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                });
+                payload.image = base64; // Aqui o backend vai receber no data.get("image")
+            }
+
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Agora enviamos sempre JSON
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Erro no chat');
+
+            addMessage('NOG: ' + (data.response || data.text), 'msg-bot');
+
+        } catch (err) {
+            addMessage('Erro: ' + err.message, 'msg-bot');
+        } finally {
+            fileInput.value = '';
+        }
+    });
+
+    // Logout
+    document.getElementById('logout').addEventListener('click', () => {
+        localStorage.removeItem(TOKEN_KEY);
+        window.location.href = '/login';
+    });
 </script>
-
 </body>
 </html>

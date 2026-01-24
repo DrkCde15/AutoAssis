@@ -1,4 +1,4 @@
-# nogai.py
+# nogai.py - Integração com Gemini (google.genai) para geração de respostas
 import os
 import logging
 from dotenv import load_dotenv

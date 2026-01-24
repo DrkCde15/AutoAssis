@@ -1,4 +1,4 @@
-# app.py - Versão MySQL
+# app.py - Backend Flask
 import os
 import logging
 from datetime import timedelta, datetime, timezone
