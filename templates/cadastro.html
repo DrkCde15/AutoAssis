@@ -246,11 +246,8 @@
                 return;
             }
 
-            if (data.access_token) {
-                localStorage.setItem("access_token", data.access_token);
-            }
-
-            window.location.href = "/chat";
+            alert("Cadastro realizado com sucesso! Por favor, faça login.");
+            window.location.href = "/login";
 
         } catch (err) {
             showError("Erro de conexão com o servidor.");

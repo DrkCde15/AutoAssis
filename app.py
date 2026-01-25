@@ -24,7 +24,7 @@ from vision_ai import analisar_imagem
 # LOGGING
 # ======================================================
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -229,6 +229,14 @@ def chat_page():
     except:
         return jsonify(error="Página não encontrada"), 404
 
+@app.route("/perfil", methods=["GET"])
+def perfil_page():
+    try:
+        return render_template("perfil.html")
+    except Exception as e:
+        logger.error(f"Erro ao carregar página de perfil: {e}", exc_info=True)
+        return jsonify(error="Página de perfil não encontrada"), 404
+
 # ======================================================
 # AUTH
 # ======================================================
@@ -312,12 +320,15 @@ def login():
 @jwt_required()
 def get_user_info():
     try:
-        user_id = int(get_jwt_identity())
+        current_user_identity = get_jwt_identity()
+
+        user_id = int(current_user_identity)
         user = get_user_by_id(user_id)
-        
+
         if not user:
+            logger.warning(f"Usuário com ID {user_id} não encontrado após validação JWT.")
             return jsonify(error="Usuário não encontrado"), 404
-        
+
         return jsonify({
             "id": user["id"],
             "nome": user["nome"],
@@ -325,7 +336,7 @@ def get_user_info():
             "data_criacao": user["data_criacao"].isoformat() if hasattr(user["data_criacao"], 'isoformat') else str(user["data_criacao"])
         }), 200
     except Exception as e:
-        logger.error(f"Erro ao buscar usuário: {e}", exc_info=True)
+        logger.error(f"Erro ao buscar usuário na rota /api/user: {e}", exc_info=True)
         return jsonify(error="Erro ao buscar informações"), 500
 
 @app.route("/api/logout", methods=["POST"])

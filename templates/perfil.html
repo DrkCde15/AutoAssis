@@ -8,6 +8,14 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
     <style>
+        :root {
+            --primary-dark: #0f172a;
+            --secondary-dark: #1e293b;
+            --accent-blue: #1e3a8a;
+            --text-gray: #94a3b8;
+            --white: #ffffff;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,18 +23,18 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+            font-family: 'Inter', sans-serif; /* Consistente com home.html */
+            background-color: var(--primary-dark); /* Consistente com home.html */
             min-height: 100vh;
-            color: #fff;
+            color: var(--white); /* Texto principal branco */
         }
 
-        /* Navbar */
+        /* Navbar - Alinhada com home.html para usuários logados */
         .navbar {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(15, 23, 42, 0.8); /* Cor mais escura e translúcida */
+            backdrop-filter: blur(5px);
+            padding: 15px 30px; /* Ajustado para ser menos "pesado" */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .nav-container {
@@ -42,47 +50,68 @@
         .nav-logo {
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 24px;
-            font-weight: 700;
+            gap: 8px; /* Espaçamento menor */
+            font-size: 20px; /* Um pouco menor */
+            font-weight: 600;
             text-decoration: none;
-            color: white;
+            color: var(--white);
+            letter-spacing: 1px; /* Estilo de título */
+            text-transform: uppercase;
         }
 
         .nav-menu {
             display: flex;
-            gap: 20px;
+            gap: 25px; /* Espaçamento maior entre links */
             align-items: center;
             flex-wrap: wrap;
         }
 
         .nav-link {
-            color: white;
+            color: var(--white);
             text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            transition: all 0.3s;
+            padding: 6px 0; /* Menos padding vertical */
+            transition: opacity 0.3s;
+            font-size: 13px; /* Um pouco menor */
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .nav-link:hover {
-            background: rgba(255, 255, 255, 0.1);
+            opacity: 0.7;
+            background: transparent; /* Remove background on hover */
         }
-
-        .btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 10px;
+        
+        /* Botões */
+        .btn, .btn-minimal { /* Adicionado .btn-minimal para consistência */
+            border: 1px solid var(--white);
+            padding: 10px 25px; /* Ajustado */
+            color: var(--white);
+            text-decoration: none;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            background: transparent;
+            border-radius: 5px; /* Levemente arredondado */
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
         }
 
-        .btn:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
+        .btn:hover, .btn-minimal:hover {
+            background: var(--white);
+            color: var(--primary-dark);
+            transform: none; /* Remove transform */
+        }
+
+        .btn-danger {
+            background: #ef4444; /* Cor de fundo mais forte */
+            border-color: #ef4444; /* Borda da mesma cor */
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            border-color: #dc2626;
+            color: var(--white); /* Mantém branco no hover */
         }
 
         /* Profile Container */
@@ -93,11 +122,10 @@
         }
 
         .profile-header {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: var(--secondary-dark); /* Fundo escuro */
             padding: 40px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px; /* Mais arredondado */
+            border: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
             margin-bottom: 30px;
         }
@@ -111,7 +139,7 @@
         .profile-avatar {
             width: 120px;
             height: 120px;
-            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            background: var(--accent-blue); /* Cor de destaque */
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -120,6 +148,7 @@
             cursor: pointer;
             position: relative;
             transition: all 0.3s;
+            color: var(--white); /* Ícone branco */
         }
 
         .profile-avatar:hover {
@@ -154,38 +183,39 @@
 
         .photo-info {
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
+            color: var(--text-gray); /* Cor de texto cinza */
             margin-top: 12px;
         }
 
         .profile-header h2 {
             font-size: 28px;
             margin-bottom: 8px;
+            font-weight: 600; /* Mais negrito */
         }
 
         .profile-header p {
-            color: #93c5fd;
+            color: var(--text-gray); /* Cor de texto cinza */
             font-size: 16px;
         }
 
         .profile-info {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: var(--secondary-dark); /* Fundo escuro */
             padding: 32px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px; /* Mais arredondado */
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .profile-info h3 {
             margin-bottom: 24px;
             font-size: 22px;
+            font-weight: 600;
         }
 
         .info-row {
             display: flex;
             justify-content: space-between;
             padding: 16px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* Borda mais sutil */
         }
 
         .info-row:last-child {
@@ -193,7 +223,7 @@
         }
 
         .info-label {
-            color: #93c5fd;
+            color: var(--text-gray); /* Cor de texto cinza */
             font-weight: 500;
         }
 
@@ -206,20 +236,24 @@
             padding: 14px;
             font-size: 16px;
             margin-top: 24px;
-        }
-
-        .btn-danger {
-            background: #ef4444;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
+            border-radius: 8px; /* Ajuste para consistência */
         }
 
         @media (max-width: 768px) {
             .info-row {
                 flex-direction: column;
                 gap: 8px;
+            }
+            .nav-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .nav-menu {
+                justify-content: center;
+                width: 100%;
+            }
+            .navbar {
+                padding: 15px 20px;
             }
         }
     </style>
@@ -228,11 +262,9 @@
 
 <nav class="navbar">
     <div class="nav-container">
-        <a href="/" class="nav-logo">🚗 AutoAssist IA</a>
+        <a href="/" class="nav-logo">AutoAssist IA</a>
         <div class="nav-menu">
-            <a href="/" class="nav-link">Início</a>
             <a href="/chat" class="nav-link">Chat</a>
-            <a href="/perfil" class="nav-link">Perfil</a>
             <button class="btn" onclick="logout()">Sair</button>
         </div>
     </div>
@@ -266,16 +298,6 @@
         <div class="info-row">
             <span class="info-label">Email</span>
             <span class="info-value" id="infoEmail">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Membro desde</span>
-            <span class="info-value" id="infoDate">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">ID</span>
-            <span class="info-value" id="infoId">-</span>
         </div>
 
         <button class="btn btn-full btn-danger" onclick="logout()">Sair da Conta</button>

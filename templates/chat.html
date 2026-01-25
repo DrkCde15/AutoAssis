@@ -85,6 +85,25 @@
         }
         #logout:hover { background: rgba(239, 68, 68, 0.8); }
 
+        /* Estilo para botões do cabeçalho */
+        .header-button {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            border-radius: var(--radius);
+            text-decoration: none; /* Para links */
+            display: inline-flex; /* Para alinhar o texto e permitir padding */
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .header-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
         /* --- ÁREA DE MENSAGENS --- */
         #messages {
             flex: 1;
@@ -185,7 +204,10 @@
 
 <header>
     <strong>NOG • Chat</strong>
-    <button id="logout">Sair</button>
+    <div>
+        <a href="/" id="homeButton" class="header-button">Home</a>
+        <button id="logout" class="header-button">Sair</button>
+    </div>
 </header>
 
 <div id="messages"></div>
