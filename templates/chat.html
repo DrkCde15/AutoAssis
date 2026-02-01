@@ -5,7 +5,7 @@
     <title>NOG • Chat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
 
     <style>
         :root {
@@ -142,6 +142,77 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
             border-bottom-left-radius: 2px !important;
         }
+        
+        /* --- ESTILOS PARA CONTEÚDO FORMATADO --- */
+        .msg-bot pre {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--input-bg);
+            margin: 12px 0;
+        }
+
+        .msg-bot code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--input-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .msg-bot pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit;
+        }
+
+        .msg-bot ul, .msg-bot ol {
+            margin: 10px 0 10px 20px;
+        }
+
+        .msg-bot li {
+            margin-bottom: 5px;
+        }
+
+        .msg-bot a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .msg-bot a:hover {
+            text-decoration: underline;
+        }
+
+        .msg-bot blockquote {
+            border-left: 3px solid var(--primary);
+            padding-left: 12px;
+            margin: 12px 0;
+            color: var(--text-muted);
+        }
+        
+        /* --- ANIMAÇÃO DE DIGITAÇÃO --- */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            display: inline-block;
+            animation: typing-bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-of-type(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-of-type(2) { animation-delay: -0.16s; }
+
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
 
         @keyframes slideIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -219,7 +290,6 @@
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
         </svg>
     </button>
-
     <input id="messageInput" placeholder="Digite sua mensagem...">
     <button id="send">Enviar</button>
 </footer>
@@ -236,12 +306,36 @@
     const input = document.getElementById('messageInput');
     const fileInput = document.getElementById('fileInput');
     const attachBtn = document.getElementById('attach');
+    const sendBtn = document.getElementById('send');
 
     // Função para adicionar mensagens na tela
-    function addMessage(text, cls) {
+    function addMessage(text, cls, isHtml = false) {
         const div = document.createElement('div');
         div.className = cls;
-        div.textContent = text;
+        if (isHtml) {
+            div.innerHTML = text;
+        } else {
+            div.textContent = text;
+        }
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Mostra o indicador de "digitando"
+    function showTypingIndicator() {
+        const existingIndicator = document.getElementById('typing-indicator');
+        if (existingIndicator) return; 
+
+        const div = document.createElement('div');
+        div.className = 'msg-bot';
+        div.id = 'typing-indicator';
+        div.innerHTML = `
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
         messagesDiv.appendChild(div);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
@@ -255,34 +349,33 @@
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) {
             const fileName = fileInput.files[0].name;
-            attachBtn.style.color = '#3b82f6'; // Muda para azul
+            attachBtn.style.color = '#3b82f6';
             attachBtn.style.background = 'rgba(59, 130, 246, 0.1)';
             input.placeholder = `Arquivo selecionado: ${fileName}`;
         }
     });
 
-    // Lógica de envio de mensagem
-    document.getElementById('send').addEventListener('click', async () => {
+    const sendMessage = async () => {
         const msg = input.value.trim();
         const file = fileInput.files[0];
 
         if (!msg && !file) return;
 
-        // Mostrar na tela imediatamente
         let userDisplay = 'Você: ' + msg;
         if (file) userDisplay += ` [Anexando imagem...]`;
         addMessage(userDisplay, 'msg-user');
+        
+        showTypingIndicator();
 
-        // Limpar UI
         input.value = '';
         input.placeholder = "Digite sua mensagem...";
         attachBtn.style.color = ''; 
         attachBtn.style.background = '';
+        fileInput.value = '';
 
         try {
             let payload = { message: msg, category: "geral" };
 
-            // Se houver arquivo, converte para Base64
             if (file) {
                 const base64 = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -290,13 +383,13 @@
                     reader.onload = () => resolve(reader.result);
                     reader.onerror = error => reject(error);
                 });
-                payload.image = base64; // Aqui o backend vai receber no data.get("image")
+                payload.image = base64;
             }
 
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json', // Agora enviamos sempre JSON
+                    'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + token
                 },
                 body: JSON.stringify(payload)
@@ -305,12 +398,37 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Erro no chat');
 
-            addMessage('NOG: ' + (data.response || data.text), 'msg-bot');
+            const botResponse = data.response || data.text || 'Não obtive resposta.';
+            const formattedHtml = marked.parse(botResponse);
+            
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.innerHTML = `<strong>NOG:</strong><br>${formattedHtml}`;
+                indicator.id = ''; 
+                indicator.classList.remove('typing-indicator');
+            } else {
+                 addMessage(`<strong>NOG:</strong><br>${formattedHtml}`, 'msg-bot', true);
+            }
 
         } catch (err) {
-            addMessage('Erro: ' + err.message, 'msg-bot');
-        } finally {
-            fileInput.value = '';
+            const indicator = document.getElementById('typing-indicator');
+            const errorMessage = `<strong>Erro:</strong><br>${err.message}`;
+            if (indicator) {
+                indicator.innerHTML = errorMessage;
+                indicator.id = '';
+                indicator.classList.remove('typing-indicator');
+            } else {
+                addMessage(errorMessage, 'msg-bot', true);
+            }
+        }
+    };
+    
+    // Lógica de envio de mensagem
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault(); 
+            sendMessage();
         }
     });
 

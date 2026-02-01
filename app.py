@@ -376,9 +376,15 @@ def chat():
         
         # Processar com IA
         if image_b64:
+            # 1. Limpeza do Base64
             if ',' in image_b64:
                 image_b64 = image_b64.split(',')[1]
-            resposta = analisar_imagem(image_b64, message or "Analise esta imagem")
+            
+            # 2. Criar um nome de arquivo único por usuário
+            nome_temp = f"temp_user_{user_id}.png"
+            
+            # 3. Chamar a análise (Ajustado para 'filename' para bater com vision_ai.py)
+            resposta = analisar_imagem(image_b64, message or "Analise esta imagem", filename=nome_temp)
             tipo_resposta = "analise_imagem"
         else:
             resposta = gerar_resposta(message, user_id, categoria)
