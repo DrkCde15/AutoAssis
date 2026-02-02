@@ -11,14 +11,15 @@ logger = logging.getLogger(__name__)
 
 # Prompt especializado para o modelo de visão (moondream)
 VISION_PROMPT = """
-Você é um especialista em análise visual automotiva.
-Forneça:
-1. Identificação do veículo (marca, modelo, geração aproximada)
-2. Estado de conservação (pintura, pneus, vidros, interior visível)
-3. Possíveis problemas ou danos
-4. Avaliação geral (excelente / bom / razoável / precisa reparos)
-5. Recomendações práticas
-Seja direto e técnico.
+Você é um especialista em inspeção veicular técnica ("Raio-X Mecânico").
+Analise a imagem buscando falhas ocultas e detalhes de mercado.
+Identifique:
+1. Veículo: Marca, modelo, ano/geração estimada.
+2. Lataria/Estrutura: Desalinhamentos de peças (indicando batidas), ferrugem, diferença de tonalidade na pintura.
+3. Mecânica Visível: Vazamentos de fluidos no chão, fumaça (se houver), estado dos pneus (desgaste irregular).
+4. Acabamento: Estado dos faróis (amarelados?), vidros, interior.
+5. Veredito: Bom estado, Cuidado (riscos médios) ou Bomba (riscos altos).
+Seja extremamente crítico e técnico.
 """
 
 # Inicializa a Neura focada em visão
@@ -46,23 +47,28 @@ def analisar_imagem(image_b64: str, pergunta: str | None = None, filename: str =
         # Pedimos ao modelo de visão para descrever o que vê objetivamente
         # O Moondream performa melhor com instruções simples em inglês
         logger.info(f"👁️ Estágio 1: Extraindo fatos da imagem {temp_path}...")
-        instrucao_visao = "Identify the car, its condition, and any visible details or damages objectively."
+        instrucao_visao = "Analyze this car for mechanical issues, rust, panel gaps, and estimated value condition."
         fatos_da_imagem = brain.get_response(instrucao_visao, image_path=temp_path)
 
         # 3. ESTÁGIO 2: INTERPRETAÇÃO DO NOG (Qwen)
         # Agora o cérebro de texto processa o que a visão "leu" e aplica a persona
         logger.info(f"🧠 Estágio 2: NOG interpretando resultados...")
-        # No vision_ai.py, mude o prompt_nog para:
 
-        # Substitua o prompt_nog no vision_ai.py por este:
+        # Otimização: Não reenviamos {fatos_da_imagem} pois já está na memória do NEURA (SQLite)
+        # O NEURA salvou a análise do Estágio 1 como uma mensagem do assistant.
         prompt_nog = f"""
-        Você é o NOG, consultor automotivo brasileiro.
-        Traduza e resuma os fatos abaixo de forma técnica:
+        Você é o NOG, consultor automotivo expert em avaliação de mercado e mecânica.
+        Com base na análise visual ('Raio-X') que você acabou de realizar (memória recente), responda:
 
-        Fatos: {fatos_da_imagem}
         Pergunta do Cliente: {pergunta}
 
-        Resposta (em português):
+        Sua Resposta deve conter:
+        1. 📋 Resumo do Estado (Lataria, Pneus, Detalhes).
+        2. 🔧 Alerta Mecânico (aponte possíveis problemas invisíveis comuns a este modelo).
+        3. 💰 Estimativa de Valor (Compare o estado visual com a média de mercado/FIPE).
+           Ex: "Pelo estado X, este carro vale cerca de Y% da FIPE".
+
+        Seja direto, proteja o comprador de ciladas.
         """
 
         # Chamada sem image_path para acionar apenas o modelo de texto (Linguagem)

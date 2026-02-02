@@ -273,15 +273,28 @@
 </head>
 <body>
 
-<header>
-    <strong>NOG • Chat</strong>
-    <div>
-        <a href="/" id="homeButton" class="header-button">Home</a>
-        <button id="logout" class="header-button">Sair</button>
-    </div>
-</header>
+    <header>
+        <div class="logo">
+            <a href="/">AutoAssist <span style="color:var(--primary)">IA</span></a>
+        </div>
+        <div style="display:flex; align-items:center; gap:15px;">
+             <!-- Botão Premium (Invisível por padrão) -->
+            <button id="btnReport" class="btn-premium" style="display:none;" title="Gerar Laudo PDF">
+                <i class="fas fa-file-pdf"></i> Laudo
+            </button>
+            <button id="logout" class="btn-logout" title="Sair">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+    </header>
 
-<div id="messages"></div>
+    <div class="chat-container" id="messages">
+        <div class="msg-bot">
+            Olá! Sou o <strong>NOG</strong>.
+            <br>Envie uma foto do carro ou descreva o problema.
+            <br><em>Dica: Sou especialista em encontrar defeitos ocultos.</em>
+        </div>
+    </div>
 
 <footer>
     <input type="file" id="fileInput" style="display: none;">
@@ -291,14 +304,18 @@
         </svg>
     </button>
     <input id="messageInput" placeholder="Digite sua mensagem...">
+    
+    <!-- Botão de Voz (Premium) -->
+    <button id="btnVoice" class="btn-icon" style="display:none; margin-right:5px;" title="Segure para Falar">
+        <i class="fas fa-microphone"></i>
+    </button>
+    
     <button id="send">Enviar</button>
 </footer>
 
+<script src="/static/js/auth.js"></script>
 <script>
-    const TOKEN_KEY = 'access_token';
-    const token = localStorage.getItem(TOKEN_KEY);
-
-    if (!token) {
+    if (!Auth.isAuthenticated()) {
         window.location.href = '/login';
     }
 
@@ -307,6 +324,116 @@
     const fileInput = document.getElementById('fileInput');
     const attachBtn = document.getElementById('attach');
     const sendBtn = document.getElementById('send');
+    const btnReport = document.getElementById('btnReport');
+    const btnVoice = document.getElementById('btnVoice');
+    
+    // Variável para guardar a última resposta da IA (para o relatório)
+    let lastAnalysisText = "";
+    // Flag para saber se deve ler a resposta em voz alta
+    let isVoiceActive = false;
+
+    // Instância do reconhecimento de voz (Web Speech API)
+    let recognition = null;
+    if ('webkitSpeechRecognition' in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = function() {
+            btnVoice.style.color = 'red';
+            input.placeholder = "Ouvindo...";
+        };
+
+        recognition.onend = function() {
+            btnVoice.style.color = '';
+            input.placeholder = "Digite sua mensagem...";
+        };
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            input.value = transcript;
+            isVoiceActive = true; // Ativa modo resposta por voz
+            sendMessage(); // Envia automaticamente
+        };
+    }
+
+    // Verifica se é Premium para mostrar os botões
+    const user = Auth.getUser();
+    if (user && user.is_premium) {
+        btnReport.style.display = 'block';
+        if (recognition) btnVoice.style.display = 'block';
+    }
+
+    // Evento do Botão de Voz
+    btnVoice.addEventListener('mousedown', () => {
+        if (recognition) recognition.start();
+    });
+
+    // Funcionalidade do Botão Relatório
+    btnReport.addEventListener('click', async () => {
+        if (!lastAnalysisText) {
+            alert('Faça uma análise primeiro para gerar o relatório.');
+            return;
+        }
+        
+        btnReport.disabled = true;
+        btnReport.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
+
+        try {
+            const res = await Auth.authenticatedFetch('/api/report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: lastAnalysisText })
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                window.open(data.url, '_blank');
+            } else {
+                alert(data.error || 'Erro ao gerar relatório.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Erro de conexão.');
+        } finally {
+            btnReport.disabled = false;
+            btnReport.innerHTML = '<i class="fas fa-file-pdf"></i> Laudo';
+        }
+    });
+
+    // Carrega histórico de mensagens
+    async function loadHistory() {
+        try {
+            const res = await Auth.authenticatedFetch('/api/chat/history');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.chats && data.chats.length > 0) {
+                    // Limpa a mensagem de boas-vindas se tiver histórico
+                    messagesDiv.innerHTML = ''; 
+                    
+                    data.chats.forEach(chat => {
+                        // Mensagem do Usuário
+                        addMessage('Você: ' + chat.mensagem_usuario, 'msg-user');
+                        
+                        // Mensagem do Bot
+                        const html = marked.parse(chat.resposta_ia);
+                        const div = document.createElement('div');
+                        div.className = 'msg-bot';
+                        div.innerHTML = `<strong>NOG:</strong><br>${html}`;
+                        messagesDiv.appendChild(div);
+                    });
+                    
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao carregar histórico:", e);
+        }
+    }
+
+    // Inicialização
+    loadHistory();
 
     // Função para adicionar mensagens na tela
     function addMessage(text, cls, isHtml = false) {
@@ -386,11 +513,11 @@
                 payload.image = base64;
             }
 
-            const res = await fetch('/api/chat', {
+            // USA O AUTHENTICATED FETCH PARA GERIR O TOKEN AUTOMATICAMENTE
+            const res = await Auth.authenticatedFetch('/api/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload)
             });
@@ -399,6 +526,7 @@
             if (!res.ok) throw new Error(data.error || 'Erro no chat');
 
             const botResponse = data.response || data.text || 'Não obtive resposta.';
+            lastAnalysisText = botResponse; // Salva para o relatório (PREMIUM)
             const formattedHtml = marked.parse(botResponse);
             
             const indicator = document.getElementById('typing-indicator');
@@ -408,6 +536,16 @@
                 indicator.classList.remove('typing-indicator');
             } else {
                  addMessage(`<strong>NOG:</strong><br>${formattedHtml}`, 'msg-bot', true);
+            }
+
+            // --- TTS (Texto para Fala) - Apenas Premium ---
+            if (isVoiceActive && user && user.is_premium) {
+                // Limpa formatação Markdown para leitura
+                const cleanText = botResponse.replace(/[#*_`\[\]]/g, ''); 
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = "pt-BR";
+                window.speechSynthesis.speak(utterance);
+                isVoiceActive = false; // Reseta flag
             }
 
         } catch (err) {
@@ -424,18 +562,21 @@
     };
     
     // Lógica de envio de mensagem
-    sendBtn.addEventListener('click', sendMessage);
+    sendBtn.addEventListener('click', () => {
+        isVoiceActive = false; // Envio manual não aciona voz
+        sendMessage();
+    });
     input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault(); 
+            isVoiceActive = false;
             sendMessage();
         }
     });
 
-    // Logout
+    // Logout via Auth Class
     document.getElementById('logout').addEventListener('click', () => {
-        localStorage.removeItem(TOKEN_KEY);
-        window.location.href = '/login';
+        Auth.logout();
     });
 </script>
 </body>

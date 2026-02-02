@@ -288,86 +288,163 @@
     </div>
 
     <div class="profile-info">
-        <h3>Informações da Conta</h3>
+        <h3>Editar Perfil</h3>
 
         <div class="info-row">
             <span class="info-label">Nome</span>
-            <span class="info-value" id="infoName">-</span>
+            <input type="text" id="infoName" class="input-field" placeholder="Seu nome">
         </div>
 
         <div class="info-row">
             <span class="info-label">Email</span>
-            <span class="info-value" id="infoEmail">-</span>
+            <input type="email" id="infoEmail" class="input-field" placeholder="seu@email.com">
         </div>
 
-        <button class="btn btn-full btn-danger" onclick="logout()">Sair da Conta</button>
+        <div class="info-row">
+            <span class="info-label">Status</span>
+            <span class="info-value" id="infoStatus" style="color:var(--primary)">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Total de Consultas</span>
+            <span class="info-value" id="infoConsultas">-</span>
+        </div>
+        
+        <button id="btnSave" class="btn btn-full">Salvar Alterações</button>
     </div>
 </div>
 
-<script>
-    const USER_KEY = 'autoassist_user';
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const userStr = localStorage.getItem(USER_KEY);
-        if (!userStr) {
-            location.href = '/login';
-            return;
+    <style>
+        .input-field {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 60%;
+            text-align: right;
         }
-
-        const user = JSON.parse(userStr);
-        preencherPerfil(user);
-        carregarFoto(user);
-    });
-
-    function preencherPerfil(user) {
-        document.getElementById('profileName').textContent = user.nome;
-        document.getElementById('profileEmail').textContent = user.email;
-        document.getElementById('infoName').textContent = user.nome;
-        document.getElementById('infoEmail').textContent = user.email;
-        document.getElementById('infoDate').textContent = user.dataCriacao || '—';
-        document.getElementById('infoId').textContent = user.id || '—';
-
-        document.getElementById('profileAvatar').firstChild.textContent =
-            user.nome.charAt(0).toUpperCase();
-    }
-
-    function carregarFoto(user) {
-        const foto = localStorage.getItem(`profilePhoto_${user.email}`);
-        if (!foto) return;
-
-        const avatar = document.getElementById('profileAvatar');
-        avatar.innerHTML = `
-            <img src="${foto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
-            <div class="photo-upload-overlay"><i class="fas fa-camera"></i></div>
-        `;
-    }
-
-    photoInput.addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file || !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
-            alert('Imagem inválida (máx 5MB)');
-            return;
+        .input-field:focus {
+            border-color: var(--primary);
+            outline: none;
         }
+    </style>
 
-        const reader = new FileReader();
-        reader.onload = ev => {
-            const user = JSON.parse(localStorage.getItem(USER_KEY));
-            localStorage.setItem(`profilePhoto_${user.email}`, ev.target.result);
-            carregarFoto(user);
-            alert('✓ Foto atualizada');
-        };
-        reader.readAsDataURL(file);
-        e.target.value = '';
-    });
+    <script src="/static/js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!Auth.isAuthenticated()) {
+                window.location.href = '/login';
+                return;
+            }
 
-    function logout() {
-        if (confirm('Deseja sair da conta?')) {
-            localStorage.removeItem(USER_KEY);
-            localStorage.removeItem('access_token');
-            location.href = '/';
+            const headerName = document.getElementById('profileName');
+            const headerEmail = document.getElementById('profileEmail');
+            const infoName = document.getElementById('infoName');
+            const infoEmail = document.getElementById('infoEmail');
+            const infoStatus = document.getElementById('infoStatus');
+            const infoConsultas = document.getElementById('infoConsultas');
+            const btnSave = document.getElementById('btnSave');
+            const photoInput = document.getElementById('photoInput');
+
+            // Carrega dados do Backend
+            try {
+                const res = await Auth.authenticatedFetch('/api/user');
+                if (res.ok) {
+                    const user = await res.json();
+                    
+                    headerName.textContent = user.nome;
+                    headerEmail.textContent = user.email;
+                    
+                    infoName.value = user.nome;
+                    infoEmail.value = user.email;
+                    
+                    const isPrem = user.is_premium;
+                    infoStatus.textContent = isPrem ? "PREMIUM 🌟" : "Gratuito";
+                    infoStatus.style.color = isPrem ? "#fbbf24" : "#94a3b8";
+
+                    infoConsultas.textContent = user.total_consultas;
+                    
+                    // Carrega foto local (se tiver)
+                    carregarFoto(user);
+
+                } else {
+                    Auth.logout();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+
+            // Lógica de Salvar (PUT /api/user)
+            btnSave.addEventListener('click', async () => {
+                const newName = infoName.value.trim();
+                const newEmail = infoEmail.value.trim();
+                
+                if(!newName || !newEmail) {
+                    alert('Preencha os campos obrigatórios.');
+                    return;
+                }
+
+                btnSave.disabled = true;
+                btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+                try {
+                    const res = await Auth.authenticatedFetch('/api/user', {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ nome: newName, email: newEmail })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if(res.ok) {
+                        alert('Perfil atualizado!');
+                        headerName.textContent = newName;
+                        headerEmail.textContent = newEmail;
+                    } else {
+                        alert(data.error || 'Erro ao salvar');
+                    }
+                } catch(e) {
+                    alert('Erro de conexão');
+                } finally {
+                    btnSave.disabled = false;
+                    btnSave.textContent = 'Salvar Alterações';
+                }
+            });
+
+            // Lógica de Foto (LocalStorage apenas visual)
+            function carregarFoto(user) {
+                const photoData = localStorage.getItem('user_photo_' + user.email);
+                if (photoData) {
+                    const avatar = document.getElementById('profileAvatar');
+                    avatar.style.backgroundImage = `url(${photoData})`;
+                    avatar.style.backgroundSize = 'cover';
+                    avatar.textContent = '';
+                }
+            }
+
+            photoInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const avatar = document.getElementById('profileAvatar');
+                        avatar.style.backgroundImage = `url(${e.target.result})`;
+                        avatar.style.backgroundSize = 'cover';
+                        avatar.textContent = '';
+                        
+                        const email = document.getElementById('infoEmail').value;
+                        if(email) localStorage.setItem('user_photo_' + email, e.target.result);
+                    }
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+        });
+
+        // Logout Global
+        function logout() {
+            if(confirm('Tem certeza?')) Auth.logout();
         }
-    }
-</script>
+    </script>
 
 </body>
 </html>

@@ -1,158 +1,160 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login • NOG</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
 
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Inter", sans-serif;
+      }
 
-        body {
-            background: linear-gradient(180deg, #0b1a3a, #0a1430);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+      body {
+        background: linear-gradient(180deg, #0b1a3a, #0a1430);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-        .container {
-            width: 100%;
-            max-width: 420px;
-            background: rgba(255,255,255,0.05);
-            padding: 40px;
-            border-radius: 18px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
+      .container {
+        width: 100%;
+        max-width: 420px;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 40px;
+        border-radius: 18px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
 
-        h1 {
-            color: #fff;
-            text-align: center;
-            margin-bottom: 8px;
-        }
+      h1 {
+        color: #fff;
+        text-align: center;
+        margin-bottom: 8px;
+      }
 
-        p {
-            color: rgba(255,255,255,0.6);
-            text-align: center;
-            margin-bottom: 30px;
-        }
+      p {
+        color: rgba(255, 255, 255, 0.6);
+        text-align: center;
+        margin-bottom: 30px;
+      }
 
-        label {
-            color: #fff;
-            font-size: 14px;
-            margin-bottom: 6px;
-            display: block;
-        }
+      label {
+        color: #fff;
+        font-size: 14px;
+        margin-bottom: 6px;
+        display: block;
+      }
 
-        input {
-            width: 100%;
-            padding: 14px;
-            margin-bottom: 18px;
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.05);
-            color: #fff;
-            outline: none;
-        }
+      input {
+        width: 100%;
+        padding: 14px;
+        margin-bottom: 18px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff;
+        outline: none;
+      }
 
-        button {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            background: #2563eb;
-            color: #fff;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-        }
+      button {
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 12px;
+        background: #2563eb;
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+      }
 
-        .alert {
-            display: none;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
+      .alert {
+        display: none;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+      }
 
-        .error {
-            background: rgba(239,68,68,0.2);
-            color: #fecaca;
-        }
+      .error {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fecaca;
+      }
 
-        .links {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 14px;
-            color: rgba(255,255,255,0.6);
-        }
+      .links {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.6);
+      }
 
-        .links a {
-            color: #2563eb;
-            text-decoration: none;
-            font-weight: 600;
-        }
+      .links a {
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 600;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
+    <div class="container">
+      <h1>NOG</h1>
+      <p>Login</p>
 
-<div class="container">
-    <h1>NOG</h1>
-    <p>Login</p>
+      <div id="error" class="alert error"></div>
 
-    <div id="error" class="alert error"></div>
-
-    <form id="loginForm">
+      <form id="loginForm">
         <label>Email</label>
-        <input type="email" id="email" required placeholder="Email">
+        <input type="email" id="email" required placeholder="Email" />
 
         <label>Senha</label>
-        <input type="password" id="password" required placeholder="Senha">
+        <input type="password" id="password" required placeholder="Senha" />
 
         <button type="submit">Entrar</button>
-    </form>
+      </form>
 
-    <div class="links">
+      <div class="links">
         Não tem conta? <a href="/cadastro">Cadastre-se</a>
+      </div>
     </div>
-</div>
 
-<script>
-const TOKEN_KEY = 'access_token';
-const form = document.getElementById('loginForm');
-const errorBox = document.getElementById('error');
+    <script src="/static/js/auth.js"></script>
+    <script>
+      const form = document.getElementById("loginForm");
+      const errorBox = document.getElementById("error");
 
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errorBox.style.display = 'none';
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorBox.style.display = "none";
 
-    try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: document.getElementById('email').value.trim().toLowerCase(),
-                password: document.getElementById('password').value
-            })
-        });
+        const email = document
+          .getElementById("email")
+          .value.trim()
+          .toLowerCase();
+        const password = document.getElementById("password").value;
 
-        const data = await res.json();
-
-        if (!res.ok) throw new Error(data.error || 'Erro no login');
-
-        localStorage.setItem(TOKEN_KEY, data.access_token);
-        window.location.href = '/';
-
-    } catch (err) {
-        errorBox.textContent = err.message;
-        errorBox.style.display = 'block';
-    }
-});
-</script>
-
-</body>
+        try {
+          // Usa a classe Auth centralizada
+          await Auth.login(email, password);
+          window.location.href = "/";
+        } catch (err) {
+          errorBox.textContent = err.message;
+          errorBox.style.display = "block";
+        }
+      });
+    </script>
+  </body>
 </html>

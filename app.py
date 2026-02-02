@@ -9,6 +9,7 @@ from flask_cors import CORS
 from flask_jwt_extended import (
     JWTManager,
     create_access_token,
+    create_refresh_token,
     jwt_required,
     get_jwt_identity
 )
@@ -22,6 +23,7 @@ from pymysql.cursors import DictCursor
 # Importação dos módulos de IA locais
 from nogai import gerar_resposta
 from vision_ai import analisar_imagem
+from report_generator import criar_relatorio_pdf # Import do Gerador de PDF premium
 
 # ======================================================
 # CONFIGURAÇÃO DE LOGGING
@@ -48,6 +50,7 @@ app = Flask(__name__)
 app.config.update(
     JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY"),
     JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=24),
+    JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=30),
     JWT_TOKEN_LOCATION=['headers'],
     JWT_HEADER_NAME='Authorization',
     JWT_HEADER_TYPE='Bearer'
@@ -111,11 +114,20 @@ def init_db():
                     nome VARCHAR(255) NOT NULL,
                     email VARCHAR(255) UNIQUE NOT NULL,
                     password VARCHAR(255) NOT NULL,
+                    is_premium BOOLEAN DEFAULT FALSE,
                     data_criacao DATETIME NOT NULL,
                     INDEX idx_email (email)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
             
+            # --- MIGRAÇÃO AUTOMÁTICA (Para bancos já criados) ---
+            # Verifica se a coluna is_premium existe, se não, cria.
+            cursor.execute("SHOW COLUMNS FROM users LIKE 'is_premium'")
+            if not cursor.fetchone():
+                cursor.execute("ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT FALSE")
+                logger.info("🔧 Migração: Coluna 'is_premium' adicionada com sucesso.")
+            # -----------------------------------------------------
+
             # Tabela de Chats (Histórico)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS chats (
@@ -169,6 +181,43 @@ def perfil_page(): return render_template("perfil.html")
 # ENDPOINTS DA API
 # ======================================================
 
+# ======================================================
+# LÓGICA DE TRIAL (30 DIAS)
+# ======================================================
+def is_trial_expired(user):
+    """Retorna True se o usuário NÃO é Premium e passou de 30 dias."""
+    if user.get("is_premium"):
+        return False
+        
+    # Se data_criacao for string (de query manual), converte
+    created_at = user["data_criacao"]
+    if isinstance(created_at, str):
+        created_at = datetime.fromisoformat(created_at)
+        
+    # Garante fuso horário aware
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+        
+    now = datetime.now(timezone.utc)
+    delta = now - created_at
+    return delta.days >= 30
+
+@app.route("/api/pay/mock", methods=["POST"])
+@jwt_required()
+def mock_payment():
+    """Simula pagamento realizado via PIX"""
+    user_id = int(get_jwt_identity())
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("UPDATE users SET is_premium = TRUE WHERE id = %s", (user_id,))
+            return jsonify({
+                "success": True, 
+                "message": "Pagamento confirmado! Você agora é Premium 🌟"
+            }), 200
+    except Exception as e:
+        logger.error(f"Erro no pagamento mock: {e}")
+        return jsonify(error="Erro ao processar pagamento"), 500
+
 @app.route("/api/home", methods=["GET"])
 @jwt_required()
 def get_home_data():
@@ -220,7 +269,7 @@ def cadastro():
                 return jsonify(error="Email já registado"), 409
             
             cursor.execute(
-                "INSERT INTO users (nome, email, password, data_criacao) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO users (nome, email, password, is_premium, data_criacao) VALUES (%s, %s, %s, FALSE, %s)",
                 (nome, email, hash_password(password), datetime.now(timezone.utc))
             )
         return jsonify(success=True), 201
@@ -243,11 +292,84 @@ def login():
             if not user or not verify_password(password, user["password"]):
                 return jsonify(error="Credenciais inválidas"), 401
             
+            
             token = create_access_token(identity=str(user["id"]))
-            return jsonify(access_token=token, user={"nome": user["nome"], "email": user["email"]}), 200
+            refresh_token = create_refresh_token(identity=str(user["id"]))
+            
+            return jsonify(
+                access_token=token, 
+                refresh_token=refresh_token,
+                user={
+                    "nome": user["nome"], 
+                    "email": user["email"],
+                    "is_premium": bool(user["is_premium"]),
+                    "trial_expired": is_trial_expired(user)
+                }
+            ), 200
     except Exception as e:
         logger.error(f"Erro no login: {e}")
         return jsonify(error="Erro interno"), 500
+
+@app.route("/api/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    """Renova Access Token. Se for Premium, renova também o Refresh Token (Sliding Expiration)."""
+    try:
+        current_user_id = get_jwt_identity()
+        new_access_token = create_access_token(identity=current_user_id)
+        
+        response_data = {"access_token": new_access_token}
+
+        # Verifica se o usuário é Premium para aplicar renovação infinita
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_premium FROM users WHERE id = %s", (current_user_id,))
+            user = cursor.fetchone()
+            
+            if user and user.get('is_premium'):
+                # Sliding Expiration: Gera um NOVO Refresh Token de +30 dias
+                new_refresh_token = create_refresh_token(identity=current_user_id)
+                response_data["refresh_token"] = new_refresh_token
+                
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        logger.error(f"Erro no refresh: {e}")
+        return jsonify(error="Erro ao renovar token"), 401
+
+@app.route("/api/report", methods=["POST"])
+@jwt_required()
+def generate_report():
+    """Endpoint Premium: Gera relatório PDF da última análise"""
+    user_id = int(get_jwt_identity())
+    data = request.get_json()
+    conteudo_analise = data.get("text", "")
+
+    try:
+        with get_db() as (cursor, conn):
+            # 1. Verifica se é Premium
+            cursor.execute("SELECT nome, email, is_premium FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user or not user['is_premium']:
+                return jsonify(error="Recurso exclusivo para usuários Premium 🌟"), 403
+
+            # 2. Gera o Relatório
+            filename = f"report_{user_id}_{uuid.uuid4().hex[:8]}.pdf"
+            filepath = os.path.join("static", "reports", filename)
+            
+            sucesso = criar_relatorio_pdf(user, conteudo_analise, filepath)
+            
+            if sucesso:
+                return jsonify({
+                    "url": f"/static/reports/{filename}",
+                    "message": "Relatório gerado com sucesso!"
+                }), 200
+            else:
+                return jsonify(error="Erro na geração do arquivo"), 500
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar relatório: {e}")
+        return jsonify(error="Erro interno no servidor"), 500
 
 @app.route("/api/user", methods=["GET"])
 @jwt_required()
@@ -257,7 +379,7 @@ def get_profile():
     try:
         with get_db() as (cursor, conn):
             # Buscar dados do utilizador
-            cursor.execute("SELECT nome, email, data_criacao FROM users WHERE id = %s", (user_id,))
+            cursor.execute("SELECT nome, email, is_premium, data_criacao FROM users WHERE id = %s", (user_id,))
             user = cursor.fetchone()
             
             if not user:
@@ -270,6 +392,8 @@ def get_profile():
             return jsonify({
                 "nome": user["nome"],
                 "email": user["email"],
+                "is_premium": bool(user["is_premium"]),
+                "trial_expired": is_trial_expired(user),
                 "data_criacao": user["data_criacao"].strftime("%d/%m/%Y"),
                 "total_consultas": stats["total"] if stats else 0
             }), 200
@@ -279,46 +403,85 @@ def get_profile():
 
 @app.route("/api/chat", methods=["POST"])
 @jwt_required()
-@limiter.limit("15 per minute") # Limite para evitar travar o PC com IA local
+@limiter.limit("20 per minute")
 def chat():
+    user_id = int(get_jwt_identity())
+    data = request.get_json()
+    msg = data.get("message", "").strip()
+    img_b64 = data.get("image") # Base64 opcional
+    category = data.get("category", "geral")
+
     try:
-        user_id = int(get_jwt_identity())
-        data = request.get_json()
-        
-        message = data.get("message", "").strip()
-        categoria = data.get("category", "geral").lower()
-        image_b64 = data.get("image")
-
-        if not message and not image_b64:
-            return jsonify(error="Conteúdo vazio"), 400
-
-        # Lógica de IA Local (NOG)
-        if image_b64:
-            logger.info(f"📸 Análise visual requisitada pelo user {user_id}")
-            # Gera nome único para o ficheiro temporário
-            timestamp = int(datetime.now().timestamp())
-            temp_filename = f"temp_user_{user_id}_{timestamp}.png"
-            
-            # Chama o Pipeline de Dois Estágios (Visão + Linguagem)
-            resposta = analisar_imagem(image_b64, message or "Analise este veículo", filename=temp_filename)
-            tipo = "analise_imagem"
-        else:
-            # Chat de texto puro com a persona NOG
-            resposta = gerar_resposta(message, user_id, categoria)
-            tipo = "chat"
-
-        # Guardar na base de dados
         with get_db() as (cursor, conn):
+            # Verifica usuário e TRIAL
+            cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                return jsonify(error="Usuário não encontrado"), 404
+                
+            if is_trial_expired(user):
+                return jsonify({
+                    "error": "TRIAL_EXPIRED",
+                    "message": "Seu período de teste de 30 dias acabou."
+                }), 402
+
+            # 1. Pipeline de Visão (Se houver imagem)
+            if img_b64:
+                logger.info(f"📸 Análise visual requisitada pelo user {user_id}")
+                timestamp = int(datetime.now().timestamp())
+                temp_filename = f"temp_user_{user_id}_{timestamp}.png"
+                resposta = analisar_imagem(img_b64, msg or "Analise este veículo", filename=temp_filename)
+            
+            # 2. Pipeline de Texto (NOG padrão)
+            else:
+                if not msg:
+                    return jsonify(error="Conteúdo vazio"), 400
+                    
+                # Busca contexto (últimas 5 msgs)
+                cursor.execute("""
+                    SELECT mensagem_usuario, resposta_ia 
+                    FROM chats 
+                    WHERE user_id = %s 
+                    ORDER BY data_criacao DESC LIMIT 5
+                """, (user_id,))
+                historico = cursor.fetchall()
+                
+                # Formata histórico p/ NOG
+                contexto_str = "\n".join([f"User: {h['mensagem_usuario']}\nNOG: {h['resposta_ia']}" for h in reversed(historico)])
+                resposta = gerar_resposta(msg, contexto_str)
+
+            # Salva no histórico
             cursor.execute(
                 "INSERT INTO chats (user_id, categoria, mensagem_usuario, resposta_ia, data_criacao) VALUES (%s, %s, %s, %s, %s)",
-                (user_id, categoria, message or "[Imagem]", resposta, datetime.now(timezone.utc))
+                (user_id, category, msg or "[Imagem]", resposta, datetime.now(timezone.utc))
             )
-
-        return jsonify(success=True, response=resposta, tipo=tipo), 200
+            
+            return jsonify(response=resposta)
 
     except Exception as e:
-        logger.error(f"Erro no endpoint de chat: {e}", exc_info=True)
-        return jsonify(error="Erro ao processar a consulta do NOG."), 500
+        logger.error(f"Erro no chat: {e}")
+        return jsonify(error=f"Erro interno: {str(e)}"), 500
+
+@app.route("/api/user", methods=["PUT"])
+@jwt_required()
+def update_profile():
+    """Atualiza dados do perfil (Nome, Email)"""
+    user_id = int(get_jwt_identity())
+    data = request.get_json()
+    novo_nome = data.get("nome")
+    novo_email = data.get("email")
+    
+    if not novo_nome or not novo_email:
+        return jsonify(error="Nome e Email são obrigatórios"), 400
+        
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("UPDATE users SET nome = %s, email = %s WHERE id = %s", (novo_nome, novo_email, user_id))
+            return jsonify(message="Perfil atualizado com sucesso!"), 200
+    except Exception as e:
+        logger.error(f"Erro update perfil: {e}")
+        return jsonify(error="Erro ao atualizar perfil"), 500
 
 @app.route("/api/chat/history", methods=["GET"])
 @jwt_required()
