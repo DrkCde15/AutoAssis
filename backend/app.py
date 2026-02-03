@@ -145,10 +145,12 @@ def cadastro():
     if not nome or not email or len(password) < 6: return jsonify(error="Dados inválidos"), 400
     try:
         with get_db() as (cursor, conn):
-            cursor.execute("INSERT INTO users (nome, email, password, data_criacao) VALUES (%s, %s, %s, %s)",
-                         (nome, email.lower(), bcrypt.hash(password), datetime.now(timezone.utc)))
+            cursor.execute("INSERT INTO users (nome, email, password) VALUES (%s, %s, %s)",
+                         (nome, email.lower(), bcrypt.hash(password)))
         return jsonify(success=True), 201
-    except: return jsonify(error="Erro ou email já existe"), 409
+    except Exception as e:
+        logging.error(f"❌ Erro no cadastro: {e}")
+        return jsonify(error="Erro ao processar cadastro ou email já existe"), 409
 
 @app.route("/api/login", methods=["POST"])
 def login():
