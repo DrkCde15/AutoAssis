@@ -1,7 +1,6 @@
 # vision_ai.py - Módulo especializado em análise visual automotiva usando NeuraVision (Ollama local)
 
 import os
-import io
 import base64
 import logging
 from neura_ai.core import Neura # type: ignore

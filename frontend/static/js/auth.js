@@ -8,13 +8,15 @@ class AuthManager {
         this.ACCESS_KEY = 'access_token';
         this.REFRESH_KEY = 'refresh_token';
         this.USER_KEY = 'autoassist_user';
+        // URL do Backend no Render: Substitua após o deploy
+        this.API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://seu-backend.onrender.com';
     }
 
     /**
      * Realiza login e salva os tokens
      */
     async login(email, password) {
-        const res = await fetch('/api/login', {
+        const res = await fetch(`${this.API_URL}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -56,7 +58,7 @@ class AuthManager {
         }
 
         try {
-            const res = await fetch('/api/refresh', {
+            const res = await fetch(`${this.API_URL}/api/refresh`, {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${refreshToken}`
@@ -99,7 +101,8 @@ class AuthManager {
 
         try {
             // Tenta a requisição original
-            let response = await fetch(url, options);
+            let finalUrl = url.startsWith('http') ? url : `${this.API_URL}${url}`;
+            let response = await fetch(finalUrl, options);
 
             // Se der 401 (Unauthorized), tenta renovar o token
             if (response.status === 401) {

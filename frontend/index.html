@@ -224,11 +224,11 @@
         <div class="nav-container">
             <div style="flex: 1;"></div>
 
-            <a href="/" class="nav-logo-minimal" id="centralIcon">A</a>
+            <a href="index.html" class="nav-logo-minimal" id="centralIcon">A</a>
 
             <div class="nav-links-right" id="authLinks" style="flex: 1; justify-content: flex-end;">
-                <a href="/login" class="nav-link">Entrar</a>
-                <a href="/cadastro" class="nav-link">Cadastrar</a>
+                <a href="login.html" class="nav-link">Entrar</a>
+                <a href="cadastro.html" class="nav-link">Cadastrar</a>
             </div>
         </div>
     </nav>
@@ -242,7 +242,7 @@
                 tudo potencializado pelo Google Gemini.
             </p>
             <div id="ctaContainer">
-                <a href="/cadastro" class="btn-minimal">Começar Agora</a>
+                <a href="cadastro.html" class="btn-minimal">Começar Agora</a>
             </div>
         </div>
     </section>
@@ -277,7 +277,7 @@
             <p style="color: var(--text-gray); margin-bottom: 40px;">
                 Pare de adivinhar problemas. Use a inteligência artificial para entender seu veículo.
             </p>
-            <a href="/cadastro" class="btn-minimal">Criar Conta Gratuita</a>
+            <a href="cadastro.html" class="btn-minimal">Criar Conta Gratuita</a>
         </div>
     </section>
 
@@ -369,7 +369,7 @@
         }
     </style>
 
-    <script src="/static/js/auth.js"></script>
+    <script src="static/js/auth.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const authLinks = document.getElementById('authLinks');
@@ -403,11 +403,11 @@
                     
                     authLinks.innerHTML = `
                         <span class="nav-link" style="cursor: default; color: #94a3b8;">Olá, ${userData.nome.split(' ')[0]}</span>
-                        <a href="/chat" class="nav-link" style="color: #60a5fa;"><i class="fas fa-comments"></i> Chat</a>
+                        <a href="chat.html" class="nav-link" style="color: #60a5fa;"><i class="fas fa-comments"></i> Chat</a>
                         <button id="btnLogout" class="nav-link" style="background:none; border:none; font-family:inherit;">SAIR</button>
                     `;
 
-                    ctaContainer.innerHTML = `<a href="/chat" class="btn-minimal">Acessar Consultor IA</a>`;
+                    ctaContainer.innerHTML = `<a href="chat.html" class="btn-minimal">Acessar Consultor IA</a>`;
 
                     document.getElementById('btnLogout').addEventListener('click', () => {
                         Auth.logout();
