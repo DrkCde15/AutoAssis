@@ -94,6 +94,39 @@ def get_db():
         cursor.close()
         conn.close()
 
+def init_db():
+    """Cria as tabelas se não existirem."""
+    with get_db() as (cursor, conn):
+        # Tabela de Usuários
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nome VARCHAR(100) NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                is_premium BOOLEAN DEFAULT FALSE,
+                data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Tabela de Chats
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chats (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                mensagem_usuario TEXT,
+                resposta_ia TEXT,
+                data DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+        print("✅ Banco de dados inicializado com sucesso!")
+
+# Inicializa o banco ao carregar o app
+try:
+    init_db()
+except Exception as e:
+    print(f"⚠️ Erro ao inicializar banco: {e}")
+
 def is_trial_expired(user):
     if user.get("is_premium"): return False
     created_at = user["data_criacao"]
