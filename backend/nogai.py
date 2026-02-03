@@ -25,8 +25,14 @@ Estrutura de Resposta Padrão:
 
 # Inicializa a Neura para Texto
 import os
-ollama_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT, ollama_url=ollama_url)
+from neura_ai.config import NeuraConfig
+
+# Configura a URL do Ollama a partir da variável de ambiente (Túnel Cloudflare)
+ollama_url = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip('/')
+NeuraConfig.OLLAMA_BASE_URL = ollama_url
+NeuraConfig.OLLAMA_API_URL = f"{ollama_url}/api/generate"
+
+brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT)
 
 def gerar_resposta(mensagem: str, user_id: int, categoria: str = "geral") -> str:
     """
