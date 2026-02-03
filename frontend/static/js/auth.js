@@ -9,7 +9,7 @@ class AuthManager {
         this.REFRESH_KEY = 'refresh_token';
         this.USER_KEY = 'autoassist_user';
         // URL do Backend no Render: Substitua após o deploy
-        this.API_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://seu-backend.onrender.com';
+        this.API_URL = this.API_URL = 'https://autoassis.onrender.com';
     }
 
     /**
