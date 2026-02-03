@@ -1,218 +1,224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>NOG • Cadastro</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Inter", sans-serif;
+      }
 
-        body {
-            background: linear-gradient(180deg, #0b1a3a, #0a1430);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+      body {
+        background: linear-gradient(180deg, #0b1a3a, #0a1430);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
 
-        .cadastro-container {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-radius: 18px;
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
-            padding: 40px;
-            width: 100%;
-            max-width: 420px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+      .cadastro-container {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 18px;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+        padding: 40px;
+        width: 100%;
+        max-width: 420px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
 
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+      .logo {
+        text-align: center;
+        margin-bottom: 30px;
+      }
 
-        .logo h1 {
-            color: #fff;
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
+      .logo h1 {
+        color: #fff;
+        font-size: 32px;
+        margin-bottom: 8px;
+      }
 
-        .logo p {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-        }
+      .logo p {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 14px;
+      }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
+      .form-group {
+        margin-bottom: 20px;
+      }
 
-        label {
-            display: block;
-            color: #fff;
-            font-weight: 500;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
+      label {
+        display: block;
+        color: #fff;
+        font-weight: 500;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
 
-        .input-wrapper {
-            position: relative;
-        }
+      .input-wrapper {
+        position: relative;
+      }
 
-        .input-wrapper i {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: rgba(255, 255, 255, 0.5);
-        }
+      .input-wrapper i {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: rgba(255, 255, 255, 0.5);
+      }
 
-        input {
-            width: 100%;
-            padding: 14px 14px 14px 42px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            outline: none;
-            font-size: 15px;
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            transition: all 0.3s;
-        }
+      input {
+        width: 100%;
+        padding: 14px 14px 14px 42px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        outline: none;
+        font-size: 15px;
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff;
+        transition: all 0.3s;
+      }
 
-        input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
+      input::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
 
-        input:focus {
-            border-color: #2563eb;
-            background: rgba(255, 255, 255, 0.08);
-        }
+      input:focus {
+        border-color: #2563eb;
+        background: rgba(255, 255, 255, 0.08);
+      }
 
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
+      .btn {
+        width: 100%;
+        padding: 14px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 10px;
+      }
 
-        .btn:hover:not(:disabled) {
-            background: #1e40af;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-        }
+      .btn:hover:not(:disabled) {
+        background: #1e40af;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+      }
 
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
 
-        .alert {
-            padding: 12px 16px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            display: none;
-        }
+      .alert {
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        display: none;
+      }
 
-        .alert-error {
-            background: rgba(239, 68, 68, 0.2);
-            color: #fecaca;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
+      .alert-error {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fecaca;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+      }
 
-        .alert-success {
-            background: rgba(16, 185, 129, 0.2);
-            color: #6ee7b7;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
+      .alert-success {
+        background: rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+      }
 
-        .links {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
-        }
+      .links {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.6);
+      }
 
-        .links a {
-            color: #2563eb;
-            text-decoration: none;
-            font-weight: 600;
-        }
+      .links a {
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 600;
+      }
 
-        .links a:hover {
-            text-decoration: underline;
-        }
+      .links a:hover {
+        text-decoration: underline;
+      }
     </style>
-</head>
-<body>
-
-<div class="cadastro-container">
-    <div class="logo">
+  </head>
+  <body>
+    <div class="cadastro-container">
+      <div class="logo">
         <h1>NOG</h1>
         <p>Criar nova conta</p>
-    </div>
+      </div>
 
-    <div class="alert alert-error" id="alertError"></div>
+      <div class="alert alert-error" id="alertError"></div>
 
-    <div class="form-group">
+      <div class="form-group">
         <label>Nome</label>
         <div class="input-wrapper">
-            <i class="fas fa-user"></i>
-            <input id="nome" placeholder="Seu nome completo">
+          <i class="fas fa-user"></i>
+          <input id="nome" placeholder="Seu nome completo" />
         </div>
-    </div>
+      </div>
 
-    <div class="form-group">
+      <div class="form-group">
         <label>Email</label>
         <div class="input-wrapper">
-            <i class="fas fa-envelope"></i>
-            <input id="email" type="email" placeholder="seu@email.com">
+          <i class="fas fa-envelope"></i>
+          <input id="email" type="email" placeholder="seu@email.com" />
         </div>
-    </div>
+      </div>
 
-    <div class="form-group">
+      <div class="form-group">
         <label>Senha</label>
         <div class="input-wrapper">
-            <i class="fas fa-lock"></i>
-            <input id="senha" type="password" placeholder="••••••••">
+          <i class="fas fa-lock"></i>
+          <input id="senha" type="password" placeholder="••••••••" />
         </div>
-    </div>
+      </div>
 
-    <button class="btn" id="btnCadastrar">Cadastrar</button>
+      <button class="btn" id="btnCadastrar">Cadastrar</button>
 
-    <div class="links">
+      <div class="links">
         Já tem conta?
         <a href="login.html">Entrar</a>
+      </div>
     </div>
-</div>
 
-<script>
-    const btn = document.getElementById("btnCadastrar");
-    const alertError = document.getElementById("alertError");
+    <script src="./static/js/auth.js"></script>
+    <script>
+      const btn = document.getElementById("btnCadastrar");
+      const alertError = document.getElementById("alertError");
 
-    function showError(msg) {
+      function showError(msg) {
         alertError.textContent = msg;
         alertError.style.display = "block";
-    }
+      }
 
-    btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async () => {
         alertError.style.display = "none";
 
         const nome = document.getElementById("nome").value.trim();
@@ -220,41 +226,21 @@
         const senha = document.getElementById("senha").value;
 
         if (!nome || !email || !senha) {
-            showError("Preencha todos os campos.");
-            return;
+          showError("Preencha todos os campos.");
+          return;
         }
 
         btn.disabled = true;
 
         try {
-            const res = await fetch("/api/cadastro", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    nome,
-                    email,
-                    password: senha
-                })
-            });
-
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                showError(data.error || "Erro ao cadastrar.");
-                btn.disabled = false;
-                return;
-            }
-
-            alert("Cadastro realizado com sucesso! Por favor, faça login.");
-            window.location.href = "login.html";
-
+          await Auth.register(nome, email, senha);
+          alert("Cadastro realizado com sucesso! Por favor, faça login.");
+          window.location.href = "login.html";
         } catch (err) {
-            showError("Erro de conexão com o servidor.");
-            btn.disabled = false;
+          showError(err.message || "Erro de conexão com o servidor.");
+          btn.disabled = false;
         }
-    });
-</script>
-
-</body>
+      });
+    </script>
+  </body>
 </html>

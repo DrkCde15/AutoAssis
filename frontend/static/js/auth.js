@@ -35,6 +35,21 @@ class AuthManager {
     }
 
     /**
+     * Realiza cadastro de novo usuário
+     */
+    async register(nome, email, password) {
+        const res = await fetch(`${this.API_URL}/api/cadastro`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome, email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erro ao cadastrar');
+        return data;
+    }
+
+    /**
      * Faz logout local e (opcionalmente) no servidor
      */
     logout(redirect = true) {
