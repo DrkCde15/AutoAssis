@@ -1,3 +1,5 @@
 .env
 *.db
 venv/
+delete_user.py
+list_users.py

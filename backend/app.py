@@ -60,7 +60,7 @@ app.config.update(
 )
 
 jwt = JWTManager(app)
-CORS(app, resources={r"/api/*": {"origins": "*"}}) # Garantir acesso total do frontend
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 limiter = Limiter(
     app=app,
@@ -121,11 +121,15 @@ def init_db():
         """)
         print("✅ Banco de dados inicializado com sucesso!")
 
-# Inicializa o banco ao carregar o app
-try:
-    init_db()
-except Exception as e:
-    print(f"⚠️ Erro ao inicializar banco: {e}")
+# Inicializa o banco ao carregar o app de forma segura
+@app.before_request
+def first_request():
+    if not hasattr(app, "_db_initialized"):
+        try:
+            init_db()
+            app._db_initialized = True
+        except Exception as e:
+            logging.error(f"⚠️ Falha ao inicializar banco: {e}")
 
 def is_trial_expired(user):
     if user.get("is_premium"): return False
