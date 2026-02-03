@@ -74,8 +74,8 @@ MYSQL_CONFIG = {
     'cursorclass': DictCursor,
     'autocommit': True
 }
-logging.info(f"🔗 APP conectando ao Host: {MYSQL_CONFIG['host']}")
-logging.info(f"📁 Banco alvo: {MYSQL_CONFIG['database']}")
+print(f"🔗 APP conectando ao Host: {MYSQL_CONFIG['host']}")
+print(f"📁 Banco alvo: {MYSQL_CONFIG['database']}")
 
 @contextmanager
 def get_db():
