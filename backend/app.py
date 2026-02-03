@@ -49,7 +49,7 @@ app.config.update(
 )
 
 jwt = JWTManager(app)
-CORS(app) # Permite acesso de qualquer origem (Netlify)
+CORS(app, resources={r"/api/*": {"origins": "*"}}) # Garantir acesso total do frontend
 
 limiter = Limiter(
     app=app,
