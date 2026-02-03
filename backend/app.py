@@ -1,4 +1,12 @@
 # app.py - API Backend para AutoAssist
+import sys
+from unittest.mock import MagicMock
+
+# MOCK para bibliotecas de áudio (Necessário para rodar no Render/Linux sem drivers de som)
+sys.modules["speech_recognition"] = MagicMock()
+sys.modules["pyaudio"] = MagicMock()
+sys.modules["pyttsx3"] = MagicMock()
+
 import os
 import logging
 import uuid
