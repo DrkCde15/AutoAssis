@@ -1,14 +1,10 @@
 # app.py - API Backend para AutoAssist
 import sys
 from unittest.mock import MagicMock
-
-# MOCK para bibliotecas de áudio (Necessário para rodar no Render/Linux sem drivers de som)
 sys.modules["speech_recognition"] = MagicMock()
 sys.modules["pyaudio"] = MagicMock()
 sys.modules["pyttsx3"] = MagicMock()
-
 import os
-# BYPASS para Cloudflare Tunnel (Evita a tela de "Friendly Reminder" no Render)
 import requests
 original_get = requests.get
 def patched_get(*args, **kwargs):
@@ -38,8 +34,6 @@ from passlib.hash import bcrypt
 from dotenv import load_dotenv
 import pymysql
 from pymysql.cursors import DictCursor
-
-# Importação dos módulos de IA locais
 from nogai import gerar_resposta
 from vision_ai import analisar_imagem
 from report_generator import criar_relatorio_pdf
