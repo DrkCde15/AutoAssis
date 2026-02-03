@@ -22,8 +22,9 @@ Seja extremamente crítico e técnico.
 """
 
 # Inicializa a Neura focada em visão
-# Nota: A Neura usará o moondream definido no core por padrão
-brain = Neura(vision_model="moondream", system_prompt=VISION_PROMPT)
+import os
+ollama_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+brain = Neura(vision_model="moondream", system_prompt=VISION_PROMPT, ollama_url=ollama_url)
 
 def analisar_imagem(image_b64: str, pergunta: str | None = None, filename: str = "temp_vision_upload.png") -> str:
     """

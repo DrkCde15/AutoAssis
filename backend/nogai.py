@@ -24,8 +24,9 @@ Estrutura de Resposta Padrão:
 """
 
 # Inicializa a Neura para Texto
-# Usando o modelo local definido no seu Ollama
-brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT)
+import os
+ollama_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT, ollama_url=ollama_url)
 
 def gerar_resposta(mensagem: str, user_id: int, categoria: str = "geral") -> str:
     """
