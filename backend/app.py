@@ -8,6 +8,17 @@ sys.modules["pyaudio"] = MagicMock()
 sys.modules["pyttsx3"] = MagicMock()
 
 import os
+# BYPASS para Cloudflare Tunnel (Evita a tela de "Friendly Reminder" no Render)
+import requests
+original_get = requests.get
+def patched_get(*args, **kwargs):
+    headers = kwargs.get('headers', {}).copy()
+    headers['bypass-tunnel-reminder'] = 'true'
+    headers['User-Agent'] = 'Mozilla/5.0'
+    kwargs['headers'] = headers
+    return original_get(*args, **kwargs)
+requests.get = patched_get
+requests.post = lambda *args, **kwargs: original_get(*args, **kwargs) # Alias simplificado se necessário
 import logging
 import uuid
 from datetime import timedelta, datetime, timezone
