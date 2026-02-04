@@ -5,34 +5,50 @@ sys.modules["speech_recognition"] = MagicMock()
 sys.modules["pyaudio"] = MagicMock()
 sys.modules["pyttsx3"] = MagicMock()
 import os
-import requests
-original_get = requests.get
-original_post = requests.post
+def apply_global_patches():
+    # Patch para REQUESTS (usado por várias libs)
+    import requests
+    original_get = requests.get
+    original_post = requests.post
+    
+    def patched_get(*args, **kwargs):
+        headers = kwargs.get('headers', {}).copy()
+        headers.update({
+            'bypass-tunnel-reminder': 'true',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json'
+        })
+        kwargs['headers'] = headers
+        return original_get(*args, **kwargs)
 
-def patched_get(*args, **kwargs):
-    headers = kwargs.get('headers', {}).copy()
-    headers.update({
-        'bypass-tunnel-reminder': 'true',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-    })
-    kwargs['headers'] = headers
-    kwargs['timeout'] = 45 
-    return original_get(*args, **kwargs)
+    def patched_post(*args, **kwargs):
+        headers = kwargs.get('headers', {}).copy()
+        headers.update({
+            'bypass-tunnel-reminder': 'true',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json'
+        })
+        kwargs['headers'] = headers
+        return original_post(*args, **kwargs)
 
-def patched_post(*args, **kwargs):
-    headers = kwargs.get('headers', {}).copy()
-    headers.update({
-        'bypass-tunnel-reminder': 'true',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-    })
-    kwargs['headers'] = headers
-    kwargs['timeout'] = 45
-    return original_post(*args, **kwargs)
+    requests.get = patched_get
+    requests.post = patched_post
+    requests.Session.get = patched_get
+    requests.Session.post = patched_post
 
-requests.get = patched_get
-requests.post = patched_post
+    # Patch para HTTPX (usado pela lib Ollama-python)
+    try:
+        import httpx
+        original_client_send = httpx.Client.send
+        def patched_client_send(self, request, **kwargs):
+            request.headers['bypass-tunnel-reminder'] = 'true'
+            request.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            return original_client_send(self, request, **kwargs)
+        httpx.Client.send = patched_client_send
+    except ImportError:
+        pass
+
+apply_global_patches()
 import logging
 import uuid
 from datetime import timedelta, datetime, timezone
