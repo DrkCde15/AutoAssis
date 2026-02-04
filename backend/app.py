@@ -6,7 +6,7 @@ sys.modules["pyaudio"] = MagicMock()
 sys.modules["pyttsx3"] = MagicMock()
 import os
 def apply_global_patches():
-    # Patch para REQUESTS (usado por várias libs)
+    # Patch para REQUESTS
     import requests
     original_get = requests.get
     original_post = requests.post
@@ -14,9 +14,8 @@ def apply_global_patches():
     def patched_get(*args, **kwargs):
         headers = kwargs.get('headers', {}).copy()
         headers.update({
-            'bypass-tunnel-reminder': 'true',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json'
+            'cf-bypass-tunnel-reminder': 'true',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
         kwargs['headers'] = headers
         return original_get(*args, **kwargs)
@@ -24,9 +23,8 @@ def apply_global_patches():
     def patched_post(*args, **kwargs):
         headers = kwargs.get('headers', {}).copy()
         headers.update({
-            'bypass-tunnel-reminder': 'true',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json'
+            'cf-bypass-tunnel-reminder': 'true',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
         kwargs['headers'] = headers
         return original_post(*args, **kwargs)
@@ -36,15 +34,26 @@ def apply_global_patches():
     requests.Session.get = patched_get
     requests.Session.post = patched_post
 
-    # Patch para HTTPX (usado pela lib Ollama-python)
+    # Patch para HTTPX (Síncrono e Assíncrono - Essencial para Ollama)
     try:
         import httpx
+        
+        # Patch Síncrono
         original_client_send = httpx.Client.send
         def patched_client_send(self, request, **kwargs):
-            request.headers['bypass-tunnel-reminder'] = 'true'
+            request.headers['cf-bypass-tunnel-reminder'] = 'true'
             request.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             return original_client_send(self, request, **kwargs)
         httpx.Client.send = patched_client_send
+
+        # Patch Assíncrono
+        original_async_client_send = httpx.AsyncClient.send
+        async def patched_async_client_send(self, request, **kwargs):
+            request.headers['cf-bypass-tunnel-reminder'] = 'true'
+            request.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            return await original_async_client_send(self, request, **kwargs)
+        httpx.AsyncClient.send = patched_async_client_send
+        
     except ImportError:
         pass
 
