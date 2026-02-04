@@ -130,7 +130,7 @@ class AuthManager {
                 options.headers['Authorization'] = `Bearer ${token}`;
                 
                 // Tenta a requisição novamente
-                response = await fetch(url, options);
+                response = await fetch(finalUrl, options);
             }
 
             return response;

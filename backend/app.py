@@ -7,14 +7,24 @@ sys.modules["pyttsx3"] = MagicMock()
 import os
 import requests
 original_get = requests.get
+original_post = requests.post
+
 def patched_get(*args, **kwargs):
     headers = kwargs.get('headers', {}).copy()
     headers['bypass-tunnel-reminder'] = 'true'
     headers['User-Agent'] = 'Mozilla/5.0'
     kwargs['headers'] = headers
     return original_get(*args, **kwargs)
+
+def patched_post(*args, **kwargs):
+    headers = kwargs.get('headers', {}).copy()
+    headers['bypass-tunnel-reminder'] = 'true'
+    headers['User-Agent'] = 'Mozilla/5.0'
+    kwargs['headers'] = headers
+    return original_post(*args, **kwargs)
+
 requests.get = patched_get
-requests.post = lambda *args, **kwargs: original_get(*args, **kwargs) # Alias simplificado se necessário
+requests.post = patched_post
 import logging
 import uuid
 from datetime import timedelta, datetime, timezone
@@ -181,15 +191,19 @@ def chat():
     user_id = get_jwt_identity()
     data = request.get_json()
     msg, img_b64 = data.get("message"), data.get("image")
-    with get_db() as (cursor, conn):
-        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-        user = cursor.fetchone()
-        if is_trial_expired(user): return jsonify(error="TRIAL_EXPIRED"), 402
-        
-        resposta = analisar_imagem(img_b64, msg) if img_b64 else gerar_resposta(msg, user_id)
-        cursor.execute("INSERT INTO chats (user_id, mensagem_usuario, resposta_ia, data_criacao) VALUES (%s, %s, %s, %s)",
-                     (user_id, msg or "[Imagem]", resposta, datetime.now(timezone.utc)))
-        return jsonify(response=resposta)
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            if is_trial_expired(user): return jsonify(error="TRIAL_EXPIRED"), 402
+            
+            resposta = analisar_imagem(img_b64, msg) if img_b64 else gerar_resposta(msg, user_id)
+            cursor.execute("INSERT INTO chats (user_id, mensagem_usuario, resposta_ia, data_criacao) VALUES (%s, %s, %s, %s)",
+                         (user_id, msg or "[Imagem]", resposta, datetime.now(timezone.utc)))
+            return jsonify(response=resposta)
+    except Exception as e:
+        logging.error(f"❌ Erro na rota /api/chat: {e}")
+        return jsonify(error="Erro interno ao processar chat. Verifique o console do servidor."), 500
 
 @app.route("/api/pay/mock", methods=["POST"])
 @jwt_required()
