@@ -11,16 +11,24 @@ original_post = requests.post
 
 def patched_get(*args, **kwargs):
     headers = kwargs.get('headers', {}).copy()
-    headers['bypass-tunnel-reminder'] = 'true'
-    headers['User-Agent'] = 'Mozilla/5.0'
+    headers.update({
+        'bypass-tunnel-reminder': 'true',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+    })
     kwargs['headers'] = headers
+    kwargs['timeout'] = 45 
     return original_get(*args, **kwargs)
 
 def patched_post(*args, **kwargs):
     headers = kwargs.get('headers', {}).copy()
-    headers['bypass-tunnel-reminder'] = 'true'
-    headers['User-Agent'] = 'Mozilla/5.0'
+    headers.update({
+        'bypass-tunnel-reminder': 'true',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+    })
     kwargs['headers'] = headers
+    kwargs['timeout'] = 45
     return original_post(*args, **kwargs)
 
 requests.get = patched_get
@@ -111,7 +119,7 @@ def init_db():
                 email VARCHAR(100) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 is_premium BOOLEAN DEFAULT FALSE,
-                data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
         # Tabela de Chats
@@ -121,7 +129,7 @@ def init_db():
                 user_id INT,
                 mensagem_usuario TEXT,
                 resposta_ia TEXT,
-                data DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         """)
@@ -139,7 +147,7 @@ def first_request():
 
 def is_trial_expired(user):
     if user.get("is_premium"): return False
-    created_at = user["data_criacao"]
+    created_at = user["created_at"]
     if isinstance(created_at, str): created_at = datetime.fromisoformat(created_at)
     if created_at.tzinfo is None: created_at = created_at.replace(tzinfo=timezone.utc)
     return (datetime.now(timezone.utc) - created_at).days >= 30
@@ -181,7 +189,7 @@ def login():
 def get_user():
     user_id = get_jwt_identity()
     with get_db() as (cursor, conn):
-        cursor.execute("SELECT nome, email, is_premium, data_criacao FROM users WHERE id = %s", (user_id,))
+        cursor.execute("SELECT nome, email, is_premium, created_at FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
         return jsonify({**user, "trial_expired": is_trial_expired(user), "is_premium": bool(user["is_premium"])}), 200
 
@@ -198,8 +206,8 @@ def chat():
             if is_trial_expired(user): return jsonify(error="TRIAL_EXPIRED"), 402
             
             resposta = analisar_imagem(img_b64, msg) if img_b64 else gerar_resposta(msg, user_id)
-            cursor.execute("INSERT INTO chats (user_id, mensagem_usuario, resposta_ia, data_criacao) VALUES (%s, %s, %s, %s)",
-                         (user_id, msg or "[Imagem]", resposta, datetime.now(timezone.utc)))
+            cursor.execute("INSERT INTO chats (user_id, mensagem_usuario, resposta_ia) VALUES (%s, %s, %s)",
+                         (user_id, msg or "[Imagem]", resposta))
             return jsonify(response=resposta)
     except Exception as e:
         logging.error(f"❌ Erro na rota /api/chat: {e}")
