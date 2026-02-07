@@ -22,8 +22,11 @@ Seja extremamente crítico e técnico.
 """
 
 # Detecta o Host (Render/Túnel)
-host_escolhido = os.getenv("OLLAMA_HOST", NeuraConfig.TUNNEL_URL)
+host_env = os.getenv("OLLAMA_HOST")
 
+host_library = getattr(NeuraConfig, 'TUNNEL_URL', "http://localhost:11434")
+
+host_escolhido = host_env if host_env else host_library
 # Inicializa a Neura focada em visão com o host correto
 brain = Neura(
     vision_model="moondream", 

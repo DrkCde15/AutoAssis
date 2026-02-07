@@ -24,12 +24,12 @@ Estrutura de Resposta Padrão:
 3. Avaliação (Se aplicável): Se falarem de compra/venda, sempre cite a Tabela FIPE como referência, mas ajuste pelo estado do carro.
 """
 
-# Detecta o Host: Se houver OLLAMA_HOST no ambiente, usa ele. 
-# Caso contrário, usa o TUNNEL_URL definido no config.
-host_escolhido = os.getenv("OLLAMA_HOST", NeuraConfig.TUNNEL_URL)
+host_env = os.getenv("OLLAMA_HOST")
 
-# Inicializa o 'brain' já passando o host. 
-# O core da Neura já injeta os BYPASS_HEADERS se o host for o TUNNEL_URL.
+host_library = getattr(NeuraConfig, 'TUNNEL_URL', "http://localhost:11434")
+
+host_escolhido = host_env if host_env else host_library
+
 brain = Neura(
     model="qwen2:0.5b", 
     system_prompt=SYSTEM_PROMPT,
