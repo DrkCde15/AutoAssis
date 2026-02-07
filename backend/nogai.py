@@ -1,6 +1,7 @@
 # nogai.py - Módulo especializado em interações de texto automotivo usando Neura
 import logging
 import os
+import ollama
 from neura_ai.core import Neura
 from neura_ai.config import NeuraConfig
 
@@ -23,18 +24,27 @@ Estrutura de Resposta Padrão:
 2. Dica de Ouro (Raio-X): Se o usuário falar de problemas (ex: fumaça, barulho), dê o diagnóstico provável e o custo estimado de reparo.
 3. Avaliação (Se aplicável): Se falarem de compra/venda, sempre cite a Tabela FIPE como referência, mas ajuste pelo estado do carro.
 """
-
 host_env = os.getenv("OLLAMA_HOST")
-
 host_library = getattr(NeuraConfig, 'TUNNEL_URL', "http://localhost:11434")
-
 host_escolhido = host_env if host_env else host_library
 
-brain = Neura(
-    model="qwen2:0.5b", 
-    system_prompt=SYSTEM_PROMPT,
-    host=host_escolhido
-)
+try:
+    # Tenta o modo da v0.2.7+
+    brain = Neura(
+        model="qwen2:0.5b", 
+        system_prompt=SYSTEM_PROMPT,
+        host=host_escolhido
+    )
+except TypeError:
+    # Fallback para v0.2.5 (O que o Render está forçando)
+    logger.warning("Render forçou v0.2.5. Aplicando patch de compatibilidade...")
+    brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT)
+    brain.host = host_escolhido
+    
+    # Configura o cliente Ollama manualmente já que o __init__ antigo não fez isso
+    bypass_headers = getattr(NeuraConfig, 'BYPASS_HEADERS', {"Bypass-Tunnel-Reminder": "true"})
+    headers = bypass_headers if "loca.lt" in brain.host else {}
+    brain.client = ollama.Client(host=brain.host, headers=headers)
 
 def gerar_resposta(mensagem: str, user_id: int, categoria: str = "geral") -> str:
     """

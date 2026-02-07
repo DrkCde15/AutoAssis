@@ -1,11 +1,11 @@
-# vision_ai.py - Módulo especializado em análise visual automotiva usando NeuraVision
+# vision_ai.py - Módulo especializado em análise visual automotiva
 import os
 import base64
 import logging
+import ollama
 from neura_ai.core import Neura
 from neura_ai.config import NeuraConfig
 
-# Sincronizado com o logger do app.py
 logger = logging.getLogger(__name__)
 
 # Prompt especializado para o modelo de visão (moondream)
@@ -23,16 +23,24 @@ Seja extremamente crítico e técnico.
 
 # Detecta o Host (Render/Túnel)
 host_env = os.getenv("OLLAMA_HOST")
-
 host_library = getattr(NeuraConfig, 'TUNNEL_URL', "http://localhost:11434")
-
 host_escolhido = host_env if host_env else host_library
-# Inicializa a Neura focada em visão com o host correto
-brain = Neura(
-    vision_model="moondream", 
-    system_prompt=VISION_PROMPT,
-    host=host_escolhido
-)
+
+# --- A VACINA CONTRA O TYPEERROR ---
+try:
+    brain = Neura(
+        vision_model="moondream", 
+        system_prompt=VISION_PROMPT,
+        host=host_escolhido
+    )
+except TypeError:
+    logger.warning("Render forçou v0.2.5 em visão. Aplicando patch...")
+    brain = Neura(vision_model="moondream", system_prompt=VISION_PROMPT)
+    brain.host = host_escolhido
+    
+    bypass_headers = getattr(NeuraConfig, 'BYPASS_HEADERS', {"Bypass-Tunnel-Reminder": "true"})
+    headers = bypass_headers if "loca.lt" in brain.host else {}
+    brain.client = ollama.Client(host=brain.host, headers=headers)
 
 def analisar_imagem(image_b64: str, pergunta: str | None = None, filename: str = "temp_vision_upload.png") -> str:
     """
