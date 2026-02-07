@@ -60,7 +60,8 @@ jwt = JWTManager(app)
 # [SEGURANÇA] CORS Restrito
 # Altere as origens conforme necessário. Nunca use "*" com credenciais em produção.
 allowed_origins = [
-    "https://autoassis.onrender.com",  # Produção
+    "https://autoassis.onrender.com",  # Produção (Backend)
+    "https://autoassis.netlify.app",   # Produção (Frontend)
     "http://localhost:5000",           # Dev Local
     "http://127.0.0.1:5000"            # Dev Local
 ]
