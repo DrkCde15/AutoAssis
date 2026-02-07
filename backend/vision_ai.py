@@ -23,24 +23,28 @@ Seja extremamente crítico e técnico.
 
 # Detecta o Host (Render/Túnel)
 host_env = os.getenv("OLLAMA_HOST")
-host_library = getattr(NeuraConfig, 'TUNNEL_URL', "http://localhost:11434")
-host_escolhido = host_env if host_env else host_library
+# Se não houver env, o fallback agora é o TUNNEL_URL da lib (se existir)
+host_library = getattr(NeuraConfig, 'TUNNEL_URL', None) 
+host_escolhido = host_env or host_library or "https://neura-ai.loca.lt/"
 
-# --- A VACINA CONTRA O TYPEERROR ---
 try:
-    brain = Neura(
-        vision_model="moondream", 
-        system_prompt=VISION_PROMPT,
-        host=host_escolhido
-    )
+    # Tenta o modo v0.2.7
+    brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT, host=host_escolhido)
 except TypeError:
-    logger.warning("Render forçou v0.2.5 em visão. Aplicando patch...")
-    brain = Neura(vision_model="moondream", system_prompt=VISION_PROMPT)
-    brain.host = host_escolhido
+    # Fallback v0.2.5 (Onde o erro do log acontece)
+    brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT)
     
+    # RECONFIGURAÇÃO IMEDIATA
+    brain.host = host_escolhido.rstrip('/')
+    
+    # Define os headers de bypass para o túnel
     bypass_headers = getattr(NeuraConfig, 'BYPASS_HEADERS', {"Bypass-Tunnel-Reminder": "true"})
     headers = bypass_headers if "loca.lt" in brain.host else {}
+    
+    # Sobrescreve o cliente do Ollama para parar de olhar para 127.0.0.1
+    import ollama
     brain.client = ollama.Client(host=brain.host, headers=headers)
+    logger.info(f"🚀 Host reconfigurado com sucesso para: {brain.host}")
 
 def analisar_imagem(image_b64: str, pergunta: str | None = None, filename: str = "temp_vision_upload.png") -> str:
     """
