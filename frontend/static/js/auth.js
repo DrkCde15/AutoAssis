@@ -1,17 +1,9 @@
 class AuthManager {
     constructor() {
-        this.ACCESS_KEY = 'access_token';
-        this.REFRESH_KEY = 'refresh_token';
-        this.USER_KEY = 'autoassist_user';
-        
-        // [SEGURANÇA] Detecção de ambiente
-        const hostname = window.location.hostname;
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
-             this.API_URL = 'http://localhost:5000';
-        } else {
-             this.API_URL = 'https://autoassis.onrender.com';
-        }
-        console.log(`Auth configurado para: ${this.API_URL}`);
+        this.ACCESS_KEY = CONFIG.ACCESS_KEY;
+        this.REFRESH_KEY = CONFIG.REFRESH_KEY;
+        this.USER_KEY = CONFIG.USER_KEY;
+        this.API_URL = CONFIG.API_URL;
     }
 
     /**
