@@ -29,10 +29,10 @@ host_escolhido = host_env or host_library or "https://neura-ai.loca.lt/"
 
 try:
     # Tenta o modo v0.2.7
-    brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT, host=host_escolhido)
+    brain = Neura(model="qwen2:0.5b", system_prompt=VISION_PROMPT, host=host_escolhido)
 except TypeError:
     # Fallback v0.2.5 (Onde o erro do log acontece)
-    brain = Neura(model="qwen2:0.5b", system_prompt=SYSTEM_PROMPT)
+    brain = Neura(model="qwen2:0.5b", system_prompt=VISION_PROMPT)
     
     # RECONFIGURAÇÃO IMEDIATA
     brain.host = host_escolhido.rstrip('/')
