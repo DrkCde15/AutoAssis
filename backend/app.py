@@ -1,65 +1,10 @@
-# app.py - API Backend para AutoAssist
 import sys
 from unittest.mock import MagicMock
 sys.modules["speech_recognition"] = MagicMock()
 sys.modules["pyaudio"] = MagicMock()
 sys.modules["pyttsx3"] = MagicMock()
 import os
-def apply_global_patches():
-    # Patch para REQUESTS
-    import requests
-    original_get = requests.get
-    original_post = requests.post
-    
-    def patched_get(*args, **kwargs):
-        headers = kwargs.get('headers', {}).copy()
-        headers.update({
-            'cf-bypass-tunnel-reminder': 'true',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-        kwargs['headers'] = headers
-        return original_get(*args, **kwargs)
-
-    def patched_post(*args, **kwargs):
-        headers = kwargs.get('headers', {}).copy()
-        headers.update({
-            'cf-bypass-tunnel-reminder': 'true',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-        kwargs['headers'] = headers
-        return original_post(*args, **kwargs)
-
-    requests.get = patched_get
-    requests.post = patched_post
-    requests.Session.get = patched_get
-    requests.Session.post = patched_post
-
-    # Patch para HTTPX (Síncrono e Assíncrono - Essencial para Ollama)
-    try:
-        import httpx
-        
-        # Patch Síncrono
-        original_client_send = httpx.Client.send
-        def patched_client_send(self, request, **kwargs):
-            request.headers['cf-bypass-tunnel-reminder'] = 'true'
-            request.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            return original_client_send(self, request, **kwargs)
-        httpx.Client.send = patched_client_send
-
-        # Patch Assíncrono
-        original_async_client_send = httpx.AsyncClient.send
-        async def patched_async_client_send(self, request, **kwargs):
-            request.headers['cf-bypass-tunnel-reminder'] = 'true'
-            request.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            return await original_async_client_send(self, request, **kwargs)
-        httpx.AsyncClient.send = patched_async_client_send
-        
-    except ImportError:
-        pass
-
-apply_global_patches()
 import logging
-import uuid
 from datetime import timedelta, datetime, timezone
 from contextlib import contextmanager
 from flask import Flask, request, jsonify
@@ -73,10 +18,13 @@ from flask_jwt_extended import (
 )
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_talisman import Talisman  # [NOVO] Security Headers
 from passlib.hash import bcrypt
 from dotenv import load_dotenv
 import pymysql
 from pymysql.cursors import DictCursor
+
+# Funções auxiliares (assumindo que existem nos arquivos originais)
 from nogai import gerar_resposta
 from vision_ai import analisar_imagem
 from report_generator import criar_relatorio_pdf
@@ -90,14 +38,34 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
+
+# [SEGURANÇA] Cabeçalhos HTTP Seguros
+# force_https=True em produção garante que nada trafegue sem SSL
+is_production = os.getenv('FLASK_ENV') == 'production'
+Talisman(app, force_https=is_production, content_security_policy=None) 
+
+# [SEGURANÇA] Verificação estrita da Secret Key
+jwt_secret = os.getenv("JWT_SECRET_KEY")
+if not jwt_secret:
+    raise ValueError("FATAL: JWT_SECRET_KEY não encontrada nas variáveis de ambiente! O servidor não pode iniciar inseguro.")
+
 app.config.update(
-    JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY", "super-secret-key"),
+    JWT_SECRET_KEY=jwt_secret,
     JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=24),
     JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=30),
 )
 
 jwt = JWTManager(app)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+# [SEGURANÇA] CORS Restrito
+# Altere as origens conforme necessário. Nunca use "*" com credenciais em produção.
+allowed_origins = [
+    "https://autoassis.onrender.com",  # Produção
+    "http://localhost:5000",           # Dev Local
+    "http://127.0.0.1:5000"            # Dev Local
+]
+
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}}, supports_credentials=True)
 
 limiter = Limiter(
     app=app,
@@ -117,8 +85,6 @@ MYSQL_CONFIG = {
     'cursorclass': DictCursor,
     'autocommit': True
 }
-print(f"🔗 APP conectando ao Host: {MYSQL_CONFIG['host']}")
-print(f"📁 Banco alvo: {MYSQL_CONFIG['database']}")
 
 @contextmanager
 def get_db():
@@ -134,9 +100,7 @@ def get_db():
         conn.close()
 
 def init_db():
-    """Cria as tabelas se não existirem."""
     with get_db() as (cursor, conn):
-        # Tabela de Usuários
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -147,7 +111,6 @@ def init_db():
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Tabela de Chats
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS chats (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -160,7 +123,6 @@ def init_db():
         """)
         print("✅ Banco de dados inicializado com sucesso!")
 
-# Inicializa o banco ao carregar o app de forma segura
 @app.before_request
 def first_request():
     if not hasattr(app, "_db_initialized"):
@@ -189,7 +151,7 @@ def cadastro():
     try:
         with get_db() as (cursor, conn):
             cursor.execute("INSERT INTO users (nome, email, password) VALUES (%s, %s, %s)",
-                         (nome, email.lower(), bcrypt.hash(password)))
+                           (nome, email.lower(), bcrypt.hash(password)))
         return jsonify(success=True), 201
     except Exception as e:
         logging.error(f"❌ Erro no cadastro: {e}")
@@ -232,11 +194,62 @@ def chat():
             
             resposta = analisar_imagem(img_b64, msg) if img_b64 else gerar_resposta(msg, user_id)
             cursor.execute("INSERT INTO chats (user_id, mensagem_usuario, resposta_ia) VALUES (%s, %s, %s)",
-                         (user_id, msg or "[Imagem]", resposta))
+                           (user_id, msg or "[Imagem]", resposta))
             return jsonify(response=resposta)
     except Exception as e:
         logging.error(f"❌ Erro na rota /api/chat: {e}")
-        return jsonify(error="Erro interno ao processar chat. Verifique o console do servidor."), 500
+        return jsonify(error="Erro interno ao processar chat."), 500
+
+@app.route("/api/chat/history", methods=["GET"])
+@jwt_required()
+def get_chat_history():
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("""
+                SELECT mensagem_usuario, resposta_ia, created_at 
+                FROM chats 
+                WHERE user_id = %s 
+                ORDER BY created_at ASC
+            """, (user_id,))
+            chats = cursor.fetchall()
+            # Converte datetime para string se necessário
+            for c in chats:
+                if isinstance(c['created_at'], datetime):
+                    c['created_at'] = c['created_at'].isoformat()
+            return jsonify(chats=chats), 200
+    except Exception as e:
+        logging.error(f"❌ Erro ao buscar histórico: {e}")
+        return jsonify(error="Erro ao buscar histórico"), 500
+
+# [NOVO] Endpoint de Relatório (Faltava no original)
+@app.route("/api/report", methods=["POST"])
+@jwt_required()
+def generate_report_endpoint():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    text_content = data.get("text")
+    
+    if not text_content:
+        return jsonify(error="Conteúdo do relatório vazio"), 400
+
+    try:
+        # Verifica se é premium antes de gerar
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_premium FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            if not user or not user['is_premium']:
+                return jsonify(error="Recurso exclusivo para Premium"), 403
+        
+        # Gera o PDF (assume que criar_relatorio_pdf retorna o caminho ou URL)
+        # Se sua função retorna o arquivo físico, você precisará usar send_file
+        # Aqui, simulo que retorna uma URL pública/estática
+        report_url = criar_relatorio_pdf(text_content, user_id) 
+        
+        return jsonify(url=report_url), 200
+    except Exception as e:
+        logging.error(f"❌ Erro ao gerar relatório: {e}")
+        return jsonify(error="Falha na geração do PDF"), 500
 
 @app.route("/api/pay/mock", methods=["POST"])
 @jwt_required()

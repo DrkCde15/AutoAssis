@@ -1,37 +1,42 @@
-/**
- * Auth.js - Gerenciador Central de Autenticação e Refresh Tokens
- * AutoAssist IA
- */
-
 class AuthManager {
     constructor() {
         this.ACCESS_KEY = 'access_token';
         this.REFRESH_KEY = 'refresh_token';
         this.USER_KEY = 'autoassist_user';
-        // URL do Backend no Render: Substitua após o deploy
-        this.API_URL = 'https://autoassis.onrender.com';
+        
+        // [SEGURANÇA] Detecção de ambiente
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+             this.API_URL = 'http://localhost:5000';
+        } else {
+             this.API_URL = 'https://autoassis.onrender.com';
+        }
+        console.log(`Auth configurado para: ${this.API_URL}`);
     }
 
     /**
      * Realiza login e salva os tokens
      */
     async login(email, password) {
-        const res = await fetch(`${this.API_URL}/api/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
+        try {
+            const res = await fetch(`${this.API_URL}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.toLowerCase(), password })
+            });
 
-        const data = await res.json();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Erro no login');
 
-        if (!res.ok) throw new Error(data.error || 'Erro no login');
+            localStorage.setItem(this.ACCESS_KEY, data.access_token);
+            localStorage.setItem(this.REFRESH_KEY, data.refresh_token);
+            localStorage.setItem(this.USER_KEY, JSON.stringify(data.user));
 
-        // Salva tudo no localStorage
-        localStorage.setItem(this.ACCESS_KEY, data.access_token);
-        localStorage.setItem(this.REFRESH_KEY, data.refresh_token);
-        localStorage.setItem(this.USER_KEY, JSON.stringify(data.user));
-
-        return data;
+            return data;
+        } catch (error) {
+            console.error('Erro no processo de login:', error);
+            throw error;
+        }
     }
 
     /**
@@ -41,7 +46,7 @@ class AuthManager {
         const res = await fetch(`${this.API_URL}/api/cadastro`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, email, password })
+            body: JSON.stringify({ nome, email: email.toLowerCase(), password })
         });
 
         const data = await res.json();
@@ -50,7 +55,7 @@ class AuthManager {
     }
 
     /**
-     * Faz logout local e (opcionalmente) no servidor
+     * Limpa dados locais e redireciona
      */
     logout(redirect = true) {
         localStorage.removeItem(this.ACCESS_KEY);
@@ -58,7 +63,10 @@ class AuthManager {
         localStorage.removeItem(this.USER_KEY);
         
         if (redirect) {
-            window.location.href = '/login';
+            // Evita redirecionamento infinito se já estiver na página de login
+            if (!window.location.pathname.includes('login')) {
+                window.location.href = '/login.html'; // Ajuste conforme sua estrutura
+            }
         }
     }
 
@@ -69,7 +77,8 @@ class AuthManager {
         const refreshToken = localStorage.getItem(this.REFRESH_KEY);
         
         if (!refreshToken) {
-            throw new Error('Sem refresh token');
+            this.logout();
+            throw new Error('Sessão expirada. Faça login novamente.');
         }
 
         try {
@@ -80,78 +89,70 @@ class AuthManager {
                 }
             });
 
-            if (!res.ok) {
-                throw new Error('Refresh token expirado ou inválido');
-            }
+            if (!res.ok) throw new Error('Refresh token inválido');
 
             const data = await res.json();
             localStorage.setItem(this.ACCESS_KEY, data.access_token);
             
-            // Sliding Expiration (Premium): Se vier um novo refresh token, atualiza
             if (data.refresh_token) {
                 localStorage.setItem(this.REFRESH_KEY, data.refresh_token);
-                console.log('Refresh token renovado (Sliding Expiration)');
             }
             
             return data.access_token;
-
         } catch (error) {
-            console.error('Falha ao renovar token:', error);
-            this.logout(); // Se falhar o refresh, desloga
+            this.logout();
             throw error;
         }
     }
 
     /**
-     * Wrapper do fetch que lida com 401 automaticamente
+     * Wrapper do fetch que lida com expiração de token (401) automaticamente
      */
     async authenticatedFetch(url, options = {}) {
         let token = localStorage.getItem(this.ACCESS_KEY);
-        
-        // Configura headers padrão
         options.headers = options.headers || {};
+        
         if (token) {
             options.headers['Authorization'] = `Bearer ${token}`;
         }
 
+        const finalUrl = url.startsWith('http') ? url : `${this.API_URL}${url}`;
+
         try {
-            // Tenta a requisição original
-            let finalUrl = url.startsWith('http') ? url : `${this.API_URL}${url}`;
             let response = await fetch(finalUrl, options);
 
-            // Se der 401 (Unauthorized), tenta renovar o token
-            if (response.status === 401) {
-                console.warn('Token expirado (401). Tentando refresh...');
-                
-                // Tenta pegar novo token
-                token = await this.refreshToken();
-                
-                // Atualiza o header com o novo token
-                options.headers['Authorization'] = `Bearer ${token}`;
-                
-                // Tenta a requisição novamente
-                response = await fetch(finalUrl, options);
+            // Se o token estiver expirado, tenta renovar UMA VEZ
+            if (response.status === 401 && localStorage.getItem(this.REFRESH_KEY)) {
+                console.warn('Sessão expirada, tentando renovar...');
+                try {
+                    const newToken = await this.refreshToken();
+                    options.headers['Authorization'] = `Bearer ${newToken}`;
+                    return await fetch(finalUrl, options);
+                } catch (retryError) {
+                    this.logout();
+                    throw new Error('Sessão encerrada por segurança.');
+                }
             }
 
             return response;
-
         } catch (error) {
+            console.error('Erro na requisição autenticada:', error);
             throw error;
         }
     }
 
-    /**
-     * Verifica se está logado (apenas verificação local simples)
-     */
     isAuthenticated() {
         return !!localStorage.getItem(this.ACCESS_KEY);
     }
     
     getUser() {
-        const userStr = localStorage.getItem(this.USER_KEY);
-        return userStr ? JSON.parse(userStr) : null;
+        try {
+            const userStr = localStorage.getItem(this.USER_KEY);
+            return userStr ? JSON.parse(userStr) : null;
+        } catch {
+            return null;
+        }
     }
 }
 
-// Exporta uma instância global
 const Auth = new AuthManager();

@@ -2,3 +2,4 @@
 *.db
 venv/
 master_db.py
+test_security.py

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 
     <style>
         :root {
@@ -528,8 +529,11 @@
             if (!res.ok) throw new Error(data.error || 'Erro no chat');
 
             const botResponse = data.response || data.text || 'Não obtive resposta.';
-            lastAnalysisText = botResponse; // Salva para o relatório (PREMIUM)
-            const formattedHtml = marked.parse(botResponse);
+            lastAnalysisText = botResponse; 
+            
+            // [SEGURANÇA] Sanitização XSS antes do Markdown parsing
+            const cleanResponse = DOMPurify.sanitize(botResponse);
+            const formattedHtml = marked.parse(cleanResponse);
             
             const indicator = document.getElementById('typing-indicator');
             if (indicator) {
