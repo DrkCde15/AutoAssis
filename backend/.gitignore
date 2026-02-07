@@ -1,6 +1,4 @@
 .env
 *.db
 venv/
-delete_user.py
-list_users.py
 master_db.py

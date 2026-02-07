@@ -3,7 +3,7 @@
 import os
 import base64
 import logging
-from neura_ai.core import Neura # type: ignore
+from neura_ai.core import Neura
 
 # Sincronizado com o logger do app.py
 logger = logging.getLogger(__name__)

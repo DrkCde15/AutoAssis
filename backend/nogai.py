@@ -1,7 +1,7 @@
 # nogai.py - Módulo especializado em interações de texto automotivo usando Neura (Ollama local)
 
 import logging
-from neura_ai.core import Neura # type: ignore
+from neura_ai.core import Neura
 logger = logging.getLogger(__name__)
 
 # Prompt de sistema do NOG (Consultor Automotivo)
