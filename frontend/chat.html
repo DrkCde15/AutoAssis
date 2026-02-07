@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>NOG • Chat</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 
@@ -36,27 +37,29 @@
 
         /* --- HEADER --- */
         header {
-            padding: 16px 24px;
+            padding: 12px 24px;
             background: var(--header-bg);
             backdrop-filter: blur(10px);
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: var(--shadow);
+            z-index: 10;
         }
 
-        header strong {
-            font-size: 1.2rem;
+        .header-side { flex: 1; display: flex; }
+        .header-right { justify-content: flex-end; gap: 10px; }
+        
+        .logo-text {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #ffffff !important;
+            text-decoration: none;
             letter-spacing: -0.5px;
-            background: linear-gradient(90deg, #fff, #94a3b8);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            color: transparent;
         }
+        .logo-text span { color: var(--primary); }
 
-        /* --- BOTÕES GERAIS --- */
+        /* --- BOTÕES --- */
         button {
             border: none;
             border-radius: var(--radius);
@@ -68,46 +71,20 @@
             justify-content: center;
         }
 
-        /* Botão Padrão (Azul) */
-        #send, #logout {
-            background: var(--primary);
+        .btn-nav {
+            background: rgba(255, 255, 255, 0.08);
             color: #fff;
-            padding: 10px 18px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        #send:hover, #logout:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        #logout {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 8px 16px;
+            padding: 8px 14px;
             font-size: 0.85rem;
-        }
-        #logout:hover { background: rgba(239, 68, 68, 0.8); }
-
-        /* Estilo para botões do cabeçalho */
-        .header-button {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            padding: 8px 16px;
-            font-size: 0.85rem;
-            border-radius: var(--radius);
-            text-decoration: none; /* Para links */
-            display: inline-flex; /* Para alinhar o texto e permitir padding */
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
+            border-radius: 10px;
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .header-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-1px);
-        }
+        .btn-nav:hover { background: rgba(255, 255, 255, 0.15); }
+        .btn-logout-red:hover { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
 
-        /* --- ÁREA DE MENSAGENS --- */
+        /* --- MENSAGENS --- */
         #messages {
             flex: 1;
             padding: 20px;
@@ -115,214 +92,69 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
+            scroll-behavior: smooth;
         }
 
-        #messages::-webkit-scrollbar { width: 8px; }
-        #messages::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-
-        #messages div {
-            max-width: 80%;
+        .msg-user, .msg-bot {
+            max-width: 85%;
             padding: 12px 16px;
             border-radius: var(--radius);
-            line-height: 1.5;
             font-size: 0.95rem;
             animation: slideIn 0.3s ease-out forwards;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-            word-wrap: break-word;
         }
 
-        .msg-user {
-            align-self: flex-end;
-            background: var(--primary);
-            color: white;
-            border-bottom-right-radius: 2px !important;
-        }
+        .msg-user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 2px; }
+        .msg-bot { align-self: flex-start; background: var(--secondary-bg); border: 1px solid rgba(255,255,255,0.05); border-bottom-left-radius: 2px; }
 
-        .msg-bot {
-            align-self: flex-start;
-            background: var(--secondary-bg);
-            color: var(--text-color);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-bottom-left-radius: 2px !important;
-        }
-        
-        /* --- ESTILOS PARA CONTEÚDO FORMATADO --- */
-        .msg-bot pre {
-            background-color: #0f172a;
-            color: #e2e8f0;
-            padding: 16px;
-            border-radius: 8px;
-            overflow-x: auto;
-            border: 1px solid var(--input-bg);
-            margin: 12px 0;
-        }
-
-        .msg-bot code {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: var(--input-bg);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-
-        .msg-bot pre code {
-            background-color: transparent;
-            padding: 0;
-            border-radius: 0;
-            font-size: inherit;
-        }
-
-        .msg-bot ul, .msg-bot ol {
-            margin: 10px 0 10px 20px;
-        }
-
-        .msg-bot li {
-            margin-bottom: 5px;
-        }
-
-        .msg-bot a {
-            color: var(--primary);
-            text-decoration: none;
-        }
-        .msg-bot a:hover {
-            text-decoration: underline;
-        }
-
-        .msg-bot blockquote {
-            border-left: 3px solid var(--primary);
-            padding-left: 12px;
-            margin: 12px 0;
-            color: var(--text-muted);
-        }
-        
-        /* --- ANIMAÇÃO DE DIGITAÇÃO --- */
-        .typing-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .typing-indicator span {
-            height: 8px;
-            width: 8px;
-            background-color: var(--text-muted);
-            border-radius: 50%;
-            display: inline-block;
-            animation: typing-bounce 1.4s infinite ease-in-out both;
-        }
-        .typing-indicator span:nth-of-type(1) { animation-delay: -0.32s; }
-        .typing-indicator span:nth-of-type(2) { animation-delay: -0.16s; }
-
-        @keyframes typing-bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1.0); }
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* --- FOOTER & INPUT --- */
+        /* --- FOOTER --- */
         footer {
-            padding: 16px 20px;
+            padding: 16px;
             background: var(--header-bg);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
         }
 
-        /* Estilo do Botão de Ícone (Anexo) */
-        .btn-icon {
-            background: transparent;
-            color: var(--text-muted);
-            padding: 10px;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%; /* Redondo */
-            flex-shrink: 0;
-        }
-
-        .btn-icon:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--text-color);
-            transform: rotate(15deg); /* Pequena rotação charmosa */
-        }
-
-        input {
+        input#messageInput {
             flex: 1;
-            padding: 12px 16px;
-            border-radius: var(--radius);
-            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px;
             background: var(--input-bg);
+            border: 1px solid rgba(255,255,255,0.1);
             color: white;
-            font-size: 1rem;
+            border-radius: var(--radius);
             outline: none;
-            transition: border-color 0.2s;
         }
 
-        input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-        }
+        #send { background: var(--primary); color: white; padding: 10px 20px; }
+        .btn-icon { background: transparent; color: var(--text-muted); font-size: 1.2rem; padding: 10px; }
 
-        /* Responsividade */
-        @media (max-width: 600px) {
-            footer { padding: 12px; gap: 8px; }
-            .btn-icon { width: 40px; height: 40px; padding: 8px; }
-            #send { padding: 10px 14px; }
-        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="logo">
-            <a href="index.html">AutoAssist <span style="color:var(--primary)">IA</span></a>
-        </div>
-        <div style="display:flex; align-items:center; gap:15px;">
-             <!-- Botão Premium (Invisível por padrão) -->
-            <button id="btnReport" class="btn-premium" style="display:none;" title="Gerar Laudo PDF">
-                <i class="fas fa-file-pdf"></i> Laudo
-            </button>
-            <button id="logout" class="btn-logout" title="Sair">
-                <i class="fas fa-sign-out-alt"></i>
-            </button>
-        </div>
-    </header>
-
-    <div class="chat-container" id="messages">
-        <div class="msg-bot">
-            Olá! Sou o <strong>NOG</strong>.
-            <br>Envie uma foto do carro ou descreva o problema.
-            <br><em>Dica: Sou especialista em encontrar defeitos ocultos.</em>
-        </div>
+<header>
+    <div class="header-side">
+        <a href="index.html" class="btn-nav"><i class="fas fa-home"></i> <span>Início</span></a>
     </div>
+    <a href="#" class="logo-text">AutoAssist <span>IA</span></a>
+    <div class="header-side header-right">
+        <button id="btnReport" class="btn-nav" style="display:none;"><i class="fas fa-file-pdf"></i> <span>Laudo</span></button>
+        <button id="logout" class="btn-nav btn-logout-red"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+</header>
 
 <footer>
-    <input type="file" id="fileInput" style="display: none;">
-    <button id="attach" class="btn-icon" aria-label="Anexar imagem">
-        <svg id="icon-clip" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-        </svg>
-    </button>
-    <input id="messageInput" placeholder="Digite sua mensagem...">
-    
-    <!-- Botão de Voz (Premium) -->
-    <button id="btnVoice" class="btn-icon" style="display:none; margin-right:5px;" title="Segure para Falar">
-        <i class="fas fa-microphone"></i>
-    </button>
-    
+    <input type="file" id="fileInput" style="display: none;" accept="image/*">
+    <button id="attach" class="btn-icon" title="Anexar foto"><i class="fas fa-camera"></i></button>
+    <input id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off">
+    <button id="btnVoice" class="btn-icon" style="display:none;"><i class="fas fa-microphone"></i></button>
     <button id="send">Enviar</button>
 </footer>
 
 <script src="./static/js/config.js"></script>
 <script src="./static/js/auth.js"></script>
 <script>
-    if (!Auth.isAuthenticated()) {
-        window.location.href = '/login';
-    }
-
     const messagesDiv = document.getElementById('messages');
     const input = document.getElementById('messageInput');
     const fileInput = document.getElementById('fileInput');
@@ -330,261 +162,141 @@
     const sendBtn = document.getElementById('send');
     const btnReport = document.getElementById('btnReport');
     const btnVoice = document.getElementById('btnVoice');
-    
-    // Variável para guardar a última resposta da IA (para o relatório)
+
     let lastAnalysisText = "";
-    // Flag para saber se deve ler a resposta em voz alta
     let isVoiceActive = false;
 
-    // Instância do reconhecimento de voz (Web Speech API)
+    // --- SETUP INICIAL ---
+    if (!Auth.isAuthenticated()) window.location.href = '/login';
+
+    const user = Auth.getUser();
+    if (user?.is_premium) {
+        btnReport.style.display = 'flex';
+        if ('webkitSpeechRecognition' in window) btnVoice.style.display = 'block';
+    }
+
+    // --- VOZ (RECONHECIMENTO) ---
     let recognition = null;
     if ('webkitSpeechRecognition' in window) {
         recognition = new webkitSpeechRecognition();
         recognition.lang = 'pt-BR';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-
-        recognition.onstart = function() {
-            btnVoice.style.color = 'red';
-            input.placeholder = "Ouvindo...";
-        };
-
-        recognition.onend = function() {
-            btnVoice.style.color = '';
-            input.placeholder = "Digite sua mensagem...";
-        };
-
-        recognition.onresult = function(event) {
-            const transcript = event.results[0][0].transcript;
-            input.value = transcript;
-            isVoiceActive = true; // Ativa modo resposta por voz
-            sendMessage(); // Envia automaticamente
+        recognition.onstart = () => { btnVoice.style.color = '#ef4444'; input.placeholder = "Ouvindo..."; };
+        recognition.onend = () => { btnVoice.style.color = ''; input.placeholder = "Digite sua mensagem..."; };
+        recognition.onresult = (e) => {
+            input.value = e.results[0][0].transcript;
+            isVoiceActive = true;
+            sendMessage();
         };
     }
 
-    // Verifica se é Premium para mostrar os botões
-    const user = Auth.getUser();
-    if (user && user.is_premium) {
-        btnReport.style.display = 'block';
-        if (recognition) btnVoice.style.display = 'block';
+    btnVoice.addEventListener('click', () => recognition?.start());
+
+    // --- CHAT LOGIC ---
+    const scrollToBottom = () => {
+        setTimeout(() => { messagesDiv.scrollTop = messagesDiv.scrollHeight; }, 100);
+    };
+
+    function addMessage(text, cls, isHtml = false) {
+        const div = document.createElement('div');
+        div.className = cls;
+        div.innerHTML = isHtml ? text : text;
+        if(!isHtml) div.textContent = text;
+        messagesDiv.appendChild(div);
+        scrollToBottom();
+        return div;
     }
 
-    // Evento do Botão de Voz
-    btnVoice.addEventListener('mousedown', () => {
-        if (recognition) recognition.start();
-    });
+    const sendMessage = async () => {
+        const msg = input.value.trim();
+        const file = fileInput.files[0];
+        if (!msg && !file) return;
 
-    // Funcionalidade do Botão Relatório
-    btnReport.addEventListener('click', async () => {
-        if (!lastAnalysisText) {
-            alert('Faça uma análise primeiro para gerar o relatório.');
-            return;
-        }
+        addMessage(`Você: ${msg}${file ? ' [Imagem anexada]' : ''}`, 'msg-user');
         
-        btnReport.disabled = true;
-        btnReport.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
+        // UI Reset
+        input.value = '';
+        fileInput.value = '';
+        attachBtn.style.color = '';
+        
+        const typingDiv = addMessage('<div class="typing-indicator"><span></span><span></span><span></span></div>', 'msg-bot', true);
+        typingDiv.id = 'typing';
 
+        try {
+            let payload = { message: msg, category: "automotivo" };
+            if (file) {
+                const reader = new FileReader();
+                payload.image = await new Promise(r => {
+                    reader.onload = () => r(reader.result);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            const res = await Auth.authenticatedFetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            const botResponse = data.response || data.text || "Desculpe, não consegui processar isso.";
+            lastAnalysisText = botResponse;
+
+            const cleanHtml = DOMPurify.sanitize(marked.parse(botResponse));
+            typingDiv.innerHTML = `<strong>NOG:</strong><br>${cleanHtml}`;
+            typingDiv.id = '';
+
+            if (isVoiceActive && user?.is_premium) {
+                speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(botResponse.replace(/[#*_`]/g, ''));
+                utterance.lang = 'pt-BR';
+                speechSynthesis.speak(utterance);
+                isVoiceActive = false;
+            }
+
+        } catch (err) {
+            typingDiv.innerHTML = "<strong>Erro:</strong> Falha na conexão.";
+        }
+        scrollToBottom();
+    };
+
+    // --- EVENTOS ---
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+    attachBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => { if(fileInput.files[0]) attachBtn.style.color = '#3b82f6'; });
+    
+    document.getElementById('logout').addEventListener('click', () => Auth.logout());
+
+    // Gerar Laudo
+    btnReport.addEventListener('click', async () => {
+        if(!lastAnalysisText) return alert("Analise um problema primeiro.");
+        btnReport.disabled = true;
         try {
             const res = await Auth.authenticatedFetch('/api/report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: lastAnalysisText })
             });
-            
             const data = await res.json();
-            if (res.ok) {
-                window.open(data.url, '_blank');
-            } else {
-                alert(data.error || 'Erro ao gerar relatório.');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Erro de conexão.');
-        } finally {
-            btnReport.disabled = false;
-            btnReport.innerHTML = '<i class="fas fa-file-pdf"></i> Laudo';
-        }
+            if(data.url) window.open(data.url, '_blank');
+        } catch (e) { alert("Erro ao gerar PDF."); }
+        btnReport.disabled = false;
     });
 
-    // Carrega histórico de mensagens
-    async function loadHistory() {
-        try {
-            const res = await Auth.authenticatedFetch('/api/chat/history');
-            if (res.ok) {
-                const data = await res.json();
-                if (data.chats && data.chats.length > 0) {
-                    // Limpa a mensagem de boas-vindas se tiver histórico
-                    messagesDiv.innerHTML = ''; 
-                    
-                    data.chats.forEach(chat => {
-                        // Mensagem do Usuário
-                        addMessage('Você: ' + chat.mensagem_usuario, 'msg-user');
-                        
-                        // Mensagem do Bot
-                        const html = marked.parse(chat.resposta_ia);
-                        const div = document.createElement('div');
-                        div.className = 'msg-bot';
-                        div.innerHTML = `<strong>NOG:</strong><br>${html}`;
-                        messagesDiv.appendChild(div);
-                    });
-                    
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                }
-            }
-        } catch (e) {
-            console.error("Erro ao carregar histórico:", e);
-        }
-    }
-
-    // Inicialização
-    loadHistory();
-
-    // Função para adicionar mensagens na tela
-    function addMessage(text, cls, isHtml = false) {
-        const div = document.createElement('div');
-        div.className = cls;
-        if (isHtml) {
-            div.innerHTML = text;
-        } else {
-            div.textContent = text;
-        }
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-
-    // Mostra o indicador de "digitando"
-    function showTypingIndicator() {
-        const existingIndicator = document.getElementById('typing-indicator');
-        if (existingIndicator) return; 
-
-        const div = document.createElement('div');
-        div.className = 'msg-bot';
-        div.id = 'typing-indicator';
-        div.innerHTML = `
-            <div class="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        `;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-
-    // Lógica do botão de anexo (abrir seletor de arquivos)
-    attachBtn.addEventListener('click', () => {
-        fileInput.click();
-    });
-
-    // Feedback visual quando um arquivo é selecionado
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            const fileName = fileInput.files[0].name;
-            attachBtn.style.color = '#3b82f6';
-            attachBtn.style.background = 'rgba(59, 130, 246, 0.1)';
-            input.placeholder = `Arquivo selecionado: ${fileName}`;
-        }
-    });
-
-    const sendMessage = async () => {
-        const msg = input.value.trim();
-        const file = fileInput.files[0];
-
-        if (!msg && !file) return;
-
-        let userDisplay = 'Você: ' + msg;
-        if (file) userDisplay += ` [Anexando imagem...]`;
-        addMessage(userDisplay, 'msg-user');
-        
-        showTypingIndicator();
-
-        input.value = '';
-        input.placeholder = "Digite sua mensagem...";
-        attachBtn.style.color = ''; 
-        attachBtn.style.background = '';
-        fileInput.value = '';
-
-        try {
-            let payload = { message: msg, category: "geral" };
-
-            if (file) {
-                const base64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = error => reject(error);
-                });
-                payload.image = base64;
-            }
-
-            // USA O AUTHENTICATED FETCH PARA GERIR O TOKEN AUTOMATICAMENTE
-            const res = await Auth.authenticatedFetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
+    // Carregar histórico inicial
+    (async () => {
+        const res = await Auth.authenticatedFetch('/api/chat/history');
+        if(res.ok) {
+            const data = await res.json();
+            if(data.chats?.length) messagesDiv.innerHTML = '';
+            data.chats?.forEach(c => {
+                addMessage(`Você: ${c.mensagem_usuario}`, 'msg-user');
+                addMessage(`<strong>NOG:</strong><br>${marked.parse(c.resposta_ia)}`, 'msg-bot', true);
             });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Erro no chat');
-
-            const botResponse = data.response || data.text || 'Não obtive resposta.';
-            lastAnalysisText = botResponse; 
-            
-            // [SEGURANÇA] Sanitização XSS antes do Markdown parsing
-            const cleanResponse = DOMPurify.sanitize(botResponse);
-            const formattedHtml = marked.parse(cleanResponse);
-            
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) {
-                indicator.innerHTML = `<strong>NOG:</strong><br>${formattedHtml}`;
-                indicator.id = ''; 
-                indicator.classList.remove('typing-indicator');
-            } else {
-                 addMessage(`<strong>NOG:</strong><br>${formattedHtml}`, 'msg-bot', true);
-            }
-
-            // --- TTS (Texto para Fala) - Apenas Premium ---
-            if (isVoiceActive && user && user.is_premium) {
-                // Limpa formatação Markdown para leitura
-                const cleanText = botResponse.replace(/[#*_`\[\]]/g, ''); 
-                const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.lang = "pt-BR";
-                window.speechSynthesis.speak(utterance);
-                isVoiceActive = false; // Reseta flag
-            }
-
-        } catch (err) {
-            const indicator = document.getElementById('typing-indicator');
-            const errorMessage = `<strong>Erro:</strong><br>${err.message}`;
-            if (indicator) {
-                indicator.innerHTML = errorMessage;
-                indicator.id = '';
-                indicator.classList.remove('typing-indicator');
-            } else {
-                addMessage(errorMessage, 'msg-bot', true);
-            }
+            scrollToBottom();
         }
-    };
-    
-    // Lógica de envio de mensagem
-    sendBtn.addEventListener('click', () => {
-        isVoiceActive = false; // Envio manual não aciona voz
-        sendMessage();
-    });
-    input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault(); 
-            isVoiceActive = false;
-            sendMessage();
-        }
-    });
-
-    // Logout via Auth Class
-    document.getElementById('logout').addEventListener('click', () => {
-        Auth.logout();
-    });
+    })();
 </script>
+
 </body>
 </html>
