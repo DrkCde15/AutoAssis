@@ -23,8 +23,6 @@ from passlib.hash import bcrypt
 from dotenv import load_dotenv
 import pymysql
 from pymysql.cursors import DictCursor
-
-# Funções auxiliares (assumindo que existem nos arquivos originais)
 from nogai import gerar_resposta
 from vision_ai import analisar_imagem
 from report_generator import criar_relatorio_pdf
