@@ -1,5 +1,5 @@
 .env
 *.db
 venv/
-master_db.py
+admin.py
 test_security.py

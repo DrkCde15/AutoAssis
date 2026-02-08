@@ -23,14 +23,13 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 - **Acesso Ilimitado:** Sem limite de tempo após o período de teste.
 - **Laudos Técnicos em PDF:** Geração de relatórios profissionais com análise completa e dados do usuário.
 - **Modo de Voz Bidirecional:** Interação por voz usando Web Speech API (Speech-to-Text + Text-to-Speech).
-- **Login Infinito:** Refresh tokens com sliding expiration (renovação automática a cada uso).
 
 ### **Segurança e Privacidade**
 
 - **Privacidade Total:** Graças ao uso do **Ollama**, nenhum dado ou imagem sai do seu servidor. Todo o processamento é local.
 - **Autenticação JWT:** Sistema robusto com access tokens (24h) e refresh tokens (30 dias para gratuitos, infinito para premium).
 - **Proteção de Trial:** Bloqueio automático após 30 dias com modal de upgrade.
-- **Armazenamento Seguro:** Senhas com bcrypt e rate limiting em endpoints sensíveis.
+- **Armazenamento Seguro:** Senhas com criptografia e rate limiting em endpoints sensíveis.
 
 ---
 
@@ -42,8 +41,6 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 | :--------------- | :--------------------------------------------------------------- |
 | **Flask**        | Orquestração da API, rotas e controle de sessão.                 |
 | **Neura IA**     | Integração Python com o motor de IA local (Ollama).              |
-| **Qwen2:0.5b**   | Modelo de linguagem (LLM) leve e rápido para o chat de texto.    |
-| **Moondream**    | Modelo de visão especializado para extração de dados de imagens. |
 | **PyMySQL**      | Conexão de alta performance com banco de dados MySQL.            |
 | **Pillow (PIL)** | Processamento e otimização de uploads de imagens.                |
 | **FPDF**         | Geração de relatórios PDF para usuários Premium.                 |
@@ -64,20 +61,20 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 
 ```
 AutoAssist/
-├── app.py                  # Servidor principal (Flask + JWT + Endpoints)
-├── nogai.py                # Módulo de texto (Persona NOG + Qwen2)
-├── vision_ai.py            # Pipeline de visão (Moondream → Qwen)
-├── report_generator.py     # Gerador de PDF (Premium)
+├── app.py                  # Servidor principal
+├── nogai.py                # Módulo de texto
+├── vision_ai.py            # Pipeline de visão
+├── report_generator.py     # Gerador de PDF
 ├── static/
 │   ├── js/
 │   │   └── auth.js         # Gerenciamento de autenticação JWT
-│   └── reports/            # PDFs gerados (Premium)
+│   └── reports/            # PDFs gerados
 ├── templates/
 │   ├── home.html           # Landing page + Modal de Pagamento
 │   ├── chat.html           # Interface do consultor + Histórico + Voz
-│   ├── perfil.html         # Dashboard do usuário (Edição de perfil)
-│   ├── login.html          # Autenticação
-│   └── cadastro.html       # Registro de novos usuários
+│   ├── perfil.html         # Perfil do usuário
+│   ├── login.html          # Login
+│   └── cadastro.html       # Cadastro
 └── requirements.txt        # Dependências Python
 ```
 
@@ -204,7 +201,7 @@ Este projeto é proprietário e foi desenvolvido para fins educacionais e comerc
 
 ## 👨‍💻 Autor
 
-Desenvolvido com ❤️ por **Júlio César** usando **Neura IA** e **Ollama**.
+Desenvolvido por **Júlio César** usando **Neura IA**.
 
 ---
 
