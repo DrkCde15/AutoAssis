@@ -177,7 +177,63 @@ def get_user():
     with get_db() as (cursor, conn):
         cursor.execute("SELECT nome, email, is_premium, created_at FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
-        return jsonify({**user, "trial_expired": is_trial_expired(user), "is_premium": bool(user["is_premium"])}), 200
+        cursor.execute("SELECT COUNT(*) AS total FROM chats WHERE user_id = %s", (user_id,))
+        total = cursor.fetchone()
+        return jsonify({
+            **user,
+            "trial_expired": is_trial_expired(user),
+            "is_premium": bool(user["is_premium"]),
+            "total_consultas": int(total["total"])
+        }), 200
+
+@app.route("/api/user", methods=["PUT"])
+@jwt_required()
+def update_user():
+    user_id = get_jwt_identity()
+    data = request.get_json() or {}
+    nome = (data.get("nome") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+
+    if not nome or not email:
+        return jsonify(error="Dados inválidos"), 400
+
+    try:
+        with get_db() as (cursor, conn):
+            # Verifica se o email já existe para outro usuário
+            cursor.execute("SELECT id FROM users WHERE email = %s AND id <> %s", (email, user_id))
+            if cursor.fetchone():
+                return jsonify(error="Email já está em uso"), 409
+
+            cursor.execute(
+                "UPDATE users SET nome = %s, email = %s WHERE id = %s",
+                (nome, email, user_id)
+            )
+
+            cursor.execute("SELECT nome, email, is_premium, created_at FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            cursor.execute("SELECT COUNT(*) AS total FROM chats WHERE user_id = %s", (user_id,))
+            total = cursor.fetchone()
+            return jsonify({
+                **user,
+                "trial_expired": is_trial_expired(user),
+                "is_premium": bool(user["is_premium"]),
+                "total_consultas": int(total["total"])
+            }), 200
+    except Exception as e:
+        logging.error(f"❌ Erro ao atualizar perfil: {e}")
+        return jsonify(error="Erro ao atualizar perfil"), 500
+
+@app.route("/api/user", methods=["DELETE"])
+@jwt_required()
+def delete_user():
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        return jsonify(success=True), 200
+    except Exception as e:
+        logging.error(f"❌ Erro ao excluir conta: {e}")
+        return jsonify(error="Erro ao excluir conta"), 500
 
 @app.route("/api/chat", methods=["POST"])
 @jwt_required()
