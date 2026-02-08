@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -6,13 +6,17 @@
     <title>Perfil - AutoAssist IA</title>
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
     <style>
         :root {
+            --bg-1: #0f172a;
+            --bg-2: #1e293b;
+            --card: #1e293b;
+            --card-strong: rgba(255, 255, 255, 0.05);
+            --text: #ffffff;
+            --text-muted: #94a3b8;
+            --primary: #1e3a8a;
             --primary-dark: #0f172a;
-            --secondary-dark: #1e293b;
-            --accent-blue: #1e3a8a;
-            --text-gray: #94a3b8;
+            --danger: #ef4444;
             --white: #ffffff;
         }
 
@@ -23,237 +27,203 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif; /* Consistente com home.html */
-            background-color: var(--primary-dark); /* Consistente com home.html */
+            font-family: "Poppins", "Segoe UI", sans-serif;
             min-height: 100vh;
-            color: var(--white); /* Texto principal branco */
+            background: radial-gradient(1200px 600px at 15% 10%, #1e293b 0%, transparent 60%),
+                        linear-gradient(180deg, var(--bg-1), var(--bg-2));
+            color: var(--text);
         }
 
-        /* Navbar - Alinhada com home.html para usuários logados */
         .navbar {
-            background-color: rgba(15, 23, 42, 0.8); /* Cor mais escura e translúcida */
-            backdrop-filter: blur(5px);
-            padding: 15px 30px; /* Ajustado para ser menos "pesado" */
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(6px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 14px 28px;
         }
 
         .nav-container {
-            max-width: 1400px;
+            max-width: 1100px;
             margin: 0 auto;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
+            justify-content: space-between;
+            gap: 16px;
         }
 
         .nav-logo {
-            display: flex;
-            align-items: center;
-            gap: 8px; /* Espaçamento menor */
-            font-size: 20px; /* Um pouco menor */
-            font-weight: 600;
             text-decoration: none;
             color: var(--white);
-            letter-spacing: 1px; /* Estilo de título */
+            font-weight: 700;
+            letter-spacing: 1px;
             text-transform: uppercase;
+            font-size: 16px;
         }
 
         .nav-menu {
             display: flex;
-            gap: 25px; /* Espaçamento maior entre links */
             align-items: center;
-            flex-wrap: wrap;
+            gap: 18px;
         }
 
         .nav-link {
             color: var(--white);
             text-decoration: none;
-            padding: 6px 0; /* Menos padding vertical */
-            transition: opacity 0.3s;
-            font-size: 13px; /* Um pouco menor */
+            font-size: 13px;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            opacity: 0.9;
         }
 
         .nav-link:hover {
-            opacity: 0.7;
-            background: transparent; /* Remove background on hover */
-        }
-        
-        /* Botões */
-        .btn, .btn-minimal { /* Adicionado .btn-minimal para consistência */
-            border: 1px solid var(--white);
-            padding: 10px 25px; /* Ajustado */
-            color: var(--white);
-            text-decoration: none;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
-            display: inline-block;
-            background: transparent;
-            border-radius: 5px; /* Levemente arredondado */
-            cursor: pointer;
-        }
-
-        .btn:hover, .btn-minimal:hover {
-            background: var(--white);
-            color: var(--primary-dark);
-            transform: none; /* Remove transform */
-        }
-
-        .btn-danger {
-            background: #ef4444; /* Cor de fundo mais forte */
-            border-color: #ef4444; /* Borda da mesma cor */
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-            border-color: #dc2626;
-            color: var(--white); /* Mantém branco no hover */
-        }
-
-        /* Profile Container */
-        .profile-container {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-        }
-
-        .profile-header {
-            background: var(--secondary-dark); /* Fundo escuro */
-            padding: 40px;
-            border-radius: 12px; /* Mais arredondado */
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .avatar-container {
-            position: relative;
-            display: inline-block;
-            margin-bottom: 24px;
-        }
-
-        .profile-avatar {
-            width: 120px;
-            height: 120px;
-            background: var(--accent-blue); /* Cor de destaque */
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.3s;
-            color: var(--white); /* Ícone branco */
-        }
-
-        .profile-avatar:hover {
-            transform: scale(1.05);
-            filter: brightness(0.85);
-        }
-
-        .photo-upload-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(59, 130, 246, 0.7);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .profile-avatar:hover .photo-upload-overlay {
             opacity: 1;
         }
 
-        .photo-upload-overlay i {
-            font-size: 24px;
-            color: white;
-        }
-
-        #photoInput {
-            display: none;
-        }
-
-        .photo-info {
+        .btn {
+            border: 1px solid var(--white);
+            background: transparent;
+            color: var(--white);
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-weight: 600;
             font-size: 12px;
-            color: var(--text-gray); /* Cor de texto cinza */
-            margin-top: 12px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .profile-header h2 {
-            font-size: 28px;
-            margin-bottom: 8px;
-            font-weight: 600; /* Mais negrito */
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+            background: var(--white);
+            color: var(--primary-dark);
         }
 
-        .profile-header p {
-            color: var(--text-gray); /* Cor de texto cinza */
-            font-size: 16px;
+        .profile-container {
+            max-width: 680px;
+            margin: 40px auto 60px;
+            padding: 0 20px;
         }
 
-        .profile-info {
-            background: var(--secondary-dark); /* Fundo escuro */
-            padding: 32px;
-            border-radius: 12px; /* Mais arredondado */
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .profile-card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
         }
 
-        .profile-info h3 {
-            margin-bottom: 24px;
-            font-size: 22px;
-            font-weight: 600;
-        }
-
-        .info-row {
+        .profile-header {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            padding: 16px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* Borda mais sutil */
+            gap: 16px;
+            margin-bottom: 18px;
         }
 
-        .info-row:last-child {
-            border-bottom: none;
+        .profile-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
 
-        .info-label {
-            color: var(--text-gray); /* Cor de texto cinza */
-            font-weight: 500;
+        .profile-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: var(--white);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            text-transform: uppercase;
         }
 
-        .info-value {
+        .profile-name {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .profile-email {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: var(--white);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-transform: none;
+            border: none;
+        }
+
+        .fields {
+            display: grid;
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .field-card {
+            background: var(--card-strong);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .field-label {
+            font-size: 12px;
+            color: var(--text-muted);
             font-weight: 600;
         }
 
-        .btn-full {
+        .input-field {
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
             width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            margin-top: 24px;
-            border-radius: 8px; /* Ajuste para consistência */
         }
 
-        @media (max-width: 768px) {
-            .info-row {
+        .field-value {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .actions {
+            margin-top: 18px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+            width: 100%;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 14px;
+            text-transform: none;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #1f2d6f;
+            color: var(--white);
+        }
+
+        @media (max-width: 640px) {
+            .profile-header {
                 flex-direction: column;
-                gap: 8px;
+                align-items: flex-start;
             }
-            .nav-container {
-                flex-direction: column;
-                gap: 15px;
-            }
-            .nav-menu {
-                justify-content: center;
+            .btn-danger {
                 width: 100%;
-            }
-            .navbar {
-                padding: 15px 20px;
             }
         }
     </style>
@@ -271,181 +241,166 @@
 </nav>
 
 <div class="profile-container">
-    <div class="profile-header">
-        <div class="avatar-container">
-            <div class="profile-avatar" id="profileAvatar" onclick="photoInput.click()">
-                👤
-                <div class="photo-upload-overlay">
-                    <i class="fas fa-camera"></i>
+    <div class="profile-card">
+        <div class="profile-header">
+            <div class="profile-title">
+                <div class="profile-avatar" id="profileAvatar">A</div>
+                <div>
+                    <div class="profile-name" id="profileName">Carregando...</div>
+                    <div class="profile-email" id="profileEmail">email@exemplo.com</div>
                 </div>
             </div>
-            <input type="file" id="photoInput" accept="image/*">
-            <div class="photo-info">Clique para mudar a foto</div>
+            <button class="btn btn-danger" id="btnDelete">Excluir Conta</button>
         </div>
 
-        <h2 id="profileName">Carregando...</h2>
-        <p id="profileEmail">email@exemplo.com</p>
-    </div>
+        <div class="fields">
+            <div class="field-card">
+                <div class="field-label">Nome</div>
+                <input type="text" id="infoName" class="input-field" placeholder="Seu nome">
+            </div>
 
-    <div class="profile-info">
-        <h3>Editar Perfil</h3>
+            <div class="field-card">
+                <div class="field-label">Email</div>
+                <input type="email" id="infoEmail" class="input-field" placeholder="seu@email.com">
+            </div>
 
-        <div class="info-row">
-            <span class="info-label">Nome</span>
-            <input type="text" id="infoName" class="input-field" placeholder="Seu nome">
+            <div class="field-card">
+                <div class="field-label">Status</div>
+                <div class="field-value" id="infoStatus">-</div>
+            </div>
+
+            <div class="field-card">
+                <div class="field-label">Total de Consultas</div>
+                <div class="field-value" id="infoConsultas">-</div>
+            </div>
         </div>
 
-        <div class="info-row">
-            <span class="info-label">Email</span>
-            <input type="email" id="infoEmail" class="input-field" placeholder="seu@email.com">
+        <div class="actions">
+            <button id="btnSave" class="btn btn-primary">Salvar Alterações</button>
         </div>
-
-        <div class="info-row">
-            <span class="info-label">Status</span>
-            <span class="info-value" id="infoStatus" style="color:var(--primary)">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Total de Consultas</span>
-            <span class="info-value" id="infoConsultas">-</span>
-        </div>
-        
-        <button id="btnSave" class="btn btn-full">Salvar Alterações</button>
     </div>
 </div>
 
-    <style>
-        .input-field {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 6px;
-            width: 60%;
-            text-align: right;
+<script src="static/js/config.js"></script>
+<script src="static/js/auth.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '/login.html';
+            return;
         }
-        .input-field:focus {
-            border-color: var(--primary);
-            outline: none;
-        }
-    </style>
 
-    <script src="static/js/config.js"></script>
-    <script src="static/js/auth.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            if (!Auth.isAuthenticated()) {
-                window.location.href = '/login';
+        const headerName = document.getElementById('profileName');
+        const headerEmail = document.getElementById('profileEmail');
+        const avatar = document.getElementById('profileAvatar');
+        const infoName = document.getElementById('infoName');
+        const infoEmail = document.getElementById('infoEmail');
+        const infoStatus = document.getElementById('infoStatus');
+        const infoConsultas = document.getElementById('infoConsultas');
+        const btnSave = document.getElementById('btnSave');
+        const btnDelete = document.getElementById('btnDelete');
+
+        function updateAvatar(name) {
+            const initial = (name || 'A').trim().charAt(0).toUpperCase();
+            avatar.textContent = initial || 'A';
+        }
+
+        // Carrega dados do Backend
+        try {
+            const res = await Auth.authenticatedFetch('/api/user');
+            if (res.ok) {
+                const user = await res.json();
+
+                headerName.textContent = user.nome;
+                headerEmail.textContent = user.email;
+
+                infoName.value = user.nome;
+                infoEmail.value = user.email;
+
+                updateAvatar(user.nome);
+
+                const isPrem = user.is_premium;
+                infoStatus.textContent = isPrem ? 'Premium' : 'Gratuito';
+                infoStatus.style.color = isPrem ? '#fbbf24' : '#94a3b8';
+
+                infoConsultas.textContent = user.total_consultas ?? 0;
+            } else {
+                Auth.logout();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        // Salvar (PUT /api/user)
+        btnSave.addEventListener('click', async () => {
+            const newName = infoName.value.trim();
+            const newEmail = infoEmail.value.trim();
+
+            if (!newName || !newEmail) {
+                alert('Preencha os campos obrigatórios.');
                 return;
             }
 
-            const headerName = document.getElementById('profileName');
-            const headerEmail = document.getElementById('profileEmail');
-            const infoName = document.getElementById('infoName');
-            const infoEmail = document.getElementById('infoEmail');
-            const infoStatus = document.getElementById('infoStatus');
-            const infoConsultas = document.getElementById('infoConsultas');
-            const btnSave = document.getElementById('btnSave');
-            const photoInput = document.getElementById('photoInput');
+            btnSave.disabled = true;
+            btnSave.textContent = 'Salvando...';
 
-            // Carrega dados do Backend
             try {
-                const res = await Auth.authenticatedFetch('/api/user');
+                const res = await Auth.authenticatedFetch('/api/user', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome: newName, email: newEmail })
+                });
+
+                const data = await res.json();
+
                 if (res.ok) {
-                    const user = await res.json();
-                    
-                    headerName.textContent = user.nome;
-                    headerEmail.textContent = user.email;
-                    
-                    infoName.value = user.nome;
-                    infoEmail.value = user.email;
-                    
-                    const isPrem = user.is_premium;
-                    infoStatus.textContent = isPrem ? "PREMIUM 🌟" : "Gratuito";
-                    infoStatus.style.color = isPrem ? "#fbbf24" : "#94a3b8";
-
-                    infoConsultas.textContent = user.total_consultas;
-                    
-                    // Carrega foto local (se tiver)
-                    carregarFoto(user);
-
+                    alert('Perfil atualizado!');
+                    headerName.textContent = data.nome;
+                    headerEmail.textContent = data.email;
+                    updateAvatar(data.nome);
+                    infoConsultas.textContent = data.total_consultas ?? infoConsultas.textContent;
                 } else {
-                    Auth.logout();
+                    alert(data.error || 'Erro ao salvar');
                 }
             } catch (e) {
-                console.error(e);
+                alert('Erro de conexão');
+            } finally {
+                btnSave.disabled = false;
+                btnSave.textContent = 'Salvar Alterações';
             }
-
-            // Lógica de Salvar (PUT /api/user)
-            btnSave.addEventListener('click', async () => {
-                const newName = infoName.value.trim();
-                const newEmail = infoEmail.value.trim();
-                
-                if(!newName || !newEmail) {
-                    alert('Preencha os campos obrigatórios.');
-                    return;
-                }
-
-                btnSave.disabled = true;
-                btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
-
-                try {
-                    const res = await Auth.authenticatedFetch('/api/user', {
-                        method: 'PUT',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ nome: newName, email: newEmail })
-                    });
-                    
-                    const data = await res.json();
-                    
-                    if(res.ok) {
-                        alert('Perfil atualizado!');
-                        headerName.textContent = newName;
-                        headerEmail.textContent = newEmail;
-                    } else {
-                        alert(data.error || 'Erro ao salvar');
-                    }
-                } catch(e) {
-                    alert('Erro de conexão');
-                } finally {
-                    btnSave.disabled = false;
-                    btnSave.textContent = 'Salvar Alterações';
-                }
-            });
-
-            // Lógica de Foto (LocalStorage apenas visual)
-            function carregarFoto(user) {
-                const photoData = localStorage.getItem('user_photo_' + user.email);
-                if (photoData) {
-                    const avatar = document.getElementById('profileAvatar');
-                    avatar.style.backgroundImage = `url(${photoData})`;
-                    avatar.style.backgroundSize = 'cover';
-                    avatar.textContent = '';
-                }
-            }
-
-            photoInput.addEventListener('change', function() {
-                if (this.files && this.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const avatar = document.getElementById('profileAvatar');
-                        avatar.style.backgroundImage = `url(${e.target.result})`;
-                        avatar.style.backgroundSize = 'cover';
-                        avatar.textContent = '';
-                        
-                        const email = document.getElementById('infoEmail').value;
-                        if(email) localStorage.setItem('user_photo_' + email, e.target.result);
-                    }
-                    reader.readAsDataURL(this.files[0]);
-                }
-            });
         });
 
-        // Logout Global
-        function logout() {
-            if(confirm('Tem certeza?')) Auth.logout();
-        }
-    </script>
+        // Excluir conta (DELETE /api/user)
+        btnDelete.addEventListener('click', async () => {
+            if (!confirm('Tem certeza que deseja excluir sua conta? Essa ação é irreversível.')) return;
+
+            btnDelete.disabled = true;
+            btnDelete.textContent = 'Excluindo...';
+
+            try {
+                const res = await Auth.authenticatedFetch('/api/user', { method: 'DELETE' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert('Conta excluída com sucesso.');
+                    Auth.logout();
+                } else {
+                    alert(data.error || 'Erro ao excluir conta');
+                }
+            } catch (e) {
+                alert('Erro de conexão');
+            } finally {
+                btnDelete.disabled = false;
+                btnDelete.textContent = 'Excluir Conta';
+            }
+        });
+    });
+
+    // Logout Global
+    function logout() {
+        if (confirm('Tem certeza?')) Auth.logout();
+    }
+</script>
 
 </body>
 </html>
