@@ -60,8 +60,8 @@ if not jwt_secret:
 
 app.config.update(
     JWT_SECRET_KEY=jwt_secret,
-    JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=24),
-    JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=30),
+    JWT_ACCESS_TOKEN_EXPIRES=timedelta(days=7),
+    JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=365),
 )
 
 jwt = JWTManager(app)
@@ -311,6 +311,13 @@ def verify_2fa_login():
     except Exception as e:
         logger.error(f"Erro na verificação 2FA: {e}")
         return jsonify(error="Erro interno na verificação"), 500
+
+@app.route("/api/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    """Renova o access_token usando um refresh_token válido."""
+    user_id = get_jwt_identity()
+    return jsonify(access_token=create_access_token(identity=str(user_id))), 200
 
 @app.route("/api/auth/2fa/enable", methods=["POST"])
 @jwt_required()
