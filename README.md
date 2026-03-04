@@ -13,7 +13,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 
 ### **Recursos Principais**
 
-- **Consultoria Especializada (NOG):** O assistente "NOG" utiliza o modelo **Gemini 1.5 Flash** para oferecer respostas focadas no mercado brasileiro, analisando modelos, versões, manutenção e custo-benefício.
+- **Consultoria Especializada (NOG):** O assistente "NOG" utiliza o modelo **Gemini 2.5 Flash** para oferecer respostas focadas no mercado brasileiro, analisando modelos, versões, manutenção e custo-benefício.
 - **Raio-X Mecânico:** Análise visual avançada alimentada por **Gemini Vision** para identificação de ferrugem, desalinhamentos e vazamentos em fotos.
 - **Dashboard de Veículo:** Painel centralizado que monitora a saúde das principais peças do seu veículo e fornece cotação em tempo real da Tabela FIPE.
 - **Tabela FIPE Real-Time:** Integração com a API FIPE (via Parallelum) para fornecer valores de mercado precisos e atualizados, com fallback inteligente para estimativas em caso de indisponibilidade.
@@ -39,7 +39,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 | **PyMySQL**    | Driver de alta performance para banco de dados MySQL.             |
 | **FPDF**       | Motor de geração de laudos técnicos em formato PDF.               |
 | **Pydub**      | Processamento e conversão de áudio para transcrição.              |
-| **Google AI**  | SDK oficial para integração com modelos Generative AI.            |
+| **Google AI**  | SDK oficial (`google-genai`) para integração com modelos Gemini.  |
 
 ### **Frontend**
 

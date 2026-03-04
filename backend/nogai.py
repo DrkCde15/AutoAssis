@@ -1,10 +1,14 @@
-# nogai.py - Módulo especializado em interações de texto automotivo usando Google Gemini
+# nogai.py - Módulo especializado em interações de texto automotivo usando Google Gemini (New SDK)
 import logging
 import os
 import pymysql
 from pymysql.cursors import DictCursor
 import requests
-import google.generativeai as genai
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +88,7 @@ def get_mysql_history(user_id: int, limit: int = 5):
                 if row['mensagem_usuario']:
                     history.append({"role": "user", "content": row['mensagem_usuario']})
                 if row['resposta_ia']:
-                    history.append({"role": "assistant", "content": row['resposta_ia']})
+                    history.append({"role": "model", "content": row['resposta_ia']})
             return history
     except Exception as e:
         logger.error(f"Erro histórico MySQL: {e}")
@@ -92,23 +96,28 @@ def get_mysql_history(user_id: int, limit: int = 5):
     finally:
         if 'conn' in locals(): conn.close()
 
-# Configuração do Google Gemini
-genai.configure(api_key=os.getenv("API_GEMINI"))
-generation_config = {"temperature": 0.7, "top_p": 0.95, "top_k": 40, "max_output_tokens": 2048}
-model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config, system_instruction=SYSTEM_PROMPT)
+# Inicializa o cliente Gemini (Deixando o SDK escolher a melhor versão estável)
+client = genai.Client(api_key=os.getenv("API_GEMINI"))
 
 def transformar_historico_gemini(historico_mysql):
+    """Converte o histórico do MySQL para o formato do novo SDK."""
     gemini_history = []
     for msg in historico_mysql:
+        # No novo SDK, o assistente é 'model'
         role = "user" if msg["role"] == "user" else "model"
-        gemini_history.append({"role": role, "parts": [msg["content"]]})
+        gemini_history.append(types.Content(
+            role=role,
+            parts=[types.Part.from_text(text=msg["content"])]
+        ))
     return gemini_history
 
 def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None) -> str:
     try:
         logger.info(f"NOG Gemini: Processando msg do usuário {user_id}")
+        
         historico_mysql = get_mysql_history(user_id)
         historico_gemini = transformar_historico_gemini(historico_mysql)
+        
         prompt_final = mensagem
         if user_data and user_data.get("possui_veiculo"):
             contexto_veiculo = (f"\n\n[CONTEXTO DO USUÁRIO]: O usuário possui um(a) {user_data.get('veiculo_tipo')} "
@@ -116,9 +125,20 @@ def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None) -> str:
                                 f"ano {user_data.get('veiculo_ano_fabricacao')}. "
                                 f"Responda considerando este veículo se for relevante.")
             prompt_final = contexto_veiculo + "\n\nPergunta do usuário: " + mensagem
-        chat = model.start_chat(history=historico_gemini)
-        response = chat.send_message(prompt_final)
+            
+        # Inicia chat
+        chat = client.chats.create(
+            model="gemini-2.5-flash",
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                temperature=0.7,
+            ),
+            history=historico_gemini
+        )
+        
+        response = chat.send_message(message=prompt_final)
         return response.text
+        
     except Exception as e:
-        logger.error(f"❌ Erro no NOG (Gemini): {e}", exc_info=True)
+        logger.error(f"❌ Erro no NOG (Gemini New SDK): {e}", exc_info=True)
         return "❌ Erro ao conectar com a inteligência na nuvem."

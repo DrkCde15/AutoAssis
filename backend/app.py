@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import logging
 from datetime import timedelta, datetime, timezone
@@ -15,7 +18,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
 from passlib.hash import bcrypt
-from dotenv import load_dotenv
 import pymysql
 from pymysql.cursors import DictCursor
 from nogai import gerar_resposta, get_fipe_value

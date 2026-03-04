@@ -1,10 +1,14 @@
-# vision_ai.py - Módulo de análise visual usando Google Gemini API
+# vision_ai.py - Módulo de análise visual usando Google Gemini API (New SDK)
 import os
 import base64
 import logging
-import google.generativeai as genai
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 from PIL import Image
 import io
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +25,12 @@ Indique se vê ferrugem, desalinhamentos ou vazamentos.
 Seja didático, use negrito para termos técnicos e emojis. Proteja o comprador.
 """
 
-# Configuração do Gemini Vision
-genai.configure(api_key=os.getenv("API_GEMINI"))
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Inicializa o cliente Gemini
+client = genai.Client(api_key=os.getenv("API_GEMINI"))
 
 def analisar_imagem(image_b64: str, pergunta: str | None = None) -> str:
     try:
-        logger.info(f"👁️ Gemini Vision: Analisando imagem...")
+        logger.info(f"👁️ Gemini Vision (New SDK): Analisando imagem...")
         
         # 1. Decodificar Base64 para Imagem PIL
         if "," in image_b64:
@@ -41,12 +44,15 @@ def analisar_imagem(image_b64: str, pergunta: str | None = None) -> str:
         if pergunta:
             prompt += f"\n\nPergunta específica do usuário: {pergunta}"
 
-        # 3. Gerar conteúdo multimodal
-        response = model.generate_content([prompt, img])
+        # 3. Gerar conteúdo multimodal usando o novo SDK
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, img]
+        )
         
         logger.info(f"✓ Análise visual completa")
         return response.text
 
     except Exception as e:
-        logger.error(f"❌ Erro na análise de visão Gemini: {e}", exc_info=True)
+        logger.error(f"❌ Erro na análise de visão Gemini (New SDK): {e}", exc_info=True)
         return "❌ O NOG não conseguiu analisar esta imagem via satélite no momento."
