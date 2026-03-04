@@ -3,9 +3,9 @@
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
-![Neura IA](https://img.shields.io/badge/AI_Local-Ollama-blue?style=for-the-badge&logo=openai&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini_AI-blue?style=for-the-badge&logo=google&logoColor=white)
 
-O **AutoAssist IA** é um ecossistema de inteligência artificial de última geração, desenvolvido especificamente para o mercado automotivo brasileiro. A plataforma integra Processamento de Linguagem Natural (NLP) e Visão Computacional para fornecer diagnósticos precisos, avaliações de mercado e consultoria técnica especializada, operando de forma **100% privada e local** através da integração com a **Neura IA**.
+O **AutoAssist IA** é um ecossistema de inteligência artificial de última geração, desenvolvido especificamente para o mercado automotivo brasileiro. A plataforma integra Processamento de Linguagem Natural (NLP) e Visão Computacional para fornecer diagnósticos precisos, avaliações de mercado e consultoria técnica especializada, operando com alta performance através da integração com a API do **Google Gemini**.
 
 ---
 
@@ -13,16 +13,16 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 
 ### **Recursos Principais**
 
-- **Consultoria Especializada (NOG):** O assistente "NOG" utiliza o modelo **Gemma 2 (2B)** para oferecer respostas focadas no mercado brasileiro, analisando modelos, versões, manutenção e custo-benefício.
-- **Raio-X Mecânico:** Pipeline de visão computacional de dois estágios (**Moondream + Gemma 2**) para análise de fotos, identificando ferrugem, desalinhamentos e vazamentos.
+- **Consultoria Especializada (NOG):** O assistente "NOG" utiliza o modelo **Gemini 1.5 Flash** para oferecer respostas focadas no mercado brasileiro, analisando modelos, versões, manutenção e custo-benefício.
+- **Raio-X Mecânico:** Análise visual avançada alimentada por **Gemini Vision** para identificação de ferrugem, desalinhamentos e vazamentos em fotos.
 - **Dashboard de Veículo:** Painel centralizado que monitora a saúde das principais peças do seu veículo e fornece cotação em tempo real da Tabela FIPE.
 - **Tabela FIPE Real-Time:** Integração com a API FIPE (via Parallelum) para fornecer valores de mercado precisos e atualizados, com fallback inteligente para estimativas em caso de indisponibilidade.
 - **Viva-Voz Inteligente:** Interação por voz em modo "mãos livres" com detecção automática de silêncio (Voice Activity Detection).
 
-### **Segurança e Privacidade**
+### **Segurança e Cloud**
 
 - **Autenticação em Duas Etapas (2FA):** Camada de segurança adicional utilizando uma senha secundária escolhida pelo usuário.
-- **Privacidade Total:** Processamento local via **Ollama**. Nenhuma imagem ou dado de conversa sai do seu servidor privado.
+- **Performance Cloud:** Respostas rápidas e precisas via infraestrutura do Google Gemini.
 - **Autenticação JWT:** Sistema robusto com tokens de acesso (24h) e refresh tokens (30 dias).
 - **Trial Control:** Gestão automatizada de período de teste (30 dias) e benefícios para usuários **Premium**.
 
@@ -32,14 +32,14 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 
 ### **Backend & Inteligência Artificial**
 
-| Tecnologia   | Função                                                           |
-| :----------- | :--------------------------------------------------------------- |
-| **Flask**    | Servidor robusto e orquestração de APIs REST.                    |
-| **Neura IA** | Framework de integração para orquestração de modelos LLM locais. |
-| **Ollama**   | Motor de execução local (Models: Gemma2:2b & Moondream).         |
-| **PyMySQL**  | Driver de alta performance para banco de dados MySQL.            |
-| **FPDF**     | Motor de geração de laudos técnicos em formato PDF.              |
-| **Pydub**    | Processamento e conversão de áudio para transcrição.             |
+| Tecnologia     | Função                                                            |
+| :------------- | :---------------------------------------------------------------- |
+| **Flask**      | Servidor robusto e orquestração de APIs REST.                     |
+| **Gemini API** | Inteligência Artificial na nuvem para texto e visão (Multimodal). |
+| **PyMySQL**    | Driver de alta performance para banco de dados MySQL.             |
+| **FPDF**       | Motor de geração de laudos técnicos em formato PDF.               |
+| **Pydub**      | Processamento e conversão de áudio para transcrição.              |
+| **Google AI**  | SDK oficial para integração com modelos Generative AI.            |
 
 ### **Frontend**
 
@@ -59,8 +59,8 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 AutoAssist/
 ├── backend/
 │   ├── app.py                  # Servidor principal e API
-│   ├── nogai.py                # Módulo de texto (Gemma 2)
-│   ├── vision_ai.py            # Pipeline de visão (Moondream)
+│   ├── nogai.py                # Módulo de texto (Gemini API)
+│   ├── vision_ai.py            # Pipeline de visão (Gemini Vision)
 │   ├── report_generator.py     # Gerador de PDFs técnicos
 │   └── requirements.txt        # Dependências Python
 ├── frontend/
@@ -80,16 +80,20 @@ AutoAssist/
 ### 1. Pré-requisitos
 
 - Python 3.10 ou superior
-- **Ollama** instalado e configurado
 - Servidor MySQL ativo
+- Chave de API do Google Gemini
 
-### 2. Configuração dos Modelos (Ollama)
+### 2. Configuração do Ambiente
 
-Execute no terminal para baixar os pesos dos modelos otimizados:
+Crie um arquivo `.env` na pasta `backend/` com:
 
-```bash
-ollama pull gemma2:2b
-ollama pull moondream
+```env
+API_GEMINI=sua_chave_aqui
+DB_HOST=seu_host
+DB_USER=seu_usuario
+DB_PASSWORD=sua_senha
+DB_NAME=seu_banco
+JWT_SECRET_KEY=sua_chave_jwt
 ```
 
 ### 3. Instalação e Execução
@@ -101,7 +105,6 @@ cd backend
 # Instale as dependências
 pip install -r requirements.txt
 
-# Configure o arquivo .env manualmente conforme as variáveis necessárias
 # Execute o servidor
 python app.py
 ```
@@ -114,12 +117,13 @@ A plataforma estará acessível em `http://localhost:5000`
 
 - **Bcrypt**: Todas as senhas (primárias e secundárias) são armazenadas como hashes seguros.
 - **JWT Protection**: Todos os endpoints `/api/` (exceto login/cadastro) exigem token válido.
-- **Rate Limiting**: Proteção contra ataques de força bruta e sobrecarga do motor de IA.
+- **Rate Limiting**: Proteção contra abusos na API.
 - **CSP & Talisman**: Implementação de cabeçalhos de segurança HTTP.
 
 ---
 
 ## 📝 Licença e Autoria
+
 Ideia original de **Clara Francisco**.
 
-Sistema desenvolvido por **Júlio César**, **Caio Lima**, **Eduardo Nishida** e **Caio Yugo** com o suporte de **Neura IA**.
+Sistema desenvolvido por **Júlio César**, **Caio Lima**, **Eduardo Nishida** e **Caio Yugo** com o suporte de **Google Gemini API**.

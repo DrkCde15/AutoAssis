@@ -1,12 +1,10 @@
-# nogai.py - Módulo especializado em interações de texto automotivo usando Neura
+# nogai.py - Módulo especializado em interações de texto automotivo usando Google Gemini
 import logging
 import os
-import ollama
 import pymysql
 from pymysql.cursors import DictCursor
 import requests
-from neura_ai.core import Neura
-from neura_ai.config import NeuraConfig
+import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
@@ -38,71 +36,34 @@ Estrutura de Resposta Padrão:
 """
 
 def get_fipe_value(tipo, marca_nome, modelo_nome, ano):
-    """
-    Busca o valor médio de mercado via API externa FIPE (Parallelum).
-    Implementação robusta que mapeia nomes de marcas e modelos para IDs da API.
-    """
+    """Busca o valor médio de mercado via API externa FIPE (Parallelum)."""
     BASE_URL = "https://parallelum.com.br/fipe/api/v1"
-    
     try:
-        # 1. Buscar e mapear Marca
         response = requests.get(f"{BASE_URL}/{tipo}/marcas", timeout=10)
-        if response.status_code != 200:
-            return None
-        
+        if response.status_code != 200: return None
         marcas = response.json()
-        marca_obj = next(
-            (m for m in marcas if marca_nome.lower() in m["nome"].lower()),
-            None
-        )
-        if not marca_obj:
-            return None
-
-        # 2. Buscar Modelos da Marca
+        marca_obj = next((m for m in marcas if marca_nome.lower() in m["nome"].lower()), None)
+        if not marca_obj: return None
         response = requests.get(f"{BASE_URL}/{tipo}/marcas/{marca_obj['codigo']}/modelos", timeout=10)
-        if response.status_code != 200:
-            return None
-            
+        if response.status_code != 200: return None
         modelos_resp = response.json()
-        # Filtra todos os modelos que batem com o nome (candidatos)
         candidatos = [m for m in modelos_resp.get("modelos", []) if modelo_nome.lower() in m["nome"].lower()]
-        
-        if not candidatos:
-            return None
-
-        # 3. Tentar encontrar o ano em cada variante do modelo
+        if not candidatos: return None
         for modelo in candidatos:
             response = requests.get(f"{BASE_URL}/{tipo}/marcas/{marca_obj['codigo']}/modelos/{modelo['codigo']}/anos", timeout=10)
-            if response.status_code != 200:
-                continue
-                
+            if response.status_code != 200: continue
             anos_disponiveis = response.json()
-            ano_obj = next(
-                (a for a in anos_disponiveis if a["nome"].startswith(str(ano))),
-                None
-            )
-            
+            ano_obj = next((a for a in anos_disponiveis if a["nome"].startswith(str(ano))), None)
             if ano_obj:
-                # 4. Se encontrou o ano, busca o valor final
-                valor_resp = requests.get(
-                    f"{BASE_URL}/{tipo}/marcas/{marca_obj['codigo']}/modelos/{modelo['codigo']}/anos/{ano_obj['codigo']}",
-                    timeout=10
-                )
-                if valor_resp.status_code == 200:
-                    return valor_resp.json()
-        
+                valor_resp = requests.get(f"{BASE_URL}/{tipo}/marcas/{marca_obj['codigo']}/modelos/{modelo['codigo']}/anos/{ano_obj['codigo']}", timeout=10)
+                if valor_resp.status_code == 200: return valor_resp.json()
         return None
-
     except Exception as e:
-        logger.error(f"Erro ao buscar FIPE para {marca_nome} {modelo_nome} {ano}: {e}")
+        logger.error(f"Erro ao buscar FIPE: {e}")
         return None
-
-# Configuração dinâmica do Host (Local vs Tunel/Produção)
-# No Render, basta criar a variável de ambiente NEURA_AI_URL apontando para o seu túnel
-host_escolhido = os.getenv("NEURA_AI_URL", "http://127.0.0.1:11434").rstrip("/")
 
 def get_mysql_history(user_id: int, limit: int = 5):
-    """Recupera o histórico do MySQL para substituir o SQLite."""
+    """Recupera o histórico do MySQL."""
     try:
         conn = pymysql.connect(
             host=os.getenv('DB_HOST'),
@@ -118,9 +79,7 @@ def get_mysql_history(user_id: int, limit: int = 5):
                 (user_id, limit)
             )
             rows = cursor.fetchall()
-            
             history = []
-            # Inverte para ordem cronológica (neura_ai espera isso)
             for row in reversed(rows):
                 if row['mensagem_usuario']:
                     history.append({"role": "user", "content": row['mensagem_usuario']})
@@ -128,49 +87,28 @@ def get_mysql_history(user_id: int, limit: int = 5):
                     history.append({"role": "assistant", "content": row['resposta_ia']})
             return history
     except Exception as e:
-        logger.error(f"Erro ao recuperar histórico do MySQL: {e}")
+        logger.error(f"Erro histórico MySQL: {e}")
         return []
     finally:
-        if 'conn' in locals():
-            conn.close()
+        if 'conn' in locals(): conn.close()
 
-try:
-    # Tenta o modo v0.2.7 (Usando Qwen 2 para maior velocidade em CPU)
-    # Desativamos o uso de memória interna SQLite (use_memory=False)
-    brain = Neura(
-        model="gemma2:2b", 
-        system_prompt=SYSTEM_PROMPT, 
-        host=host_escolhido,
-        use_memory=False
-    )
-except TypeError:
-    # Fallback v0.2.5
-    brain = Neura(model="gemma2:2b", system_prompt=SYSTEM_PROMPT, use_memory=False)
-    
-    # RECONFIGURAÇÃO IMEDIATA
-    brain.host = host_escolhido.rstrip('/')
-    
-    # Define os headers de bypass para o túnel
-    bypass_headers = getattr(NeuraConfig, 'BYPASS_HEADERS', {"Bypass-Tunnel-Reminder": "true"})
-    headers = bypass_headers if "loca.lt" in brain.host else {}
-    
-    # Sobrescreve o cliente do Ollama
-    brain.client = ollama.Client(host=brain.host, headers=headers)
-    logger.info(f"🚀 Host reconfigurado com sucesso (Stateless) para: {brain.host}")
+# Configuração do Google Gemini
+genai.configure(api_key=os.getenv("API_GEMINI"))
+generation_config = {"temperature": 0.7, "top_p": 0.95, "top_k": 40, "max_output_tokens": 2048}
+model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config, system_instruction=SYSTEM_PROMPT)
 
+def transformar_historico_gemini(historico_mysql):
+    gemini_history = []
+    for msg in historico_mysql:
+        role = "user" if msg["role"] == "user" else "model"
+        gemini_history.append({"role": role, "parts": [msg["content"]]})
+    return gemini_history
 
 def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None) -> str:
-    """
-    Gera resposta de texto usando a Neura (Ollama Local ou Túnel).
-    O histórico agora é recuperado do MySQL (Aiven) para substituir o SQLite.
-    """
     try:
-        logger.info(f"NOG Chat: Processando msg do usuário {user_id} via {brain.host}")
-        
-        # 1. Recupera histórico do MySQL
+        logger.info(f"NOG Gemini: Processando msg do usuário {user_id}")
         historico_mysql = get_mysql_history(user_id)
-        
-        # 2. Injeta contexto do veículo se disponível
+        historico_gemini = transformar_historico_gemini(historico_mysql)
         prompt_final = mensagem
         if user_data and user_data.get("possui_veiculo"):
             contexto_veiculo = (f"\n\n[CONTEXTO DO USUÁRIO]: O usuário possui um(a) {user_data.get('veiculo_tipo')} "
@@ -178,16 +116,9 @@ def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None) -> str:
                                 f"ano {user_data.get('veiculo_ano_fabricacao')}. "
                                 f"Responda considerando este veículo se for relevante.")
             prompt_final = contexto_veiculo + "\n\nPergunta do usuário: " + mensagem
-
-        # 3. Chama a inteligência passando o histórico recuperado
-        resposta = brain.get_response(prompt_final, history=historico_mysql)
-        
-        if not resposta or "Não consegui gerar uma resposta" in resposta:
-             logger.warning(f"Aviso: Resposta vazia da Neura para o usuário {user_id}")
-             return "⚠️ O NOG está processando muitas informações no momento. Tente reformular sua pergunta."
-
-        return resposta
-
+        chat = model.start_chat(history=historico_gemini)
+        response = chat.send_message(prompt_final)
+        return response.text
     except Exception as e:
-        logger.error(f"❌ Erro no NOG (nogai.py): {e}", exc_info=True)
-        return "❌ Erro local ao processar sua solicitação. Verifique a conexão com o servidor Ollama."
+        logger.error(f"❌ Erro no NOG (Gemini): {e}", exc_info=True)
+        return "❌ Erro ao conectar com a inteligência na nuvem."
