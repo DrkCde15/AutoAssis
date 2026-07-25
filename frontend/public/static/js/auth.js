@@ -160,7 +160,8 @@ const Auth = (() => {
     if (typeof window === "undefined") return;
     const currentPage = (window.location.pathname.split("/").pop() || "").toLowerCase();
     if (currentPage !== "login.html") {
-      window.location.href = "login.html";
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = "login.html?redirect=" + returnTo;
     }
   }
 

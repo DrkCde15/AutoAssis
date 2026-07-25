@@ -2139,8 +2139,14 @@ def chat():
     ignore_global_history = bool(data.get("ignore_global_history"))
 
     # Localização do usuário para busca de mecânicos
-    user_lat = data.get("lat", type=float)
-    user_lng = data.get("lng", type=float)
+    user_lat = data.get("lat")
+    user_lng = data.get("lng")
+    if user_lat is not None:
+        try: user_lat = float(user_lat)
+        except (TypeError, ValueError): user_lat = None
+    if user_lng is not None:
+        try: user_lng = float(user_lng)
+        except (TypeError, ValueError): user_lng = None
     if not msg and not img_b64 and not attachment:
         return jsonify(error="Envie uma mensagem ou anexe um arquivo para análise."), 400
 
@@ -2294,6 +2300,15 @@ def handle_voice():
                 client_history,
                 ignore_global_history,
             )
+
+        voice_lat = request.form.get("lat")
+        voice_lng = request.form.get("lng")
+        if voice_lat is not None:
+            try: user["lat"] = float(voice_lat)
+            except (TypeError, ValueError): pass
+        if voice_lng is not None:
+            try: user["lng"] = float(voice_lng)
+            except (TypeError, ValueError): pass
 
         resposta, videos, links, topic = generate_assistant_payload(
             text,

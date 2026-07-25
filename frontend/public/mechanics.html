@@ -26,6 +26,50 @@
             --panel-width: 420px;
         }
         
+        .navbar {
+            background: rgba(28, 28, 30, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            height: 96px;
+        }
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100%;
+            padding: 0 2rem;
+        }
+        .logo-link {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .logo-link img {
+            height: 72px !important;
+            width: auto;
+        }
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+        .nav-link.active {
+            color: var(--accent);
+        }
+        
         body {
             background: var(--bg-primary);
             color: var(--text-primary);
@@ -41,6 +85,7 @@
             display: flex;
             overflow: hidden;
             position: relative;
+            padding-top: 96px;
         }
         
         .main-content {
@@ -952,8 +997,13 @@
             </a>
             <div class="nav-links">
                 <a href="/chat.html" class="nav-link">Chat IA</a>
-                <a href="/dashboard.html" class="nav-link">Dashboard</a>
+                <a href="/dashboard.html" id="navDashboard" class="nav-link" style="display:none">Dashboard</a>
+                <a href="/maintenance_history.html" id="navMaintenance" class="nav-link" style="display:none">Manutenções</a>
+                <a href="/library.html" id="navLibrary" class="nav-link" style="display:none">Biblioteca</a>
                 <a href="/mechanics.html" class="nav-link active">Mecânicos</a>
+                <a href="/perfil.html" id="navProfile" class="nav-link" style="display:none">Perfil</a>
+                <a href="/login.html" id="navLogin" class="nav-link">Entrar</a>
+                <a href="/cadastro.html" id="navSignup" class="nav-link">Cadastrar</a>
                 <div id="notif-bell-container"></div>
             </div>
         </div>
@@ -1111,9 +1161,17 @@
         document.addEventListener('DOMContentLoaded', function() {
             Auth.syncUser().then(user => {
                 isAuthenticated = !!user;
+                if (!isAuthenticated) {
+                    window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+                    return;
+                }
+                const show = (id) => { const el = document.getElementById(id); if (el) el.style.display = ''; };
+                const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+                show('navDashboard'); show('navMaintenance'); show('navLibrary');
+                show('navProfile'); hide('navLogin'); hide('navSignup');
                 loadFavorites();
             }).catch(() => {
-                isAuthenticated = false;
+                window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
             });
             
             initMap();
@@ -1148,7 +1206,17 @@
                 maxZoom: 19
             }).addTo(map);
             
+            showLoading();
             getUserLocation();
+        }
+        
+        function showLoading() {
+            document.getElementById('mechanics-list').innerHTML = `
+                <div class="loading-state">
+                    <i class="fas fa-spinner spinner"></i>
+                    <span>Obtendo localização...</span>
+                </div>
+            `;
         }
         
         // Obter localização do usuário
@@ -1238,6 +1306,8 @@
                 </div>
             `;
             
+            const startTime = Date.now();
+            
             try {
                 let url = `${CONFIG.API_URL}/api/mechanics/search?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=${radius}`;
                 
@@ -1249,6 +1319,11 @@
                 
                 if (data.success) {
                     mechanicsData = data.mechanics || [];
+                    const elapsed = Date.now() - startTime;
+                    const minLoad = 300;
+                    if (elapsed < minLoad) {
+                        await new Promise(r => setTimeout(r, minLoad - elapsed));
+                    }
                     applyFilters();
                 } else {
                     throw new Error(data.error || 'Erro na busca');
@@ -1366,7 +1441,7 @@
                             </div>
                             <div class="popup-addr">${escapeHtml(mechanic.endereco)}</div>
                             <div class="popup-dist">${mechanic.distance_km} km</div>
-                            <a class="popup-link" onclick="selectMechanic(${mechanic.id})">Ver detalhes</a>
+                            <a class="popup-link" onclick="selectMechanic('${mechanic.id}')">Ver detalhes</a>
                         </div>
                     `);
                     
@@ -1833,7 +1908,7 @@
             document.querySelectorAll('.btn-favorite').forEach(btn => {
                 const card = btn.closest('[data-id]');
                 if (card) {
-                    const id = parseInt(card.dataset.id);
+                    const id = card.dataset.id;
                     const isFav = favoritesMap[id];
                     btn.classList.toggle('is-favorite', isFav);
                     btn.title = isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos';

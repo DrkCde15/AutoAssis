@@ -108,6 +108,7 @@ csp = {
         "'self'",
         "https://cdnjs.cloudflare.com",
         "https://cdn.jsdelivr.net",
+        "https://unpkg.com",
         "'unsafe-inline'",
     ] + (["'unsafe-eval'"] if os.getenv("CSP_ALLOW_UNSAFE_EVAL", "0").strip().lower() in {"1", "true", "yes", "on"} else []),
     'style-src': [
@@ -115,6 +116,7 @@ csp = {
         "https://cdnjs.cloudflare.com",
         "https://fonts.googleapis.com",
         "https://cdn.jsdelivr.net",
+        "https://unpkg.com",
         "'unsafe-inline'"
     ],
     'font-src': [
@@ -130,7 +132,8 @@ csp = {
         "https://*.googleusercontent.com",
         "https://*.cakto.com.br",
         "https://images.unsplash.com",
-        "https://www.gstatic.com"
+        "https://www.gstatic.com",
+        "https://*.tile.openstreetmap.org"
     ],
     'frame-src': [
         "'self'",

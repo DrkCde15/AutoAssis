@@ -50,16 +50,21 @@ def search_osm(user_lat, user_lng, radius, service_type=None):
 
     parts = []
     for tag in osm_tags:
-        parts.append(f'nwr[{tag}](around:{radius_m},{user_lat},{user_lng});')
+        for elem in ('node', 'way', 'relation'):
+            parts.append(f'{elem}[{tag}](around:{radius_m},{user_lat},{user_lng});')
 
     query = f"""\
-[out:json][timeout:25];
+[out:json][timeout:45];
 ({''.join(parts)});
 out center;
 """
 
     try:
-        resp = requests.get(OVERPASS_URL, params={'data': query}, timeout=25)
+        resp = requests.post(OVERPASS_URL, data={'data': query}, timeout=50,
+                             headers={
+                                 'Accept': 'application/json',
+                                 'User-Agent': 'AutoAssist/1.0 (vehicle maintenance assistant)'
+                             })
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
@@ -239,19 +244,19 @@ def search_mechanics():
                            horario_funcionamento, avaliacao_media,
                            total_avaliacoes, foto_url, is_verified,
                            (
-                               ? * ACOS(
-                                   COS(RADIANS(?)) * COS(RADIANS(latitude)) *
-                                   COS(RADIANS(longitude) - RADIANS(?)) +
-                                   SIN(RADIANS(?)) * SIN(RADIANS(latitude))
+                               %s * ACOS(
+                                   COS(RADIANS(%s)) * COS(RADIANS(latitude)) *
+                                   COS(RADIANS(longitude) - RADIANS(%s)) +
+                                   SIN(RADIANS(%s)) * SIN(RADIANS(latitude))
                                )
                            ) AS distance_km
                     FROM mechanics
                     WHERE is_active = TRUE
                       AND latitude IS NOT NULL
                       AND longitude IS NOT NULL
-                    HAVING distance_km <= ?
+                    HAVING distance_km <= %s
                     ORDER BY distance_km ASC
-                    LIMIT ?
+                    LIMIT %s
                 """, (EARTH_RADIUS_KM, user_lat, user_lng, user_lat, radius, limit))
 
                 for m in cursor.fetchall():
@@ -294,6 +299,10 @@ def search_mechanics():
                             break
             except Exception as e:
                 logger.error(f"Erro na busca web: {e}")
+
+        # Filtro por avaliação mínima
+        if min_rating > 0:
+            mechanics = [m for m in mechanics if (m.get('avaliacao_media') or 0) >= min_rating]
 
         # Ordenação final
         if sort_by == 'rating':
@@ -496,22 +505,26 @@ def toggle_favorite(mechanic_id):
                 return jsonify(error="Dados insuficientes para salvar mecânico"), 400
             mechanic_id = str(new_id)
 
+        if not mechanic_id.isdigit():
+            return jsonify(error="ID inválido. Favoritos só podem ser gerenciados para mecânicos salvos no banco."), 400
+
+        mid = int(mechanic_id)
         with get_db() as (cursor, conn):
             if request.method == 'POST':
                 cursor.execute("""
                     INSERT IGNORE INTO mechanic_favorites (user_id, mechanic_id)
                     VALUES (%s, %s)
-                """, (user_id, int(mechanic_id)))
+                """, (user_id, mid))
                 return jsonify({
                     "success": True,
                     "message": "Mecânico favoritado",
-                    "mechanic_id": int(mechanic_id)
+                    "mechanic_id": mid
                 }), 200
             else:
                 cursor.execute("""
                     DELETE FROM mechanic_favorites
                     WHERE user_id = %s AND mechanic_id = %s
-                """, (user_id, int(mechanic_id)))
+                """, (user_id, mid))
                 return jsonify({"success": True, "message": "Mecânico removido dos favoritos"}), 200
 
     except Exception as e:
