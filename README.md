@@ -16,6 +16,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 - **E-commerce Automotivo Integrado:** Recomendação automática de links para compra de **veículos (WebMotors)** e **peças (Mercado Livre)** baseada na necessidade do usuário.
 - **IA de Previsão de Manutenção:** Sistema que analisa descrições (ex: "Troquei o óleo hoje") e utiliza IA para prever a data e quilometragem da próxima revisão.
 - **Raio-X Mecânico:** Análise visual avançada para identificação de ferrugem, desalinhamentos e vazamentos em fotos.
+- **Busca Inteligente de Mecânicos:** Encontre oficinas reais próximas via OpenStreetMap + Google Search, com cache Redis (1h OSM, 24h web). Integrado ao chatbot — pergunte "preciso de um mecânico" e a IA responde com opções na região.
 
 ### **Dashboard e Gestão**
 
@@ -45,6 +46,9 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 | **PyMySQL + SSL**     | Conexão segura e resiliente com o banco de dados.      |
 | **SMTP / Gmail API**  | Motor de disparo de notificações proativas por e-mail. |
 | **JWT + Refresh**     | Autenticação moderna com Tokens de Acesso e Refresh.   |
+| **Overpass API (OSM)**| Consulta de oficinas mecânicas via OpenStreetMap.      |
+| **Google Search**     | Scraping de resultados locais para mecanicas.           |
+| **Redis**             | Cache distribuído de IA, dashboard e mechanics (OSM/Web).|
 
 ### **Frontend**
 
@@ -63,9 +67,9 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 AutoAssist/
 ├── backend/
 │   ├── models/                    # Modelos de ML para treinamento
-│   ├── routes/                    # Módulos de API (Auth, Pages, Database)
+│   ├── routes/                    # Módulos de API (Auth, Pages, Database, Mechanics)
 │   ├── scripts/                   # Treinamento do ML
-│   ├── services/                  # IA e Lógica (NOG IA, Vision, Maintenance)
+│   ├── services/                  # IA e Lógica (NOG IA, Vision, Maintenance, Web Scraping)
 │   ├── utils/                     # Cache Redis, e-mail, tasks assíncronas e cron auth
 │   ├── app.py                     # Entry-point (Servidor Flask)
 │   ├── render.yaml                # Blueprint de deploy (Render)
@@ -74,6 +78,7 @@ AutoAssist/
 ├── frontend/
 │   ├── index.html                 # Landing Page
 │   ├── chat.html                  # Consultor NOG IA
+│   ├── mechanics.html             # Busca de mecânicos (OSM + Web)
     ├── dashboard.html             # Dashboard
 │   ├── library.html               # Galeria de Vídeos YouTube
 │   ├── maintenance_history.html   # Gestão de Manutenções
