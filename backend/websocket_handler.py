@@ -99,8 +99,12 @@ def chat_websocket(ws):
                     ws.send(json.dumps({"error": "Arquivo anexado inválido."}))
                     continue
 
+            # Passa localização do usuário para o contexto do chatbot
+            if isinstance(user_data, dict):
+                user_data["lat"] = data.get("lat")
+                user_data["lng"] = data.get("lng")
+
             if attachment or image_b64:
-                # Reutiliza o mesmo caminho da rota HTTP /api/chat (visão/attachment).
                 from routes.pages import generate_assistant_payload
                 response, videos, links, topic = generate_assistant_payload(
                     message,

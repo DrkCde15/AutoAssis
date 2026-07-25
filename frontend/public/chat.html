@@ -910,6 +910,10 @@
             <i class="fas fa-search"></i>
             <span>Buscar chats</span>
           </button>
+          <button id="btnMechanics" class="sidebar-action" type="button" onclick="window.location.href='/mechanics.html'">
+            <span>🔧</span>
+            <span>Buscar Mecânicos</span>
+          </button>
           <label id="sidebarSearch" class="sidebar-search" for="chatHistorySearch">
             <input id="chatHistorySearch" type="search" placeholder="Buscar no histórico" autocomplete="off" />
           </label>
@@ -1015,6 +1019,17 @@
       let chatHistoryItems = [];
       let activeHistoryKey = null;
       let currentThreadHistory = [];
+      let userLat = null;
+      let userLng = null;
+
+      // Obtém localização do usuário para contexto de mecânicos no chat
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+          () => {},
+          { timeout: 5000, enableHighAccuracy: false }
+        );
+      }
 
       configureAccessControls();
       updateGuestNotice();
@@ -1227,6 +1242,10 @@
         formData.append("client_history", JSON.stringify(currentThreadHistory));
         formData.append("session_id", currentSessionId);
         if (!isAuthenticated && guestId) formData.append("guest_id", guestId);
+        if (userLat !== null && userLng !== null) {
+          formData.append("lat", userLat);
+          formData.append("lng", userLng);
+        }
 
         const file = fileInput.files[0];
         let attachmentPayload = null;
@@ -1965,6 +1984,10 @@
           };
           if (attachmentPayload) payload.attachment = attachmentPayload;
           if (!isAuthenticated && guestId) payload.guest_id = guestId;
+          if (userLat !== null && userLng !== null) {
+            payload.lat = userLat;
+            payload.lng = userLng;
+          }
 
           if (CHAT_USE_WEBSOCKET && wsChat && wsChat.readyState === WebSocket.OPEN) {
             wsChat.send(JSON.stringify(payload));

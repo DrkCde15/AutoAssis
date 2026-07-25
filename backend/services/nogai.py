@@ -567,6 +567,52 @@ def _build_maintenance_context(user_id):
         return ""
 
 
+def search_nearby_mechanics(lat=None, lng=None, radius=10, limit=5):
+    """Busca mecânicos próximos para contexto do chatbot."""
+    if lat is None or lng is None:
+        return ""
+    try:
+        from routes.mechanics import search_osm
+        osm_results = search_osm(lat, lng, radius)[:limit]
+
+        try:
+            from services.web_scraping import search_mechanics_web
+            web_results = search_mechanics_web(lat, lng, radius)[:limit]
+        except Exception:
+            web_results = []
+
+        seen = set()
+        combined = []
+        for m in osm_results + web_results:
+            if m['id'] not in seen:
+                seen.add(m['id'])
+                combined.append(m)
+                if len(combined) >= limit:
+                    break
+
+        if not combined:
+            return ""
+
+        lines = []
+        for m in combined:
+            nome = m.get('nome', 'Oficina')
+            end = m.get('endereco', '')
+            dist = m.get('distance_km', 0)
+            tel = m.get('telefone', '')
+            parts = [f"  - {nome}"]
+            if end:
+                parts.append(end)
+            parts.append(f"{dist:.1f} km")
+            if tel:
+                parts.append(tel)
+            lines.append(", ".join(parts))
+
+        return "Mecânicos encontrados nas proximidades:\n" + "\n".join(lines)
+    except Exception as e:
+        logger.warning("Erro ao buscar mecânicos para o chat: %s", e)
+        return ""
+
+
 def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None, historico: list | None = None) -> str:
     try:
         logger.info(f"NOG Groq: Processando msg do usuário {user_id}")
@@ -619,6 +665,20 @@ def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None, historic
                 f"\n\n[CONTEXTO DE MANUTENCAO]: Historico de manutencoes do usuario "
                 f"(mais recentes):\n{manut_context}"
             )
+
+        # Injeta mecânicos próximos se a mensagem for sobre encontrar oficinas
+        _MECHANIC_KEYWORDS = [
+            "mecanic", "oficina", "borracheiro", "funileiro",
+            "reparo", "consertar", "arrumar", "trocar oleo",
+            "alinhamento", "balanceamento", "revisao"
+        ]
+        mechanic_context = ""
+        if any(kw in msg_clean.lower() for kw in _MECHANIC_KEYWORDS):
+            user_lat = (user_data or {}).get("lat")
+            user_lng = (user_data or {}).get("lng")
+            mechanic_context = search_nearby_mechanics(user_lat, user_lng)
+            if mechanic_context:
+                user_context += f"\n\n[OFICINAS PROXIMAS]\n{mechanic_context}"
 
         prompt_final = f"{user_context}\n\nPergunta do usuário: {msg_clean}" if user_context else msg_clean
 

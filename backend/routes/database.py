@@ -222,6 +222,55 @@ TABLES_SQL = {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_push_user (user_id)
     )""",
+    "mechanics": """CREATE TABLE IF NOT EXISTS mechanics (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(100) NOT NULL,
+        cnpj VARCHAR(18),
+        endereco TEXT NOT NULL,
+        cidade VARCHAR(50) NOT NULL,
+        estado VARCHAR(2) NOT NULL,
+        cep VARCHAR(9),
+        latitude DECIMAL(10, 8),
+        longitude DECIMAL(11, 8),
+        telefone VARCHAR(20),
+        email VARCHAR(100),
+        website VARCHAR(200),
+        descricao TEXT,
+        especialidades JSON,  -- ["troca_oleo", "freios", "suspensao"]
+        servicos JSON,  -- [{"nome": "Troca de óleo", "preco": 150.00}]
+        horario_funcionamento JSON,  -- {"seg": "08:00-18:00", "dom": "fechado"}
+        avaliacao_media DECIMAL(3, 2) DEFAULT 0.00,
+        total_avaliacoes INT DEFAULT 0,
+        foto_url VARCHAR(500),
+        is_verified BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_mechanics_location (cidade, estado),
+        INDEX idx_mechanics_rating (avaliacao_media DESC),
+        INDEX idx_mechanics_active (is_active, is_verified)
+    )""",
+    "mechanic_reviews": """CREATE TABLE IF NOT EXISTS mechanic_reviews (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        mechanic_id INT NOT NULL,
+        user_id INT NOT NULL,
+        avaliacao INT NOT NULL CHECK (avaliacao BETWEEN 1 AND 5),
+        comentario TEXT,
+        service_type VARCHAR(50),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_reviews_mechanic (mechanic_id, created_at DESC),
+        INDEX idx_reviews_user (user_id),
+        FOREIGN KEY (mechanic_id) REFERENCES mechanics(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""",
+    "mechanic_favorites": """CREATE TABLE IF NOT EXISTS mechanic_favorites (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        mechanic_id INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_favorite (user_id, mechanic_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (mechanic_id) REFERENCES mechanics(id) ON DELETE CASCADE
+    )""",
 }
 
 

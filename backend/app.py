@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 print("Importando rotas...")
 from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db
+from routes.mechanics import mechanics_bp
 from routes.notifications import notifications_bp
 from routes.push import push_bp
 from routes.payment import cakto_webhook as cakto_webhook_handler
@@ -570,6 +571,7 @@ app.register_blueprint(feedback_bp)
 app.register_blueprint(gateway_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(push_bp)
+app.register_blueprint(mechanics_bp)
 
 # Gera VAPID keys se nao existirem
 if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):

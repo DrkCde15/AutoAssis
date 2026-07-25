@@ -2137,6 +2137,10 @@ def chat():
 
     client_history = normalize_client_history(data.get("client_history"))
     ignore_global_history = bool(data.get("ignore_global_history"))
+
+    # Localização do usuário para busca de mecânicos
+    user_lat = data.get("lat", type=float)
+    user_lng = data.get("lng", type=float)
     if not msg and not img_b64 and not attachment:
         return jsonify(error="Envie uma mensagem ou anexe um arquivo para análise."), 400
 
@@ -2168,6 +2172,10 @@ def chat():
                 client_history,
                 ignore_global_history,
             )
+
+        if user_lat is not None and user_lng is not None:
+            user["lat"] = user_lat
+            user["lng"] = user_lng
 
         resposta, videos, links, topic = generate_assistant_payload(
             msg,
