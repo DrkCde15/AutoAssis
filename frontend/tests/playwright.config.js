@@ -16,6 +16,14 @@ module.exports = defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
+  webServer: {
+    command: "cd ../backend && python app.py",
+    port: 5000,
+    timeout: 30000,
+    reuseExistingServer: !process.env.CI,
+    stdout: "pipe",
+    stderr: "pipe",
+  },
   projects: [
     {
       name: "chromium",
