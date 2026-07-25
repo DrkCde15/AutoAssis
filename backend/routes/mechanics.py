@@ -34,17 +34,15 @@ def calculate_distance(lat1, lng1, lat2, lng2):
 
 
 def search_osm(user_lat, user_lng, radius, service_type=None):
-    """Busca oficinas mecânicas via Overpass API (OpenStreetMap)."""
+    """Busca oficinas mecânicas via Overpass API (OpenStreetMap). Retorna GeoJSON Features."""
     cache_key = f"osm_mechanics:{user_lat:.4f}:{user_lng:.4f}:{radius}:{service_type or ''}"
     cached = cache_get_json(cache_key)
     if cached is not None:
         return cached
 
-    # Mapeia service_type para tags OSM
     osm_tags = ['"shop"="car_repair"', '"amenity"="car_repair"', '"craft"="auto_mechanic"']
-    if service_type:
-        if service_type in ('eletrica',):
-            osm_tags.append('"craft"="auto_electrician"')
+    if service_type and service_type in ('eletrica',):
+        osm_tags.append('"craft"="auto_electrician"')
 
     radius_m = int(radius * 1000)
 
@@ -60,81 +58,79 @@ out center;
 """
 
     try:
+        logger.debug("Overpass query: %s", query[:200])
         resp = requests.post(OVERPASS_URL, data={'data': query}, timeout=50,
                              headers={
                                  'Accept': 'application/json',
                                  'User-Agent': 'AutoAssist/1.0 (vehicle maintenance assistant)'
                              })
         resp.raise_for_status()
-        data = resp.json()
+        raw = resp.json()
     except Exception as e:
         logger.error(f"Erro Overpass API: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error("Overpass response body: %s", e.response.text[:500])
         return []
 
+    if isinstance(raw, list):
+        logger.warning("Overpass retornou lista inesperada, tentando como elements")
+        data = {"elements": raw}
+    else:
+        data = raw
+
+    features = data.get('features', [])
+    if not features and 'elements' in data:
+        features = _elements_to_geojson(data.get('elements', []))
     results = []
     seen = set()
 
-    for element in data.get('elements', []):
-        lat = element.get('lat')
-        lng = element.get('lon')
-        if lat is None or lng is None:
-            center = element.get('center')
-            if center:
-                lat = center.get('lat')
-                lng = center.get('lon')
-        if lat is None or lng is None:
-            continue
+    for feature in features:
+        props = feature.get('properties', {}) or {}
+        geom = feature.get('geometry', {})
+        if geom.get('type') != 'Point':
+            coords = _extract_center(geom)
+            if coords:
+                geom = {"type": "Point", "coordinates": coords}
+            else:
+                continue
+        lng, lat = geom['coordinates']
 
-        tags = element.get('tags', {})
-        nome = tags.get('name', '').strip()
+        nome = (props.get('name') or '').strip()
         if not nome:
             nome = 'Oficina Mecânica'
 
         endereco_parts = []
-        if tags.get('addr:street'):
-            number = tags.get('addr:housenumber', '')
-            endereco_parts.append(f"{tags['addr:street']} {number}".strip())
-        if tags.get('addr:city'):
-            endereco_parts.append(tags['addr:city'])
-        if tags.get('addr:postcode'):
-            endereco_parts.append(tags['addr:postcode'])
+        if props.get('addr:street'):
+            number = props.get('addr:housenumber', '')
+            endereco_parts.append(f"{props['addr:street']} {number}".strip())
+        if props.get('addr:city'):
+            endereco_parts.append(props['addr:city'])
+        if props.get('addr:postcode'):
+            endereco_parts.append(props['addr:postcode'])
+        endereco = ', '.join(endereco_parts) if endereco_parts else props.get('display_name', '')
 
-        endereco = ', '.join(endereco_parts) if endereco_parts else tags.get('display_name', '')
-        cidade = tags.get('addr:city', '')
-        estado = tags.get('addr:state', '')
-
-        telefone = tags.get('phone', '')
-        website = tags.get('website', '') or tags.get('url', '')
+        cidade = props.get('addr:city', '')
+        estado = props.get('addr:state', '')
+        telefone = props.get('phone', '')
+        website = props.get('website', '') or props.get('url', '')
 
         descricao_parts = []
-        if tags.get('description'):
-            descricao_parts.append(tags['description'])
-        if tags.get('opening_hours'):
-            descricao_parts.append(f"Horários: {tags['opening_hours']}")
+        if props.get('description'):
+            descricao_parts.append(props['description'])
+        if props.get('opening_hours'):
+            descricao_parts.append(f"Horários: {props['opening_hours']}")
         descricao = '. '.join(descricao_parts)
 
-        # Deriva especialidades das tags OSM
-        especialidades = set()
-        tag_map = {
-            'shop=car_repair': 'troca_oleo',
-            'craft=auto_mechanic': 'motor',
-            'craft=auto_electrician': 'eletrica',
-            'service=dealer': 'suspensao',
-        }
-        for osm_key, service in tag_map.items():
-            key, val = osm_key.split('=')
-            if tags.get(key) == val:
-                especialidades.add(service)
+        especialidades = _derive_specialties(props)
 
-        # Constrói horário se disponível
         horarios = None
-        if tags.get('opening_hours'):
+        if props.get('opening_hours'):
             try:
-                horarios = parse_opening_hours(tags['opening_hours'])
+                horarios = parse_opening_hours(props['opening_hours'])
             except Exception:
                 pass
 
-        osm_id = element.get('id', 0)
+        osm_id = feature.get('id', 0)
         uid = f"osm_{osm_id}"
         if uid in seen:
             continue
@@ -145,6 +141,8 @@ out center;
             continue
 
         results.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [lng, lat]},
             "id": uid,
             "nome": nome,
             "endereco": endereco,
@@ -169,6 +167,63 @@ out center;
     results.sort(key=lambda m: m['distance_km'])
     cache_set_json(cache_key, results, ttl=OSM_CACHE_TTL)
     return results
+
+
+def _elements_to_geojson(elements):
+    """Converte elements[] do Overpass para lista de Features GeoJSON (Point)."""
+    features = []
+    for el in elements:
+        lat = el.get('lat')
+        lng = el.get('lon')
+        if lat is None or lng is None:
+            center = el.get('center')
+            if center:
+                lat = center.get('lat')
+                lng = center.get('lon')
+        if lat is None or lng is None:
+            continue
+        tags = el.get('tags', {}) or {}
+        feat = {
+            "type": "Feature",
+            "id": el.get('id'),
+            "geometry": {"type": "Point", "coordinates": [lng, lat]},
+            "properties": tags
+        }
+        features.append(feat)
+    return features
+
+
+def _extract_center(geom):
+    """Extrai centro aproximado de geometria não-Point."""
+    try:
+        if geom['type'] == 'Polygon':
+            coords = geom['coordinates'][0]
+            lats = [c[1] for c in coords]
+            lngs = [c[0] for c in coords]
+            return [sum(lngs) / len(lngs), sum(lats) / len(lats)]
+        if geom['type'] == 'LineString':
+            coords = geom['coordinates']
+            lats = [c[1] for c in coords]
+            lngs = [c[0] for c in coords]
+            return [sum(lngs) / len(lngs), sum(lats) / len(lats)]
+    except Exception:
+        pass
+    return None
+
+
+def _derive_specialties(tags):
+    """Deriva especialidades das tags OSM."""
+    especialidades = set()
+    tag_map = {
+        'shop': {'car_repair': 'troca_oleo'},
+        'craft': {'auto_mechanic': 'motor', 'auto_electrician': 'eletrica'},
+        'service': {'dealer': 'suspensao'},
+    }
+    for key, val_map in tag_map.items():
+        val = tags.get(key)
+        if val in val_map:
+            especialidades.add(val_map[val])
+    return sorted(especialidades)
 
 
 def parse_opening_hours(oh_string):
@@ -268,6 +323,10 @@ def search_mechanics():
                         m['horario_funcionamento'] = json.loads(m['horario_funcionamento'])
                     m['distance_km'] = round(m['distance_km'], 1)
                     m['_source'] = 'db'
+                    m['geometry'] = {
+                        "type": "Point",
+                        "coordinates": [float(m['longitude']), float(m['latitude'])]
+                    }
                     mechanics.append(m)
         except Exception as e:
             logger.error(f"Erro na busca MySQL: {e}")

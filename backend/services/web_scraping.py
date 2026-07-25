@@ -198,14 +198,17 @@ def _extract_local_pack(soup, user_lat, user_lng):
             # A busca já é local, então usamos coordenadas aproximadas
             distance_km = round(_estimate_distance_from_city(user_lat, user_lng, city, state), 1)
 
+            web_lat = user_lat + math.degrees(distance_km / EARTH_RADIUS_KM)
+            web_lng = user_lng + math.degrees(distance_km / EARTH_RADIUS_KM)
             results.append({
                 "id": f"web_{re.sub(r'[^a-zA-Z0-9]', '', nome)[:20]}_{int(distance_km)}",
                 "nome": nome,
                 "endereco": endereco,
                 "cidade": city,
                 "estado": state,
-                "latitude": user_lat + math.degrees(distance_km / EARTH_RADIUS_KM),
-                "longitude": user_lng + math.degrees(distance_km / EARTH_RADIUS_KM),
+                "latitude": web_lat,
+                "longitude": web_lng,
+                "geometry": {"type": "Point", "coordinates": [web_lng, web_lat]},
                 "telefone": telefone,
                 "website": website,
                 "descricao": "",

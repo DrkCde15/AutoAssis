@@ -998,7 +998,7 @@
             <div class="nav-links">
                 <a href="/chat.html" class="nav-link">Chat IA</a>
                 <a href="/dashboard.html" id="navDashboard" class="nav-link" style="display:none">Dashboard</a>
-                <a href="/maintenance_history.html" id="navMaintenance" class="nav-link" style="display:none">Manutenções</a>
+                <a href="/maintenance_history.html" id="navMaintenance" class="nav-link" style="display:none">Anotações</a>
                 <a href="/library.html" id="navLibrary" class="nav-link" style="display:none">Biblioteca</a>
                 <a href="/mechanics.html" class="nav-link active">Mecânicos</a>
                 <a href="/perfil.html" id="navProfile" class="nav-link" style="display:none">Perfil</a>
@@ -1422,43 +1422,56 @@
             markers = [];
             
             mechanics.forEach(mechanic => {
-                if (mechanic.latitude && mechanic.longitude) {
-                    const isFav = favoritesMap[mechanic.id];
-                    const marker = L.marker([mechanic.latitude, mechanic.longitude], {
-                        icon: L.divIcon({
-                            className: 'mechanic-marker',
-                            html: `<i class="fas fa-wrench" style="color: ${isFav ? '#ef4444' : '#f59e0b'}; font-size: 28px;"></i>`,
-                            iconSize: [28, 28]
-                        })
-                    }).addTo(map);
-                    
-                    marker.bindPopup(`
-                        <div class="mechanic-popup">
-                            <h4>${escapeHtml(mechanic.nome)}</h4>
-                            <div class="popup-rating">
-                                <i class="fas fa-star"></i> ${mechanic.avaliacao_media ? mechanic.avaliacao_media.toFixed(1) : 'N/A'}
-                                <span style="color: #71717a; font-size: 11px;">(${mechanic.total_avaliacoes || 0})</span>
-                            </div>
-                            <div class="popup-addr">${escapeHtml(mechanic.endereco)}</div>
-                            <div class="popup-dist">${mechanic.distance_km} km</div>
-                            <a class="popup-link" onclick="selectMechanic('${mechanic.id}')">Ver detalhes</a>
-                        </div>
-                    `);
-                    
-                    marker.on('click', () => {
-                        selectMechanic(mechanic.id);
+                const lat = mechanic.latitude;
+                const lng = mechanic.longitude;
+                if (!lat || !lng) return;
+
+                const isFav = favoritesMap[mechanic.id];
+                const icon = L.divIcon({
+                    className: 'mechanic-marker',
+                    html: `<i class="fas fa-wrench" style="color: ${isFav ? '#ef4444' : '#f59e0b'}; font-size: 28px;"></i>`,
+                    iconSize: [28, 28]
+                });
+
+                let marker;
+                if (mechanic.geometry) {
+                    marker = L.geoJSON(mechanic.geometry, {
+                        pointToLayer: (feature, latlng) => L.marker(latlng, { icon })
                     });
-                    
-                    markers.push(marker);
+                    marker.addTo(map);
+                } else {
+                    marker = L.marker([lat, lng], { icon }).addTo(map);
                 }
+
+                const popupContent = `
+                    <div class="mechanic-popup">
+                        <h4>${escapeHtml(mechanic.nome)}</h4>
+                        <div class="popup-rating">
+                            <i class="fas fa-star"></i> ${mechanic.avaliacao_media ? mechanic.avaliacao_media.toFixed(1) : 'N/A'}
+                            <span style="color: #71717a; font-size: 11px;">(${mechanic.total_avaliacoes || 0})</span>
+                        </div>
+                        <div class="popup-addr">${escapeHtml(mechanic.endereco)}</div>
+                        <div class="popup-dist">${mechanic.distance_km} km</div>
+                        <a class="popup-link" onclick="selectMechanic('${mechanic.id}')">Ver detalhes</a>
+                    </div>
+                `;
+
+                if (marker.bindPopup) {
+                    marker.bindPopup(popupContent);
+                    marker.on('click', () => selectMechanic(mechanic.id));
+                } else if (marker.eachLayer) {
+                    marker.eachLayer(l => {
+                        l.bindPopup(popupContent);
+                        l.on('click', () => selectMechanic(mechanic.id));
+                    });
+                }
+
+                markers.push(marker);
             });
             
-            if (mechanics.length > 0 && mechanics[0].latitude && mechanics[0].longitude) {
-                // Ajustar zoom para caber todos marcadores
+            if (markers.length > 0) {
                 const group = L.featureGroup(markers);
-                if (markers.length > 0) {
-                    map.fitBounds(group.getBounds().pad(0.1));
-                }
+                map.fitBounds(group.getBounds().pad(0.1));
             }
         }
         

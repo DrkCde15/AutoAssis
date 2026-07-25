@@ -45,28 +45,42 @@ def _save_chat(user_id, session_id, message, response, videos, links, topic):
 
 @sock.route("/ws/chat")
 def chat_websocket(ws):
-    token = request.args.get("token")
-    guest_id = request.args.get("guest_id")
-    session_id = request.args.get("session_id", "")
+    guest_id = None
+    session_id = None
     user_id = None
 
-    # Preferencialmente autentica via cookie de sessao JWT (CSRF-protected,
-    # enviado automaticamente com credentials:include) em vez de token na URL.
+    # Autentica via primeiro frame (auth handshake) em vez de query string
     try:
-        cookie_identity = get_jwt_identity()
-        if cookie_identity:
-            user_id = cookie_identity
-    except Exception:
-        pass
-
-    if not user_id and token:
-        try:
-            decoded = decode_token(token)
-            user_id = decoded.get("sub")
-        except Exception:
-            ws.send(json.dumps({"error": "Token invalido"}))
+        raw = ws.receive(timeout=10)
+        if raw is None:
+            return
+        auth = json.loads(raw)
+        if auth.get("type") == "auth":
+            token = auth.get("token")
+            guest_id = auth.get("guest_id")
+            session_id = auth.get("session_id", "")
+            try:
+                cookie_identity = get_jwt_identity()
+                if cookie_identity:
+                    user_id = cookie_identity
+            except Exception:
+                pass
+            if not user_id and token:
+                try:
+                    decoded = decode_token(token)
+                    user_id = decoded.get("sub")
+                except Exception:
+                    ws.send(json.dumps({"error": "Token invalido"}))
+                    ws.close()
+                    return
+        else:
+            ws.send(json.dumps({"error": "Primeira mensagem deve ser de autenticacao"}))
             ws.close()
             return
+    except Exception:
+        ws.send(json.dumps({"error": "Falha na autenticacao"}))
+        ws.close()
+        return
 
     while True:
         try:
