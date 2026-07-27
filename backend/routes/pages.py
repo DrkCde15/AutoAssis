@@ -409,6 +409,12 @@ def build_recommendations(message, historico_recente, default_topic="Consultoria
     if is_generic_chat_message(message):
         return [], [], default_topic
 
+    _MECH_KEYWORDS = ["mecanic", "oficina", "borracheiro", "funileiro",
+                      "reparo", "consertar", "arrumar", "trocar oleo",
+                      "alinhamento", "balanceamento", "revisao"]
+    if any(kw in message.lower() for kw in _MECH_KEYWORDS):
+        return [], [], "Busca de Mecânicos"
+
     from services.nogai import gerar_termos_busca
     from services.youtube_service import buscar_videos_youtube
 

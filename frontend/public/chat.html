@@ -1022,9 +1022,26 @@
       let userLng = null;
 
       // Obtém localização do usuário para contexto de mecânicos no chat
-      if (navigator.geolocation) {
+      const saved = localStorage.getItem("autoassist_location");
+      if (saved) {
+        try {
+          const loc = JSON.parse(saved);
+          const age = Date.now() - (loc.ts || 0);
+          if (age < 3600000) { // 1h de validade
+            userLat = loc.lat;
+            userLng = loc.lng;
+          }
+        } catch {}
+      }
+      if (userLat === null && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+          (pos) => {
+            userLat = pos.coords.latitude;
+            userLng = pos.coords.longitude;
+            localStorage.setItem("autoassist_location", JSON.stringify({
+              lat: userLat, lng: userLng, ts: Date.now()
+            }));
+          },
           () => {},
           { timeout: 5000, enableHighAccuracy: false }
         );
@@ -1931,6 +1948,25 @@
         return div;
     }
 
+      function isMechanicQuery(text) {
+        const kw = ["mecanic", "oficina", "borracheiro", "funileiro",
+                     "reparo", "consertar", "arrumar", "trocar oleo",
+                     "alinhamento", "balanceamento", "revisao"];
+        return kw.some(k => text.toLowerCase().includes(k));
+      }
+
+      async function waitForLocation(timeout = 7000) {
+        if (userLat !== null && userLng !== null) return;
+        if (!navigator.geolocation) return;
+        return new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; resolve(); },
+            () => resolve(),
+            { timeout, enableHighAccuracy: false }
+          );
+        });
+      }
+
       const sendMessage = async () => {
         const msg = input.value.trim();
         const file = fileInput.files[0];
@@ -1939,6 +1975,10 @@
         if (!canGuestSendMessage()) {
           showGuestLimitPrompt();
           return;
+        }
+
+        if (isMechanicQuery(msg)) {
+          await waitForLocation();
         }
 
         let attachmentPayload = null;

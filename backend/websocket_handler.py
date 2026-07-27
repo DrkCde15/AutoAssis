@@ -131,36 +131,43 @@ def chat_websocket(ws):
             else:
                 response = gerar_resposta(message, user_id or 0, user_data=user_data)
 
-                termos = gerar_termos_busca(message)
+                _MECH_KEYWORDS = ["mecanic", "oficina", "borracheiro", "funileiro",
+                                  "reparo", "consertar", "arrumar", "trocar oleo",
+                                  "alinhamento", "balanceamento", "revisao"]
+                is_mechanic_query = any(kw in message.lower() for kw in _MECH_KEYWORDS)
+
                 videos = []
                 links = []
-                if termos.get("youtube"):
-                    try:
-                        videos = buscar_videos_youtube(termos["youtube"])
-                    except Exception:
-                        pass
-                if termos.get("loja"):
-                    try:
-                        scraper = WebScraper()
-                        lojas = scraper.search_car_stores(termos["loja"])
-                        for loja in lojas:
-                            loja.setdefault("tipo", "veiculo")
-                            loja.setdefault("icon", "fas fa-car")
-                        links.extend(lojas)
-                    except Exception:
-                        pass
-                if termos.get("pecas"):
-                    try:
-                        scraper = WebScraper()
-                        pecas = scraper.search_car_parts(termos["pecas"])
-                        for peca in pecas:
-                            peca.setdefault("tipo", "peca")
-                            peca.setdefault("icon", "fas fa-tools")
-                        links.extend(pecas)
-                    except Exception:
-                        pass
+                topic = "Consultoria Geral"
 
-                topic = termos.get("youtube") or termos.get("loja") or termos.get("pecas") or "Consultoria Geral"
+                if not is_mechanic_query:
+                    termos = gerar_termos_busca(message)
+                    if termos.get("youtube"):
+                        try:
+                            videos = buscar_videos_youtube(termos["youtube"])
+                        except Exception:
+                            pass
+                    if termos.get("loja"):
+                        try:
+                            scraper = WebScraper()
+                            lojas = scraper.search_car_stores(termos["loja"])
+                            for loja in lojas:
+                                loja.setdefault("tipo", "veiculo")
+                                loja.setdefault("icon", "fas fa-car")
+                            links.extend(lojas)
+                        except Exception:
+                            pass
+                    if termos.get("pecas"):
+                        try:
+                            scraper = WebScraper()
+                            pecas = scraper.search_car_parts(termos["pecas"])
+                            for peca in pecas:
+                                peca.setdefault("tipo", "peca")
+                                peca.setdefault("icon", "fas fa-tools")
+                            links.extend(pecas)
+                        except Exception:
+                            pass
+                    topic = termos.get("youtube") or termos.get("loja") or termos.get("pecas") or "Consultoria Geral"
             now_iso = datetime.now().isoformat()
 
             chat_id = _save_chat(user_id, sess, message, response, videos, links, topic)

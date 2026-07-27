@@ -1228,6 +1228,9 @@
                             lat: position.coords.latitude,
                             lng: position.coords.longitude
                         };
+                        localStorage.setItem("autoassist_location", JSON.stringify({
+                            lat: userLocation.lat, lng: userLocation.lng, ts: Date.now()
+                        }));
                         map.setView([userLocation.lat, userLocation.lng], 13);
                         
                         L.marker([userLocation.lat, userLocation.lng], {

@@ -69,11 +69,23 @@ Precisão:
 - [CONTEXTO AUTOASSIST] é a fonte principal para dados do usuário.
 - Diferencie fatos de previsões ML. Não invente dados não cadastrados.
 
-Estrutura da resposta:
-1. Resumo Direto: explicação simples do problema.
-2. Dicionário do NOG: termos técnicos explicados.
-3. Passo a Passo: o que fazer ou como falar com o mecânico.
-4. Valores e FIPE: estimativas de custo e referências de mercado.
+Estrutura da resposta (use linguagem natural, NÃO use os nomes das seções como títulos literais):
+1. Comece explicando o problema de forma simples e direta, sem título "Resumo Direto".
+2. Explique termos técnicos relevantes se necessário (sem título "Dicionário do NOG").
+3. Dê um guia passo a passo prático (sem título "Passo a Passo").
+4. Se aplicável, mencione valores de mercado ou referência FIPE (sem título "Valores e FIPE").
+Nunca use "Resumo Direto", "Dicionário do NOG", "Passo a Passo" ou "Valores e FIPE" como texto literal na resposta.
+
+Mecânicos:
+- [OFICINAS PROXIMAS] contém uma lista real de oficinas encontradas na região do usuário. Liste essas opções e destaque nome, endereço, distância e telefone. Convide o usuário a usar a página de Busca de Mecânicos (ícone 🔧 na barra de digitação) para ver no mapa e favoritar.
+- [NOTA] contém instruções do sistema. Siga-as literalmente.
+
+Promova os recursos do site sempre que RELEVANTE:
+- **Dashboard**: se falar de revisões, custos ou saúde do veículo, sugira "Você pode acompanhar tudo no seu Dashboard em /dashboard.html".
+- **Histórico de Manutenções**: se falar de trocas recentes ou planejamento, sugira "Registre e acompanhe no Histórico de Manutenções em /maintenance_history.html".
+- **Biblioteca de Vídeos**: se falar de reparos ou tutorials, diga "Temos vídeos tutoriais na Biblioteca em /library.html".
+- **Busca de Mecânicos**: se o usuário precisar de oficina, diga "Use a Busca de Mecânicos (ícone 🔧 no chat) para encontrar e favoritar oficinas perto de você".
+Use um tom natural, não pareça propaganda.
 """
 
 PREMIUM_TUTORIAL_PROMPT = """
@@ -672,13 +684,25 @@ def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None, historic
             "reparo", "consertar", "arrumar", "trocar oleo",
             "alinhamento", "balanceamento", "revisao"
         ]
-        mechanic_context = ""
         if any(kw in msg_clean.lower() for kw in _MECHANIC_KEYWORDS):
             user_lat = (user_data or {}).get("lat")
             user_lng = (user_data or {}).get("lng")
-            mechanic_context = search_nearby_mechanics(user_lat, user_lng)
-            if mechanic_context:
-                user_context += f"\n\n[OFICINAS PROXIMAS]\n{mechanic_context}"
+            if user_lat is None or user_lng is None:
+                user_context += (
+                    "\n\n[NOTA]: O usuario perguntou por oficinas mas a localizacao "
+                    "dele nao esta disponivel. Sugira que ele ative a localizacao "
+                    "no navegador ou use Google Maps para encontrar."
+                )
+            else:
+                mechanic_context = search_nearby_mechanics(user_lat, user_lng)
+                if mechanic_context:
+                    user_context += f"\n\n[OFICINAS PROXIMAS]\n{mechanic_context}"
+                else:
+                    user_context += (
+                        "\n\n[NOTA]: O usuario perguntou por oficinas, mas nenhuma "
+                        "foi encontrada no raio de busca. Informe que nao ha "
+                        "oficinas cadastradas proximas e sugira ampliar a busca."
+                    )
 
         prompt_final = f"{user_context}\n\nPergunta do usuário: {msg_clean}" if user_context else msg_clean
 
