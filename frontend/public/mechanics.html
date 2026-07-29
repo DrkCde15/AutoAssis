@@ -493,31 +493,6 @@
             height: 100%;
         }
         
-        /* Loading State */
-        .loading-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-            color: var(--text-muted);
-            gap: 12px;
-        }
-        
-        .loading-state i {
-            font-size: 32px;
-            color: var(--accent);
-        }
-        
-        .spinner {
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -896,12 +871,7 @@
             cursor: not-allowed;
         }
         
-        .reviews-loading {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 13px;
-            padding: 20px;
-        }
+
         
         /* Map popup custom */
         .mechanic-popup {
@@ -1128,10 +1098,7 @@
                 </button>
             </div>
             <div class="modal-body" id="modal-body">
-                <div class="loading-state">
-                    <i class="fas fa-spinner spinner"></i>
-                    <span>Carregando detalhes...</span>
-                </div>
+                <div id="modal-loading"></div>
             </div>
         </div>
     </div>
@@ -1145,6 +1112,7 @@
     <script src="static/js/auth.js"></script>
     <script src="static/js/notifications.js"></script>
     <script src="static/js/responsive.js"></script>
+    <script src="static/js/loader.js"></script>
     
     <script>
         // Variáveis globais
@@ -1211,12 +1179,7 @@
         }
         
         function showLoading() {
-            document.getElementById('mechanics-list').innerHTML = `
-                <div class="loading-state">
-                    <i class="fas fa-spinner spinner"></i>
-                    <span>Obtendo localização...</span>
-                </div>
-            `;
+            document.getElementById('mechanics-list').innerHTML = AppLoader.block('Carregando...');
         }
         
         // Obter localização do usuário
@@ -1300,14 +1263,9 @@
             
             const btn = document.getElementById('btn-search');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner spinner"></i> Buscando...';
+            btn.innerHTML = AppLoader.button('Buscando...');
             
-            document.getElementById('mechanics-list').innerHTML = `
-                <div class="loading-state">
-                    <i class="fas fa-spinner spinner"></i>
-                    <span>Buscando mecânicos próximos...</span>
-                </div>
-            `;
+            document.getElementById('mechanics-list').innerHTML = AppLoader.block('Buscando mecânicos próximos...');
             
             const startTime = Date.now();
             
@@ -1529,12 +1487,7 @@
             const modal = document.getElementById('detail-modal');
             modal.classList.add('open');
             
-            document.getElementById('modal-body').innerHTML = `
-                <div class="loading-state">
-                    <i class="fas fa-spinner spinner"></i>
-                    <span>Carregando detalhes...</span>
-                </div>
-            `;
+            document.getElementById('modal-body').innerHTML = AppLoader.block('Carregando detalhes...');
             
             loadMechanicDetail(mechanicId);
         }
@@ -2052,7 +2005,7 @@
             
             const btn = document.querySelector('.btn-submit-review');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner spinner"></i> Enviando...';
+            btn.innerHTML = AppLoader.button('Enviando...');
             
             try {
                 const response = await Auth.authenticatedFetch(
@@ -2124,3 +2077,5 @@
     </script>
 </body>
 </html>
+
+

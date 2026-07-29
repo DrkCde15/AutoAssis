@@ -211,3 +211,39 @@ header {
     gap: 8px;
   }
 }
+
+/* ── Loading Spinner Component ─────────────────────────────── */
+@keyframes app-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.app-spinner {
+  display: inline-block;
+  animation: app-spin 0.8s linear infinite;
+  color: var(--accent);
+}
+
+.app-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.app-loader--inline {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  gap: 10px;
+}
+
+.app-loader__text {
+  font-size: 14px;
+  line-height: 1.4;
+}
