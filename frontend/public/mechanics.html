@@ -1809,7 +1809,7 @@
             }
             
             try {
-                const response = await Auth.authenticatedFetch(`${CONFIG.API_URL}/api/mechanics/favorites`);
+                const response = await Auth.authenticatedFetch(`/api/mechanics/favorites`);
                 if (!response) return;
                 
                 const data = await response.json();
@@ -1902,7 +1902,6 @@
             const isFav = !!favoritesMap[mechanicId];
 
             try {
-                const url = `${CONFIG.API_URL}/api/mechanics/${mechanicId}/favorite`;
                 const method = isFav ? 'DELETE' : 'POST';
                 const options = { method };
 
@@ -1922,7 +1921,7 @@
                     });
                 }
 
-                const response = await Auth.authenticatedFetch(url, options);
+                const response = await Auth.authenticatedFetch(`/api/mechanics/${mechanicId}/favorite`, options);
                 if (!response) return;
 
                 const data = await response.json();
@@ -2009,7 +2008,7 @@
             
             try {
                 const response = await Auth.authenticatedFetch(
-                    `${CONFIG.API_URL}/api/mechanics/${mechanicId}/reviews`,
+                    `/api/mechanics/${mechanicId}/reviews`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

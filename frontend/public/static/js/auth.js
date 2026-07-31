@@ -357,7 +357,7 @@ const Auth = (() => {
    */
   async function authenticatedFetch(endpoint, options = {}) {
     const { redirectOnInvalid = true, ...fetchOptions } = options;
-    const url = `${CONFIG.API_URL}${endpoint}`;
+    const url = /^https?:\/\//i.test(endpoint) ? endpoint : `${CONFIG.API_URL}${endpoint}`;
     const method = (fetchOptions.method || "GET").toUpperCase();
     let token = getAccessToken();
 
