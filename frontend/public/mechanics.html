@@ -1339,7 +1339,7 @@
                         <div class="mechanic-actions">
                             <div class="mechanic-rating">
                                 ${mechanic.avaliacao_media ? '<i class="fas fa-star"></i>' : ''}
-                                <span>${mechanic.avaliacao_media ? mechanic.avaliacao_media.toFixed(1) : ''}</span>
+                                <span>${mechanic.avaliacao_media ? Number(mechanic.avaliacao_media).toFixed(1) : ''}</span>
                                 ${mechanic.total_avaliacoes ? `<span style="color: var(--text-muted); font-size: 11px;">(${mechanic.total_avaliacoes})</span>` : ''}
                             </div>
                             <button class="btn-favorite ${isFav ? 'is-favorite' : ''}" 
@@ -1408,7 +1408,7 @@
                     <div class="mechanic-popup">
                         <h4>${escapeHtml(mechanic.nome)}</h4>
                         <div class="popup-rating">
-                            <i class="fas fa-star"></i> ${mechanic.avaliacao_media ? mechanic.avaliacao_media.toFixed(1) : 'N/A'}
+                            <i class="fas fa-star"></i> ${mechanic.avaliacao_media ? Number(mechanic.avaliacao_media).toFixed(1) : 'N/A'}
                             <span style="color: #71717a; font-size: 11px;">(${mechanic.total_avaliacoes || 0})</span>
                         </div>
                         <div class="popup-addr">${escapeHtml(mechanic.endereco)}</div>
@@ -1582,7 +1582,7 @@
                     <div class="detail-section-title"><i class="fas fa-star"></i> Avaliação</div>
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <span style="font-size: 28px; font-weight: 700; color: var(--warning);">
-                            ${mechanic.avaliacao_media ? mechanic.avaliacao_media.toFixed(1) : 'N/A'}
+                            ${mechanic.avaliacao_media ? Number(mechanic.avaliacao_media).toFixed(1) : 'N/A'}
                         </span>
                         <div>
                             <div style="color: var(--warning); font-size: 16px;">
@@ -1862,7 +1862,7 @@
                     <div>
                         <div class="favorite-item-name">${escapeHtml(f.nome)}</div>
                         <div class="favorite-item-rating">
-                            <i class="fas fa-star"></i> ${f.avaliacao_media ? f.avaliacao_media.toFixed(1) : 'N/A'}
+                            <i class="fas fa-star"></i> ${f.avaliacao_media ? Number(f.avaliacao_media).toFixed(1) : 'N/A'}
                             <span style="color: var(--text-muted); font-size: 11px;">(${f.total_avaliacoes || 0})</span>
                         </div>
                     </div>
