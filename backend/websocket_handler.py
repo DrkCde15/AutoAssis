@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import unicodedata
 from datetime import datetime
 from flask import Blueprint, request
 from flask_sock import Sock
@@ -13,6 +14,12 @@ from simple_websocket.errors import ConnectionClosed
 ws_bp = Blueprint("ws", __name__)
 sock = Sock()
 logger = logging.getLogger(__name__)
+
+
+def _normalize_text(text):
+    """Remove acentos e minúsculas para casar palavras-chave ("mecânico" == "mecanic")."""
+    normalized = unicodedata.normalize("NFD", str(text or "").lower())
+    return "".join(c for c in normalized if unicodedata.category(c) != "Mn")
 
 
 def _load_user_data(user_id):
@@ -114,9 +121,10 @@ def chat_websocket(ws):
                     continue
 
             # Passa localização do usuário para o contexto do chatbot
-            if isinstance(user_data, dict):
-                user_data["lat"] = data.get("lat")
-                user_data["lng"] = data.get("lng")
+            if not isinstance(user_data, dict):
+                user_data = {}
+            user_data["lat"] = data.get("lat")
+            user_data["lng"] = data.get("lng")
 
             if attachment or image_b64:
                 from routes.pages import generate_assistant_payload
@@ -132,9 +140,10 @@ def chat_websocket(ws):
                 response = gerar_resposta(message, user_id or 0, user_data=user_data)
 
                 _MECH_KEYWORDS = ["mecanic", "oficina", "borracheiro", "funileiro",
-                                  "reparo", "consertar", "arrumar", "trocar oleo",
-                                  "alinhamento", "balanceamento", "revisao"]
-                is_mechanic_query = any(kw in message.lower() for kw in _MECH_KEYWORDS)
+                                  "reparo", "consertar", "arrumar", "troca de oleo",
+                                  "troque oleo", "trocar oleo", "alinhamento",
+                                  "balanceamento", "revisao"]
+                is_mechanic_query = any(kw in _normalize_text(message) for kw in _MECH_KEYWORDS)
 
                 videos = []
                 links = []

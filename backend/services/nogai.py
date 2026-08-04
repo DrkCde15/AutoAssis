@@ -9,12 +9,19 @@ import json
 import re
 from functools import lru_cache
 from types import SimpleNamespace
+import unicodedata
 from utils.cache import TTLCache, cache_get_json, cache_set_json, make_cache_key
 from services.web_scraping import WebScraper
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_text(text):
+    """Remove acentos e minúsculas para casar palavras-chave ("mecânico" == "mecanic")."""
+    normalized = unicodedata.normalize("NFD", str(text or "").lower())
+    return "".join(c for c in normalized if unicodedata.category(c) != "Mn")
 
 HTTP_TIMEOUT = (3.05, 8)
 FIPE_BASE_URL = "https://parallelum.com.br/fipe/api/v1"
@@ -579,23 +586,58 @@ def _build_maintenance_context(user_id):
         return ""
 
 
-def search_nearby_mechanics(lat=None, lng=None, radius=10, limit=5):
-    """Busca mecânicos próximos para contexto do chatbot."""
+_SERVICE_KEYWORDS = [
+    ("troca_oleo", ["troca de oleo", "trocar oleo", "troque oleo", "troca oleo", "oleo"]),
+    ("alinhamento", ["alinhamento"]),
+    ("balanceamento", ["balanceamento"]),
+    ("freios", ["freio"]),
+    ("suspensao", ["suspensao"]),
+    ("eletrica", ["eletrica", "eletrico"]),
+    ("motor", ["motor"]),
+    ("pneus", ["pneu"]),
+    ("arrefecimento", ["arrefecimento", "radiador"]),
+]
+
+
+def _parse_mechanic_radius(text):
+    """Extrai raio em km da mensagem ("20km", "20 quilometros"). Default 10."""
+    m = re.search(r"(\d{1,3})\s*(?:km|quilometros?|kilometros?)", text or "")
+    if not m:
+        return 10
+    return max(5, min(50, int(m.group(1))))
+
+
+def _parse_mechanic_service(text):
+    """Extrai especialidade pedida na mensagem (ex.: 'troca_oleo')."""
+    text = text or ""
+    for svc, kws in _SERVICE_KEYWORDS:
+        if any(kw in text for kw in kws):
+            return svc
+    return None
+
+
+def search_nearby_mechanics(lat=None, lng=None, radius=10, limit=5, service_type=None):
+    """Busca mecânicos próximos para contexto do chatbot.
+
+    service_type filtra resultados por especialidade (ex.: 'troca_oleo').
+    """
     if lat is None or lng is None:
         return ""
     try:
         from routes.mechanics import search_osm
-        osm_results = search_osm(lat, lng, radius)[:limit]
+        osm_results = search_osm(lat, lng, radius, service_type)[:limit]
 
         try:
             from services.web_scraping import search_mechanics_web
-            web_results = search_mechanics_web(lat, lng, radius)[:limit]
+            web_results = search_mechanics_web(lat, lng, radius, service_type)[:limit]
         except Exception:
             web_results = []
 
         seen = set()
         combined = []
         for m in osm_results + web_results:
+            if service_type and service_type not in (m.get('especialidades') or []):
+                continue
             if m['id'] not in seen:
                 seen.add(m['id'])
                 combined.append(m)
@@ -619,7 +661,15 @@ def search_nearby_mechanics(lat=None, lng=None, radius=10, limit=5):
                 parts.append(tel)
             lines.append(", ".join(parts))
 
-        return "Mecânicos encontrados nas proximidades:\n" + "\n".join(lines)
+        prefix = "Mecânicos encontrados nas proximidades"
+        extra = []
+        if radius != 10:
+            extra.append(f"raio {radius} km")
+        if service_type:
+            extra.append(f"especialidade: {service_type}")
+        if extra:
+            prefix += f" (busca por {', '.join(extra)})"
+        return prefix + ":\n" + "\n".join(lines)
     except Exception as e:
         logger.warning("Erro ao buscar mecânicos para o chat: %s", e)
         return ""
@@ -681,10 +731,12 @@ def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None, historic
         # Injeta mecânicos próximos se a mensagem for sobre encontrar oficinas
         _MECHANIC_KEYWORDS = [
             "mecanic", "oficina", "borracheiro", "funileiro",
-            "reparo", "consertar", "arrumar", "trocar oleo",
-            "alinhamento", "balanceamento", "revisao"
+            "reparo", "consertar", "arrumar", "troca de oleo",
+            "troque oleo", "trocar oleo", "alinhamento",
+            "balanceamento", "revisao"
         ]
-        if any(kw in msg_clean.lower() for kw in _MECHANIC_KEYWORDS):
+        msg_norm = _normalize_text(msg_clean)
+        if any(kw in msg_norm for kw in _MECHANIC_KEYWORDS):
             user_lat = (user_data or {}).get("lat")
             user_lng = (user_data or {}).get("lng")
             if user_lat is None or user_lng is None:
@@ -694,7 +746,11 @@ def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None, historic
                     "no navegador ou use Google Maps para encontrar."
                 )
             else:
-                mechanic_context = search_nearby_mechanics(user_lat, user_lng)
+                radius = _parse_mechanic_radius(msg_norm)
+                service_type = _parse_mechanic_service(msg_norm)
+                mechanic_context = search_nearby_mechanics(
+                    user_lat, user_lng, radius=radius, service_type=service_type, limit=8
+                )
                 if mechanic_context:
                     user_context += f"\n\n[OFICINAS PROXIMAS]\n{mechanic_context}"
                 else:

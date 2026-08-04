@@ -106,7 +106,7 @@ def _scrape_google_maps(user_lat, user_lng, radius):
                 GOOGLE_SEARCH_URL,
                 params=params,
                 headers=HEADERS,
-                timeout=10,
+                timeout=6,
             )
             if resp.status_code != 200:
                 continue
@@ -123,6 +123,9 @@ def _scrape_google_maps(user_lat, user_lng, radius):
                 if b.get("distance_km", 999) <= radius:
                     results.append(b)
 
+            # Se a primeira query já rendeu o suficiente, não consulta de novo
+            if results:
+                break
         except Exception as e:
             logger.debug("Erro na query '%s': %s", query, e)
             continue

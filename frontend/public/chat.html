@@ -1950,9 +1950,11 @@
 
       function isMechanicQuery(text) {
         const kw = ["mecanic", "oficina", "borracheiro", "funileiro",
-                     "reparo", "consertar", "arrumar", "trocar oleo",
-                     "alinhamento", "balanceamento", "revisao"];
-        return kw.some(k => text.toLowerCase().includes(k));
+                     "reparo", "consertar", "arrumar", "troca de oleo",
+                     "troque oleo", "trocar oleo", "alinhamento",
+                     "balanceamento", "revisao"];
+        const normalized = normalizeHistoryText(text);
+        return kw.some(k => normalized.includes(k));
       }
 
       async function waitForLocation(timeout = 7000) {

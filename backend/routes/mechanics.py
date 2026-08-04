@@ -6,6 +6,7 @@ import logging
 import math
 import json
 import re
+import time
 import requests
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -17,8 +18,24 @@ mechanics_bp = Blueprint('mechanics', __name__)
 logger = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.osm.jp/api/interpreter",
+    "https://overpass.typoes.com/api/interpreter",
+]
+OVERPASS_TIMEOUT = 25
+OVERPASS_TOTAL_BUDGET = 40  # segundos máximos gastos em tentativas contra os mirrors
+OSM_MIN_ELEMENTS_BEFORE_STOP = 40  # para de consultar após esse volume de resultados
 OSM_CACHE_TTL = 3600  # 1 hora
+OSM_FAILURE_CACHE_TTL = 300  # 5 min para falha total
+PHOTON_REVERSE_URL = "https://photon.komoot.io/reverse"
+REVGEO_CACHE_TTL = 30 * 86400  # 30 dias (endereços mudam pouco)
+REVGEO_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
 
 
 def calculate_distance(lat1, lng1, lat2, lng2):
@@ -31,6 +48,118 @@ def calculate_distance(lat1, lng1, lat2, lng2):
         math.sin(delta_lng / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return EARTH_RADIUS_KM * c
+
+
+def _build_overpass_queries(user_lat, user_lng, radius_m, osm_tags):
+    """Gera statements simples (sem union) — o overpass-api.de rejeita unions com 400.
+
+    Retorna (elemento, query) para permitir ordenar por rendimento esperado.
+    """
+    queries = []
+    for elem in ("node", "way"):
+        for tag in osm_tags:
+            queries.append((
+                elem,
+                f'[out:json][timeout:30];{elem}[{tag}](around:{radius_m},{user_lat},{user_lng});out center;',
+            ))
+    return queries
+
+
+def _overpass_request(query, deadline):
+    """Executa a query no primeiro mirror Overpass que responder com sucesso."""
+    last_error = None
+    for url in OVERPASS_URLS:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            break
+        timeout = max(5, min(OVERPASS_TIMEOUT, int(remaining)))
+        try:
+            resp = requests.post(
+                url,
+                data={'data': query},
+                timeout=timeout,
+                headers={
+                    'Accept': 'application/json',
+                    'User-Agent': 'AutoAssist/1.0 (vehicle maintenance assistant)'
+                },
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            last_error = f"HTTP {resp.status_code} de {url}"
+            logger.warning("Overpass %s falhou: HTTP %s", url, resp.status_code)
+        except Exception as e:
+            last_error = f"{e} de {url}"
+            logger.warning("Overpass %s falhou: %s", url, e)
+        time.sleep(2)  # pequena pausa para aliviar rate-limit dos mirrors
+    logger.error("Todos os mirrors Overpass falharam: %s", last_error)
+    return None
+
+
+def _reverse_geocode(lat, lng, osm_id):
+    """Endereço aproximado via Photon (reverse geocoding), com cache por mecânico."""
+    cache_key = f"revgeo:{osm_id}"
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return cached if cached else None
+    try:
+        resp = requests.get(
+            PHOTON_REVERSE_URL,
+            params={'lat': lat, 'lon': lng},
+            headers={'User-Agent': REVGEO_BROWSER_UA},
+            timeout=4,
+        )
+        resp.raise_for_status()
+        props = resp.json().get('features', [{}])[0].get('properties', {})
+        parts = []
+        street = props.get('street') or props.get('name')
+        if street:
+            number = props.get('housenumber', '')
+            parts.append(f"{street} {number}".strip())
+        if props.get('postcode'):
+            parts.append(props['postcode'])
+        if not parts:
+            return None
+        result = {
+            'endereco': ', '.join(parts),
+            'cidade': props.get('city') or props.get('district') or '',
+            'estado': props.get('state') or '',
+        }
+        cache_set_json(cache_key, result, ttl=REVGEO_CACHE_TTL)
+        return result
+    except Exception as e:
+        logger.debug("Falha reverse geocode (%s,%s): %s", lat, lng, e)
+        cache_set_json(cache_key, {}, ttl=REVGEO_CACHE_TTL)
+        return None
+
+
+def enrich_missing_addresses(mechanics, max_items=10, time_budget=8):
+    """Preenche endereco/cidade/estado de mecânicos OSM sem endereço.
+
+    Usa reverse geocoding (Photon) com cache de 30 dias por mecânico.
+    Respeita um teto de requisições e de tempo para não travar a resposta.
+    """
+    start = time.time()
+    enriched = 0
+    for m in mechanics:
+        if enriched >= max_items or (time.time() - start) > time_budget:
+            break
+        sid = str(m.get('id', ''))
+        if not sid.startswith('osm_'):
+            continue
+        if m.get('endereco'):
+            continue
+        lat, lng = m.get('latitude'), m.get('longitude')
+        if lat is None or lng is None:
+            continue
+        addr = _reverse_geocode(lat, lng, sid)
+        if addr:
+            m['endereco'] = addr['endereco']
+            if addr.get('cidade'):
+                m['cidade'] = addr['cidade']
+            if addr.get('estado'):
+                m['estado'] = addr['estado']
+            enriched += 1
+    return mechanics
 
 
 def search_osm(user_lat, user_lng, radius, service_type=None):
@@ -46,41 +175,40 @@ def search_osm(user_lat, user_lng, radius, service_type=None):
 
     radius_m = int(radius * 1000)
 
-    parts = []
-    for tag in osm_tags:
-        for elem in ('node', 'way', 'relation'):
-            parts.append(f'{elem}[{tag}](around:{radius_m},{user_lat},{user_lng});')
-
-    query = f"""\
-[out:json][timeout:45];
-({''.join(parts)});
-out center;
-"""
-
     try:
-        logger.debug("Overpass query: %s", query[:200])
-        resp = requests.post(OVERPASS_URL, data={'data': query}, timeout=50,
-                             headers={
-                                 'Accept': 'application/json',
-                                 'User-Agent': 'AutoAssist/1.0 (vehicle maintenance assistant)'
-                             })
-        resp.raise_for_status()
-        raw = resp.json()
+        logger.debug("Overpass: %d queries x %d mirrors", len(osm_tags) * 2, len(OVERPASS_URLS))
+        deadline = time.time() + OVERPASS_TOTAL_BUDGET
+        elements = []
+        seen_qids = set()
+        for elem, query in _build_overpass_queries(user_lat, user_lng, radius_m, osm_tags):
+            if time.time() > deadline:
+                break
+            # Já temos o suficiente para responder; evita requests extras (rate-limit)
+            if len(elements) >= OSM_MIN_ELEMENTS_BEFORE_STOP:
+                logger.debug("Encerrando buscas Overpass cedo (%d elementos)", len(elements))
+                break
+            raw = _overpass_request(query, deadline)
+            if not isinstance(raw, dict):
+                continue
+            for el in raw.get('elements', []):
+                qid = f"{elem}_{el.get('id')}"
+                if qid in seen_qids:
+                    continue
+                seen_qids.add(qid)
+                elements.append(el)
+
+        if not elements:
+            logger.warning("Overpass sem resultados para %s,%s (raio %skm)",
+                           user_lat, user_lng, radius)
+            cache_set_json(cache_key, [], ttl=OSM_FAILURE_CACHE_TTL)
+            return []
+
+        features = _elements_to_geojson(elements)
     except Exception as e:
         logger.error(f"Erro Overpass API: {e}")
         if hasattr(e, 'response') and e.response is not None:
             logger.error("Overpass response body: %s", e.response.text[:500])
         return []
-
-    if isinstance(raw, list):
-        logger.warning("Overpass retornou lista inesperada, tentando como elements")
-        data = {"elements": raw}
-    else:
-        data = raw
-
-    features = data.get('features', [])
-    if not features and 'elements' in data:
-        features = _elements_to_geojson(data.get('elements', []))
     results = []
     seen = set()
 
@@ -99,20 +227,36 @@ out center;
         if not nome:
             nome = 'Oficina Mecânica'
 
+        # Endereço: suporta variantes comuns do OSM brasileiro (addr:full, addr:place)
         endereco_parts = []
-        if props.get('addr:street'):
+        if props.get('addr:full'):
+            endereco_parts.append(props['addr:full'])
+        elif props.get('addr:street'):
             number = props.get('addr:housenumber', '')
             endereco_parts.append(f"{props['addr:street']} {number}".strip())
-        if props.get('addr:city'):
-            endereco_parts.append(props['addr:city'])
+        elif props.get('addr:place'):
+            number = props.get('addr:housenumber', '')
+            endereco_parts.append(f"{props['addr:place']} {number}".strip())
+        if props.get('addr:city') or props.get('addr:district'):
+            endereco_parts.append(props.get('addr:city') or props.get('addr:district'))
         if props.get('addr:postcode'):
             endereco_parts.append(props['addr:postcode'])
         endereco = ', '.join(endereco_parts) if endereco_parts else props.get('display_name', '')
 
-        cidade = props.get('addr:city', '')
-        estado = props.get('addr:state', '')
-        telefone = props.get('phone', '')
-        website = props.get('website', '') or props.get('url', '')
+        cidade = props.get('addr:city') or props.get('is_in:city', '')
+        estado = props.get('addr:state') or props.get('is_in:state', '')
+        telefone = (props.get('phone')
+                    or props.get('contact:phone')
+                    or props.get('contact:mobile')
+                    or props.get('phone:mobile')
+                    or props.get('tel')
+                    or '')
+        website = (props.get('website')
+                   or props.get('contact:website')
+                   or props.get('contact:url')
+                   or props.get('url')
+                   or '')
+        email = props.get('contact:email') or props.get('email') or ''
 
         descricao_parts = []
         if props.get('description'):
@@ -152,6 +296,7 @@ out center;
             "longitude": lng,
             "telefone": telefone,
             "website": website,
+            "email": email,
             "descricao": descricao,
             "especialidades": sorted(especialidades) or ['troca_oleo'],
             "servicos": [],
@@ -165,6 +310,7 @@ out center;
         })
 
     results.sort(key=lambda m: m['distance_km'])
+    enrich_missing_addresses(results, max_items=10, time_budget=8)
     cache_set_json(cache_key, results, ttl=OSM_CACHE_TTL)
     return results
 
