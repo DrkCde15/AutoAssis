@@ -1,4 +1,4 @@
-const CACHE = "autoassist-v6";
+const CACHE = "autoassist-v8";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -9,6 +9,7 @@ const STATIC_ASSETS = [
   "/static/css/dark-theme.css",
   "/static/css/shared.css",
   "/static/css/responsive.css",
+  "/static/css/animations.css",
   "/static/js/config.js",
   "/static/js/auth.js",
   "/static/js/responsive.js",

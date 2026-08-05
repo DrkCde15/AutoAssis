@@ -388,6 +388,15 @@ def init_db():
             cursor.execute("ALTER TABLE maintenance_notes ADD COLUMN user_id INT NULL")
         except Exception:
             pass
+        payments_columns = [
+            ("plan", "VARCHAR(50)"),
+            ("currency", "VARCHAR(10) DEFAULT 'BRL'"),
+        ]
+        for col, dtype in payments_columns:
+            try:
+                cursor.execute(f"ALTER TABLE payments_orders ADD COLUMN {col} {dtype}")
+            except Exception:
+                pass
         # Otimizações de Banco de Dados: Adicionando Índices para consultas frequentes
         indexes = [
             "CREATE INDEX idx_chats_user_created ON chats (user_id, created_at DESC)",

@@ -304,6 +304,7 @@
     <link rel="stylesheet" href="static/css/responsive.css">
   <link rel="stylesheet" href="static/css/shared.css">
   <link rel="stylesheet" href="static/css/notifications.css">
+  <link rel="stylesheet" href="static/css/animations.css">
 </head>
 <body>
 
@@ -640,6 +641,10 @@
     function showToast() {
         const toast = document.getElementById('toast');
         toast.style.display = 'block';
+        if (window.AAAnim && window.AAAnim.toasts) {
+            window.AAAnim.toasts.show(toast, { duration: 5000 });
+            return;
+        }
         setTimeout(() => {
             toast.style.display = 'none';
         }, 5000);
@@ -658,5 +663,8 @@
     loadFeedbacks();
 </script>
 <script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}</script>
+    <script src="static/vendor/anime.min.js?v=3.2.2" defer></script>
+    <script src="static/vendor/lenis.min.js?v=1.3.26" defer></script>
+    <script src="static/js/animations/animations.js?v=1" defer></script>
 </body>
 </html>

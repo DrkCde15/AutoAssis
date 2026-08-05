@@ -524,6 +524,7 @@
     <link rel="stylesheet" href="static/css/responsive.css">
   <link rel="stylesheet" href="static/css/shared.css">
   <link rel="stylesheet" href="static/css/notifications.css">
+  <link rel="stylesheet" href="static/css/animations.css">
   <link rel="stylesheet" href="static/css/app-select.css">
 </head>
 <body>
@@ -547,7 +548,7 @@
 </nav>
 
 <div class="profile-container">
-    <div class="profile-card">
+    <div class="profile-card" data-aa-reveal>
         <div class="profile-header">
             <div class="profile-info">
                 <div class="profile-avatar" id="profileAvatar">A</div>
@@ -1133,7 +1134,10 @@
     });
 
     loadProfile();
-</script>
+    </script>
 <script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}</script>
+    <script src="static/vendor/anime.min.js?v=3.2.2" defer></script>
+    <script src="static/vendor/lenis.min.js?v=1.3.26" defer></script>
+    <script src="static/js/animations/animations.js?v=1" defer></script>
 </body>
 </html>

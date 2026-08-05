@@ -20,6 +20,8 @@
     "DOMPurify": "readonly",
     "marked": "readonly",
     "SecurityUtils": "readonly",
+    "anime": "readonly",
+    "Lenis": "readonly",
     "module": "readonly",
     "require": "readonly",
     "clients": "readonly",

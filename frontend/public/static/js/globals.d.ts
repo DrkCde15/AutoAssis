@@ -8,9 +8,15 @@ interface Window {
     setSafeText(el: Element, message: string, prefix?: string): void;
   };
   AutoAssistAnalytics?: unknown;
+  anime?: any;
+  Lenis?: any;
+  AAAnim?: any;
 }
 
 declare const SecurityUtils: {
   escapeHTML(value: unknown): string;
   setSafeText(el: Element, message: string, prefix?: string): void;
 };
+
+declare const anime: any;
+declare const Lenis: any;
