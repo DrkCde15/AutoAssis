@@ -146,6 +146,7 @@ csp = {
         "'self'",
         "https://api.cakto.com.br",
         "https://photon.komoot.io",
+        "https://unpkg.com",
         "http://localhost:5000",
         "http://127.0.0.1:5000",
         "ws://localhost:5000",

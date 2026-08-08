@@ -78,7 +78,7 @@ AutoAssist/
 ├── frontend/
 │   ├── index.html                 # Landing Page
 │   ├── chat.html                  # Consultor NOG IA
-│   ├── mechanics.html             # Busca de mecânicos (OSM + Web)
+│   ├── maps.html                   # Mapa (eventos automotivos + mecânicos)
     ├── dashboard.html             # Dashboard
 │   ├── library.html               # Galeria de Vídeos YouTube
 │   ├── maintenance_history.html   # Gestão de Manutenções

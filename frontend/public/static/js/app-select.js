@@ -43,10 +43,13 @@
 
     var listId = "appsel-" + (root.id || Math.random().toString(36).slice(2)) + "-list";
 
+    var listId = "appsel-" + (root.id || Math.random().toString(36).slice(2)) + "-list";
+
     var searchHtml = searchable
       ? '<div class="app-select__search-wrap">' +
           '<i class="fas fa-search app-select__search-icon" aria-hidden="true"></i>' +
-          '<input type="text" class="app-select__search" placeholder="' + escapeHtml(searchPlaceholder) + '" ' +
+          '<input type="text" class="app-select__search" id="' + listId + '-search" name="' + listId + '-search" ' +
+            'placeholder="' + escapeHtml(searchPlaceholder) + '" ' +
             'aria-label="' + escapeHtml(searchPlaceholder) + '" aria-autocomplete="list" ' +
             'aria-controls="' + listId + '" autocomplete="off">' +
         '</div>'

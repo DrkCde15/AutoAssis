@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoAssist - Buscar Mecânicos</title>
+    <title>AutoAssist - Mapa</title>
     <link rel="icon" type="image/png" href="static/logo2.png?v=20260506">
     <link rel="shortcut icon" type="image/png" href="static/logo2.png?v=20260506">
     <link rel="manifest" href="/manifest.json">
@@ -16,11 +16,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Shared CSS -->
+<!-- Shared CSS -->
     <link rel="stylesheet" href="static/css/shared.css">
     <link rel="stylesheet" href="static/css/notifications.css">
     <link rel="stylesheet" href="static/css/animations.css">
     <link rel="stylesheet" href="static/css/responsive.css">
+    <link rel="stylesheet" href="static/css/app-select.css">
     
     <style>
         :root {
@@ -58,8 +59,8 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        .logo-link img {
-            height: 72px !important;
+.logo-link img {
+            height: 84px;
             width: auto;
         }
         .nav-links {
@@ -139,7 +140,13 @@
             gap: 6px;
         }
         
-        .form-group label {
+.form-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .form-group .field-label {
             font-size: 13px;
             font-weight: 500;
             color: var(--text-secondary);
@@ -912,8 +919,44 @@
             font-weight: 600;
         }
         
-        .mechanic-popup .popup-link:hover {
+.mechanic-popup .popup-link:hover {
             text-decoration: underline;
+        }
+        
+        /* Tooltip com visual de card (pré-visualização no hover) */
+        .leaflet-tooltip.map-preview-tooltip {
+            background: #ffffff;
+            border: 1px solid #e4e4e7;
+            border-radius: 10px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+            padding: 10px 12px;
+            max-width: 280px;
+            width: fit-content;
+            min-width: 160px;
+            white-space: normal;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
+            opacity: 1;
+        }
+        .leaflet-tooltip.map-preview-tooltip::before {
+            border: none;
+        }
+        .leaflet-tooltip.map-preview-tooltip .mechanic-popup h4 {
+            color: #09090b;
+        }
+        .leaflet-tooltip.map-preview-tooltip .mechanic-popup {
+            line-height: 1.4;
+        }
+        .leaflet-tooltip.map-preview-tooltip .popup-addr {
+            color: #71717a;
+            word-break: break-word;
+            margin: 3px 0;
+        }
+        .leaflet-popup-content {
+            max-width: 280px;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
         }
         
 /* Results count */
@@ -923,166 +966,194 @@
             padding: 8px 0 4px;
         }
         
-        /* Events Section */
-        .events-toolbar {
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-            margin-bottom: 10px;
+        /* Events Section (design igual a maintenance_history.html) */
+        .events-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
         }
-        
-        .events-toolbar .form-group {
-            flex: 1;
+        .card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-head-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
             min-width: 0;
         }
-        
+        .small-select {
+            width: 230px;
+            max-width: 100%;
+            min-width: 0;
+        }
         .btn-events-refresh {
-            padding: 10px 14px;
-            white-space: nowrap;
-            font-size: 13px;
+            border: 1px solid var(--border-color) !important;
+            background: transparent !important;
+            color: var(--text-secondary) !important;
+            width: 34px;
+            height: 34px;
+        }
+        .btn-events-refresh:hover {
+            color: var(--text-primary) !important;
+            border-color: #3f3f46 !important;
+        }
+        .btn-events-refresh:disabled {
+            opacity: 0.6;
         }
         
-        .events-meta {
+        .event-marker {
+            background: transparent;
             display: flex;
-            flex-wrap: wrap;
             align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
+            justify-content: center;
+            position: relative;
+            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+            transition: transform .15s ease;
         }
         
-        .events-meta .meta-badge {
-            background: var(--bg-input);
+        .event-marker:hover {
+            transform: scale(1.12);
+        }
+        
+        .event-marker-count {
+            position: absolute;
+            top: -4px;
+            right: -7px;
+            background: var(--bg-card, #1f2937);
+            border: 1px solid var(--border-color, #3f3f46);
+            color: var(--text-primary, #e4e4e7);
+            font-size: 10px;
+            font-weight: 700;
+            min-width: 17px;
+            height: 17px;
+            line-height: 15px;
+            border-radius: 999px;
+            text-align: center;
+            padding: 0 3px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .events-list .empty {
+            border: 1px dashed var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .events-list .empty i {
+            font-size: 18px;
+            color: var(--text-muted);
+        }
+        .events-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .event-item {
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 2px 8px;
-            font-size: 11px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .event-item .item-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .event-item.event-past {
+            opacity: 0.75;
+        }
+        .item-title {
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+        .item-dates {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-        }
-        
-        .meta-badge.ok i { color: var(--success); }
-        .meta-badge.fail { opacity: 0.6; }
-        .meta-badge.fail i { color: var(--danger); }
-        
-        .event-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            padding: 12px;
-            display: flex;
-            gap: 12px;
-            transition: var(--transition);
-        }
-        
-        .event-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
-        }
-        
-        .event-date-badge {
             flex-shrink: 0;
-            width: 52px;
-            height: 52px;
-            border-radius: var(--radius-sm);
-            background: var(--accent-soft);
-            border: 1px solid var(--accent-ring);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+        }
+        .item-dates i {
+            font-size: 11px;
             color: var(--accent);
         }
-        
-        .event-date-badge .e-day {
-            font-size: 18px;
+        .badge {
+            border-radius: 999px;
+            font-size: 11px;
             font-weight: 700;
-            line-height: 1.1;
-        }
-        
-        .event-date-badge .e-month {
-            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            padding: 4px 8px;
+            letter-spacing: 0.4px;
+            white-space: nowrap;
         }
-        
-        .event-date-badge.no-date {
-            background: var(--bg-input);
-            border-color: var(--border-color);
+        .badge-on_track, .badge-agendado {
+            background: rgba(34, 197, 94, 0.18);
+            color: #4ade80;
+        }
+        .badge-due_soon {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+        .badge-past, .badge-overdue {
+            background: rgba(239, 68, 68, 0.18);
+            color: #f87171;
+        }
+        .badge-semdata {
+            background: rgba(113, 113, 122, 0.25);
+            color: #d4d4d8;
+        }
+        .event-item-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.45;
+            margin-top: 6px;
+        }
+        .item-meta {
+            margin-top: 8px;
             color: var(--text-muted);
-            width: auto;
-            height: auto;
-            padding: 6px 8px;
-            font-size: 11px;
-            border-radius: 12px;
-        }
-        
-        .event-body {
-            flex: 1;
-            min-width: 0;
+            font-size: 12px;
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .item-meta span {
+            display: inline-flex;
+            align-items: center;
             gap: 5px;
         }
-        
-        .event-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
-            line-height: 1.3;
-        }
-        
-        .event-info-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-secondary);
-            flex-wrap: wrap;
-        }
-        
-        .event-info-row i {
-            width: 12px;
-            color: var(--accent);
+        .item-meta i {
             font-size: 11px;
-            flex-shrink: 0;
-        }
-        
-        .event-desc {
-            font-size: 12px;
-            color: var(--text-secondary);
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        
-        .event-links {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 2px;
-        }
-        
-        .event-source {
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
             color: var(--accent);
-            background: var(--accent-soft);
-            border-radius: 10px;
-            padding: 2px 7px;
+            width: 12px;
         }
-        
-        .event-link {
+        .item-stats {
+            display: inline-flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .item-action {
             font-size: 12px;
             color: var(--accent);
             cursor: pointer;
@@ -1091,27 +1162,27 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            background: none;
+            border: 0;
+            padding: 0;
+            font-family: inherit;
         }
-        
-        .event-link:hover {
+        .item-action:hover {
             text-decoration: underline;
         }
         
-        .event-past {
-            opacity: 0.6;
-        }
-        
-        /* Responsive */
+/* Responsive */
         @media (max-width: 1024px) {
             .main-content {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 350px;
+                overflow-y: auto;
             }
             
             .search-panel {
                 border-right: none;
                 border-bottom: 1px solid var(--border-color);
-                max-height: 50vh;
+                max-height: none;
             }
         }
         
@@ -1141,18 +1212,18 @@
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="logo-link">
-                <img src="static/logo2.png" alt="AutoAssist">
+                <img src="logo.png?v=20260608" alt="AutoAssist">
                 <span>AutoAssist</span>
             </a>
-            <div class="nav-links">
-                <a href="/chat.html" class="nav-link">Chat IA</a>
-                <a href="/dashboard.html" id="navDashboard" class="nav-link" style="display:none">Dashboard</a>
-                <a href="/maintenance_history.html" id="navMaintenance" class="nav-link" style="display:none">Anotações</a>
-                <a href="/library.html" id="navLibrary" class="nav-link" style="display:none">Biblioteca</a>
-                <a href="/mechanics.html" class="nav-link active">Mecânicos</a>
-                <a href="/perfil.html" id="navProfile" class="nav-link" style="display:none">Perfil</a>
-                <a href="/login.html" id="navLogin" class="nav-link">Entrar</a>
-                <a href="/cadastro.html" id="navSignup" class="nav-link">Cadastrar</a>
+<div class="nav-links">
+                <a href="/chat.html" class="nav-link"><i class="fas fa-comments"></i> Chat IA</a>
+                <a href="/dashboard.html" id="navDashboard" class="nav-link" style="display:none"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/maintenance_history.html" id="navMaintenance" class="nav-link" style="display:none"><i class="fas fa-history"></i> Anotações</a>
+                <a href="/library.html" id="navLibrary" class="nav-link" style="display:none"><i class="fas fa-book"></i> Biblioteca</a>
+                <a href="/maps.html" class="nav-link active"><i class="fas fa-map-marked-alt"></i> Mapa</a>
+                <a href="/perfil.html" id="navProfile" class="nav-link" style="display:none"><i class="fas fa-user"></i> Perfil</a>
+                <a href="/login.html" id="navLogin" class="nav-link"><i class="fas fa-sign-in-alt"></i> Entrar</a>
+                <a href="/cadastro.html" id="navSignup" class="nav-link"><i class="fas fa-user-plus"></i> Cadastrar</a>
                 <div id="notif-bell-container"></div>
             </div>
         </div>
@@ -1161,108 +1232,131 @@
     <!-- Page Layout -->
     <div class="page-layout">
         <div class="main-content">
-            <!-- Search Panel -->
+<!-- Search Panel -->
             <div class="search-panel">
                 <div class="search-header">
-                    <h1>Buscar Mecânicos</h1>
-                    <p>Encontre mecânicos próximos a você</p>
+                    <h1 id="searchTitle">Buscar Eventos</h1>
+                    <p id="searchSubtitle">Encontre feiras, encontros e exposições automotivas perto de você</p>
                 </div>
                 
-                <div class="search-form">
-                    <div class="form-group">
-                        <label for="search-service">Tipo de Serviço</label>
-                        <select id="search-service">
-                            <option value="">Todos os serviços</option>
-                            <option value="troca_oleo">Troca de Óleo</option>
-                            <option value="freios">Freios</option>
-                            <option value="suspensao">Suspensão</option>
-                            <option value="arrefecimento">Arrefecimento</option>
-                            <option value="eletrica">Elétrica</option>
-                            <option value="pneus">Pneus</option>
-                        </select>
+                <div id="form-events">
+                    <div class="search-form">
+                        <div class="form-group">
+                            <span class="field-label">Categoria</span>
+                            <div id="evSearchCat" class="app-select" data-placeholder="Todas as categorias" aria-label="Categoria"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <span class="field-label">Período</span>
+                            <div id="evSearchPeriod" class="app-select" data-placeholder="Qualquer data" aria-label="Período"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="evSearchTerm">Buscar por termo</label>
+                            <input type="text" id="evSearchTerm" placeholder="Cidade, feira ou palavra-chave">
+                        </div>
+                        
+                        <button class="btn-search" id="btn-search" onclick="searchEvents()">
+                            <i class="fas fa-calendar-alt"></i> Buscar Eventos
+                        </button>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="search-radius">Raio de Busca</label>
-                        <select id="search-radius">
-                            <option value="5">5 km</option>
-                            <option value="10" selected>10 km</option>
-                            <option value="20">20 km</option>
-                            <option value="50">50 km</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="search-rating">Avaliação Mínima</label>
-                        <select id="search-rating">
-                            <option value="0">Qualquer avaliação</option>
-                            <option value="3">3+ estrelas</option>
-                            <option value="4">4+ estrelas</option>
-                            <option value="4.5">4.5+ estrelas</option>
-                        </select>
-                    </div>
-                    
-                    <button class="btn-search" id="btn-search" onclick="searchMechanics()">
-                        <i class="fas fa-search"></i> Buscar Mecânicos
-                    </button>
                 </div>
                 
-                <div class="filters">
-                    <div class="filter-title">Especialidades</div>
-                    <div class="filter-options">
-                        <span class="filter-chip" data-filter="troca_oleo">Troca de Óleo</span>
-                        <span class="filter-chip" data-filter="freios">Freios</span>
-                        <span class="filter-chip" data-filter="suspensao">Suspensão</span>
-                        <span class="filter-chip" data-filter="eletrica">Elétrica</span>
-                        <span class="filter-chip" data-filter="pneus">Pneus</span>
-                        <span class="filter-chip" data-filter="arrefecimento">Arrefecimento</span>
-                        <span class="filter-chip" data-filter="motor">Motor</span>
+                <div id="form-mechanics" style="display: none;">
+                    <div class="search-form">
+                        <div class="form-group">
+                            <label for="search-service">Tipo de Serviço</label>
+                            <select id="search-service">
+                                <option value="">Todos os serviços</option>
+                                <option value="troca_oleo">Troca de Óleo</option>
+                                <option value="freios">Freios</option>
+                                <option value="suspensao">Suspensão</option>
+                                <option value="arrefecimento">Arrefecimento</option>
+                                <option value="eletrica">Elétrica</option>
+                                <option value="pneus">Pneus</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="search-radius">Raio de Busca</label>
+                            <select id="search-radius">
+                                <option value="5">5 km</option>
+                                <option value="10" selected>10 km</option>
+                                <option value="20">20 km</option>
+                                <option value="50">50 km</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="search-rating">Avaliação Mínima</label>
+                            <select id="search-rating">
+                                <option value="0">Qualquer avaliação</option>
+                                <option value="3">3+ estrelas</option>
+                                <option value="4">4+ estrelas</option>
+                                <option value="4.5">4.5+ estrelas</option>
+                            </select>
+                        </div>
+                        
+                        <button class="btn-search" id="btn-mechanics-search" onclick="searchMechanics()">
+                            <i class="fas fa-search"></i> Buscar Mecânicos
+                        </button>
+                    </div>
+                    
+                    <div class="filters">
+                        <div class="filter-title">Especialidades</div>
+                        <div class="filter-options">
+                            <span class="filter-chip" data-filter="troca_oleo">Troca de Óleo</span>
+                            <span class="filter-chip" data-filter="freios">Freios</span>
+                            <span class="filter-chip" data-filter="suspensao">Suspensão</span>
+                            <span class="filter-chip" data-filter="eletrica">Elétrica</span>
+                            <span class="filter-chip" data-filter="pneus">Pneus</span>
+                            <span class="filter-chip" data-filter="arrefecimento">Arrefecimento</span>
+                            <span class="filter-chip" data-filter="motor">Motor</span>
+                        </div>
                     </div>
                 </div>
                 
 <!-- Section Tabs -->
                 <div class="section-tabs">
-                    <button class="section-tab active" data-tab="results" onclick="switchTab('results')">
-                        <i class="fas fa-list"></i> Resultados
-                    </button>
-                    <button class="section-tab" data-tab="events" onclick="switchTab('events')">
+                    <button class="section-tab active" data-tab="events" onclick="switchTab('events')">
                         <i class="fas fa-calendar-alt"></i> Eventos
+                    </button>
+                    <button class="section-tab" data-tab="mechanics" onclick="switchTab('mechanics')">
+                        <i class="fas fa-wrench"></i> Mecânicos
                     </button>
                     <button class="section-tab" data-tab="favorites" onclick="switchTab('favorites')">
                         <i class="fas fa-heart"></i> Favoritos
                     </button>
                 </div>
                 
-                <!-- Results Section -->
-                <div id="section-results">
-                    <div class="mechanics-list" id="mechanics-list">
-                        <div class="empty-state">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <h3>Busque mecânicos próximos</h3>
-                            <p>Clique no botão acima para encontrar mecânicos na sua região</p>
+<!-- Events Section -->
+                <div id="section-events">
+                    <section class="card events-card">
+                        <div class="card-head">
+                            <h2 class="card-title" style="margin:0;"><i class="fas fa-calendar-alt"></i> Eventos automotivos</h2>
+                            <div class="card-head-controls">
+                                <div id="eventsUfSelect" class="app-select small-select" data-placeholder="Todos os locais" aria-label="Local (UF)"></div>
+                                <button class="icon-btn btn-events-refresh" id="btn-events-refresh" title="Buscar novos eventos" onclick="loadAutomotiveEvents(true)">
+                                    <i class="fas fa-rotate"></i>
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                        <div class="events-list" id="events-list">
+                            <div class="empty">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>Varredura de feiras e eventos em sites especializados e no Google</span>
+                            </div>
+                        </div>
+                    </section>
                 </div>
                 
-<!-- Events Section -->
-                <div id="section-events" style="display: none;">
-                    <div class="events-toolbar">
-                        <div class="form-group" style="flex: 1; min-width: 0;">
-                            <label for="events-uf">Local (UF)</label>
-                            <select id="events-uf" onchange="renderEventsList()">
-                                <option value="">Todos</option>
-                            </select>
-                        </div>
-                        <button class="btn-search btn-events-refresh" id="btn-events-refresh" onclick="loadAutomotiveEvents(true)">
-                            <i class="fas fa-sync-alt"></i> Verificar novos
-                        </button>
-                    </div>
-                    <div class="events-meta" id="events-meta"></div>
-                    <div class="mechanics-list" id="events-list">
+<!-- Mechanics Section -->
+                <div id="section-mechanics" style="display: none;">
+                    <div class="mechanics-list" id="mechanics-list">
                         <div class="empty-state">
-                            <i class="fas fa-calendar-alt"></i>
-                            <h3>Eventos automotivos</h3>
-                            <p>Varredura de feiras e eventos em sites especializados e no Google</p>
+                            <i class="fas fa-wrench"></i>
+                            <h3>Busque mecânicos próximos</h3>
+                            <p>Use o formulário acima para encontrar mecânicos na sua região</p>
                         </div>
                     </div>
                 </div>
@@ -1312,25 +1406,34 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <!-- Shared JS -->
-    <script src="static/js/config.js"></script>
+<script src="static/js/config.js"></script>
     <script src="static/js/security-utils.js"></script>
     <script src="static/js/auth.js"></script>
     <script src="static/js/notifications.js"></script>
     <script src="static/js/responsive.js"></script>
     <script src="static/js/loader.js"></script>
+    <script src="static/js/app-select.js"></script>
     
     <script>
-        // Variáveis globais
+// Variáveis globais
         let map;
         let userLocation = null;
         let markers = [];
         let mechanicsData = [];
         let favoritesMap = {};
 let isAuthenticated = false;
-        let activeFilters = new Set();
         let selectedRating = 0;
+        let activeFilters = new Set();
         let eventsData = [];
+        let displayedEvents = [];
         let eventsLoaded = false;
+        let eventMarkers = [];
+        let eventsGeoCache = {};
+        let activeEventsAbort = null;
+        let currentTab = 'events';
+        
+        // Todas as UFs do Brasil (para o filtro Local)
+        const BR_UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
         
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
@@ -1349,7 +1452,8 @@ let isAuthenticated = false;
                 window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
             });
             
-            initMap();
+initMap();
+            initEventSearchSelects();
             setupFilterChips();
             setupStarRating();
             setupTabDefaults();
@@ -1357,98 +1461,227 @@ let isAuthenticated = false;
         
         // Configurar abas
         function setupTabDefaults() {
-            switchTab('results');
+            switchTab('events');
         }
         
 function switchTab(tab) {
+            currentTab = tab;
             document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
             document.querySelector(`.section-tab[data-tab="${tab}"]`)?.classList.add('active');
             
-            document.getElementById('section-results').style.display = tab === 'results' ? 'block' : 'none';
+            document.getElementById('form-events').style.display = tab === 'events' ? '' : 'none';
+            document.getElementById('form-mechanics').style.display = tab === 'mechanics' ? '' : 'none';
+            
             document.getElementById('section-events').style.display = tab === 'events' ? 'block' : 'none';
+            document.getElementById('section-mechanics').style.display = tab === 'mechanics' ? 'block' : 'none';
             document.getElementById('section-favorites').style.display = tab === 'favorites' ? 'block' : 'none';
+            
+            const titleEl = document.getElementById('searchTitle');
+            const subtitleEl = document.getElementById('searchSubtitle');
+            if (titleEl && subtitleEl) {
+                if (tab === 'mechanics') {
+                    titleEl.textContent = 'Buscar Mecânicos';
+                    subtitleEl.textContent = 'Encontre oficinas e mecânicos próximos a você';
+                } else {
+                    titleEl.textContent = 'Buscar Eventos';
+                    subtitleEl.textContent = 'Encontre feiras, encontros e exposições automotivas perto de você';
+                }
+            }
+            
+            // Evita acumular pins de abas diferentes no mapa
+            if (map && tab === 'events') {
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+            }
+            if (map && tab === 'mechanics') {
+                eventMarkers.forEach(m => map.removeLayer(m));
+                eventMarkers = [];
+            }
             
             if (tab === 'favorites') {
                 loadFavorites();
             } else if (tab === 'events') {
+                if (map) map.invalidateSize();
+                initUfSelect();
                 loadAutomotiveEvents(false);
+            } else if (tab === 'mechanics') {
+                if (map) map.invalidateSize();
+                if (userLocation) {
+                    searchMechanics();
+                } else {
+                    const container = document.getElementById('mechanics-list');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <h3>Definindo sua localização...</h3>
+                                <p>Assim que a localização for definida, clique em "Buscar Mecânicos".</p>
+                            </div>
+                        `;
+                    }
+                }
             }
         }
         
         // ─── Eventos Automotivos ──────────────────────────────────────────────
+        
+        function renderState(container, state, opts = {}) {
+            if (!container) return;
+            if (state === 'loading') {
+                container.innerHTML = AppLoader.block('Buscando eventos automotivos...');
+                return;
+            }
+            const icons = { idle: 'fa-calendar-alt', empty: 'fa-calendar-times', error: 'fa-exclamation-circle' };
+            const titles = {
+                idle: 'Busque eventos automotivos',
+                empty: 'Nenhum evento encontrado',
+                error: 'Erro na busca'
+            };
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas ${icons[state] || 'fa-info-circle'}"></i>
+                    <h3>${titles[state] || ''}</h3>
+                    <p>${opts.message || ''}</p>
+                    ${opts.retry ? `<button class="btn-search" style="margin-top: 12px; padding: 9px 18px; font-size: 13px; width: auto;" onclick="${opts.retry}">Tentar novamente</button>` : ''}
+                </div>
+            `;
+        }
+        
+        function getSearchParams() {
+            const read = (id) => {
+                const el = document.getElementById(id);
+                return el && el.value ? String(el.value).trim() : '';
+            };
+            return {
+                categoria: read('evSearchCat'),
+                periodo: read('evSearchPeriod'),
+                q: read('evSearchTerm')
+            };
+        }
+        
+        async function fetchAutomotiveEvents(params, { force, loadingContainer } = {}) {
+            if (activeEventsAbort) activeEventsAbort.abort();
+            const controller = new AbortController();
+            activeEventsAbort = controller;
+            const timeout = setTimeout(() => controller.abort(), 30000);
+            
+            if (loadingContainer) {
+                renderState(loadingContainer, 'loading');
+            }
+            
+            try {
+                const query = new URLSearchParams();
+                if (force) query.set('force', '1');
+                ['uf', 'categoria', 'periodo', 'q'].forEach(k => {
+                    if (params[k]) query.set(k, params[k]);
+                });
+                const qs = query.toString();
+                const url = `${CONFIG.API_URL}/api/events/automotive${qs ? `?${qs}` : ''}`;
+                const response = await fetch(url, { signal: controller.signal });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Erro na varredura de eventos');
+                }
+                return data.events || [];
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    throw new Error('A busca demorou demais. Tente novamente.');
+                }
+                throw error;
+            } finally {
+                clearTimeout(timeout);
+                if (activeEventsAbort === controller) activeEventsAbort = null;
+            }
+        }
+        
+        // Busca do formulário "Buscar Eventos" (servidor filtra uf/categoria/período/termo)
+        async function searchEvents() {
+            const btn = document.getElementById('btn-search');
+            const container = document.getElementById('events-list');
+            if (!btn || !container) return;
+            
+            btn.disabled = true;
+            btn.innerHTML = AppLoader.button('Buscando...');
+            
+            try {
+                displayedEvents = await fetchAutomotiveEvents(getSearchParams(), { loadingContainer: container });
+                eventsLoaded = true;
+                if (displayedEvents.length === 0) {
+                    renderState(container, 'empty', {
+                        message: 'Nenhum evento encontrado para esses filtros. Tente outra UF, categoria ou período.'
+                    });
+                } else {
+                    renderEventsList();
+                }
+                renderEventMarkers(getFilteredEvents());
+            } catch (error) {
+                console.error('Erro na busca de eventos:', error);
+                renderState(container, 'error', {
+                    message: error.message,
+                    retry: 'searchEvents'
+                });
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-calendar-alt"></i> Buscar Eventos';
+            }
+        }
         
         async function loadAutomotiveEvents(force) {
             const container = document.getElementById('events-list');
             const btn = document.getElementById('btn-events-refresh');
             
             if (!force && eventsLoaded) {
+                displayedEvents = eventsData;
                 renderEventsList();
+                renderEventMarkers(getFilteredEvents());
                 return;
             }
             
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = AppLoader.button('Verificando...');
+                btn.innerHTML = AppLoader.button('Buscando...');
             }
             
-            container.innerHTML = AppLoader.block('Buscando eventos automotivos...');
-            
             try {
-                const url = `${CONFIG.API_URL}/api/events/automotive${force ? '?force=1' : ''}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error || 'Erro na varredura de eventos');
-                }
-                
-                eventsData = data.events || [];
+                eventsData = await fetchAutomotiveEvents({}, { force, loadingContainer: container });
                 eventsLoaded = true;
-                populateUfFilter(data.events || []);
+                displayedEvents = eventsData;
+                initUfSelect();
                 renderEventsList();
-                renderEventsMeta(data.sources || []);
+                renderEventMarkers(getFilteredEvents());
             } catch (error) {
                 console.error('Erro na varredura de eventos:', error);
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <h3>Erro ao buscar eventos</h3>
-                        <p>${escapeHtml(error.message)}</p>
-                    </div>
-                `;
+                renderState(container, 'error', {
+                    message: error.message,
+                    retry: 'refreshEvents'
+                });
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Verificar novos';
+                    btn.innerHTML = '<i class="fas fa-rotate"></i>';
                 }
             }
         }
         
-        function populateUfFilter(events) {
-            const select = document.getElementById('events-uf');
-            if (!select) return;
-            const current = select.value;
-            const ufs = [...new Set(events.map(e => (e.uf || '').toUpperCase()).filter(u => u))].sort();
-            select.innerHTML = '<option value="">Todos os locais</option>' +
-                ufs.map(u => `<option value="${u}">${u}</option>`).join('');
-            select.value = current;
+        function refreshEvents() {
+            loadAutomotiveEvents(true);
+        }
+        
+        function getFilteredEvents() {
+            const ufFilter = document.getElementById('eventsUfSelect')?.value || '';
+            if (!ufFilter) return displayedEvents;
+            return displayedEvents.filter(e => (e.uf || '').toUpperCase() === ufFilter);
         }
         
         function renderEventsList() {
             const container = document.getElementById('events-list');
-            const ufFilter = document.getElementById('events-uf')?.value || '';
-            
-            let list = eventsData;
-            if (ufFilter) {
-                list = list.filter(e => (e.uf || '').toUpperCase() === ufFilter);
-            }
+            const list = getFilteredEvents();
             
             if (list.length === 0) {
                 container.innerHTML = `
-                    <div class="empty-state">
+                    <div class="empty">
                         <i class="fas fa-calendar-alt"></i>
-                        <h3>Nenhum evento encontrado</h3>
-                        <p>Tente remover o filtro ou clique em "Verificar novos"</p>
+                        <span>Nenhum evento encontrado para este local. Tente remover o filtro de UF ou buscar novamente.</span>
                     </div>
                 `;
                 return;
@@ -1458,37 +1691,36 @@ function switchTab(tab) {
                 <div class="results-count">${list.length} evento${list.length !== 1 ? 's' : ''} encontrado${list.length !== 1 ? 's' : ''}</div>
                 ${list.map(e => renderEventCard(e)).join('')}
             `;
+            
+            if (window.AAAnim && window.AAAnim.reveal) {
+                window.AAAnim.reveal.staggerIn(container, '.event-item', { stagger: 45 });
+            }
         }
         
         function renderEventCard(event) {
             const dateInfo = formatEventDate(event);
             const where = [event.cidade, event.uf && event.uf !== 'INT' ? '-' + event.uf : ''].join(' ').trim();
+            const isPast = !!event.passado;
+            const badgeClass = isPast ? 'badge-past' : (dateInfo.day ? 'badge-agendado' : 'badge-semdata');
+            const badgeText = isPast ? 'Encerrado' : (dateInfo.periodLabel || 'Data a confirmar');
             return `
-                <div class="event-card">
-                    <div class="event-date-badge${dateInfo.day ? '' : ' no-date'}" title="${escapeHtml(dateInfo.label)}">
-                        ${dateInfo.day ? `<span class="e-day">${dateInfo.day}</span><span class="e-month">${dateInfo.month}</span>` : 'Sem dados'}
+                <div class="event-item${isPast ? ' event-past' : ''}">
+                    <div class="item-top">
+                        <div class="item-title">${escapeHtml(event.titulo)}</div>
+                        <span class="badge ${badgeClass} item-dates">
+                            ${dateInfo.day ? '<i class="fas fa-calendar-check"></i>' : ''}
+                            ${badgeText}
+                        </span>
                     </div>
-                    <div class="event-body">
-                        <div class="event-title">${escapeHtml(event.titulo)}</div>
-                        ${dateInfo.periodLabel ? `
-                            <div class="event-info-row">
-                                <i class="fas fa-calendar-check"></i>
-                                <span>${dateInfo.periodLabel}</span>
-                            </div>
-                        ` : ''}
+                    ${event.descricao ? `<div class="event-item-text">${escapeHtml(event.descricao)}</div>` : ''}
+                    <div class="item-meta">
                         ${(where || event.local) ? `
-                            <div class="event-info-row">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <span>${escapeHtml(where || event.local)}</span>
-                                ${event.local && where ? `<span style="color: var(--text-muted);">• ${escapeHtml(event.local)}</span>` : ''}
-                            </div>
+                            <span><i class="fas fa-map-marker-alt"></i> ${escapeHtml(where || event.local)}${event.local && where ? ` • ${escapeHtml(event.local)}` : ''}</span>
                         ` : ''}
-                        ${event.descricao ? `<div class="event-desc">${escapeHtml(event.descricao)}</div>` : ''}
-                        <div class="event-links">
-                            <span class="event-source">${escapeHtml(event.fonte_nome)}</span>
-                            ${event.url ? `<a class="event-link" href="${escapeHtml(event.url)}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Visitar site</a>` : ''}
-                            ${event.cidade ? `<a class="event-link" href="javascript:void(0)" onclick="showEventOnMapById('${escapeHtml(event.id)}')"><i class="fas fa-map-pin"></i> Ver no mapa</a>` : ''}
-                        </div>
+                        <span class="item-stats">
+                            ${event.url ? `<a class="item-action" href="${escapeHtml(event.url)}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Visitar site</a>` : ''}
+                            ${event.cidade ? `<button class="item-action" onclick="showEventOnMapById('${escapeHtml(event.id)}')"><i class="fas fa-map-pin"></i> Ver no mapa</button>` : ''}
+                        </span>
                     </div>
                 </div>
             `;
@@ -1524,65 +1756,204 @@ function switchTab(tab) {
             return { day: d, month: m, label: periodLabel, periodLabel };
         }
         
-        function showEventOnMapById(eventId) {
-            const event = eventsData.find(e => String(e.id) === String(eventId));
-            if (event) {
-                showEventOnMap(event);
-            }
-        }
-        
-        function renderEventsMeta(sources) {
-            const el = document.getElementById('events-meta');
-            if (!el) return;
-            const total = sources.reduce((acc, s) => acc + (s.count || 0), 0);
-            el.innerHTML = `
-                <span>Fontes (${sources.length})</span>
-                ${sources.map(s => `
-                    <span class="meta-badge ${s.ok ? 'ok' : 'fail'}" title="${escapeHtml((s.ok ? '' : 'Falhou: ') + (s.error || ''))}">
-                        ${s.ok ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-times-circle"></i>'}
-                        ${escapeHtml(s.nome)}: ${s.count || 0}
-                    </span>
-                `).join('')}
-            `;
-        }
-        
-        async function showEventOnMap(event) {
-            const cidade = event.cidade;
-            if (!cidade) {
+        async function showEventOnMapById(eventId) {
+            const event = displayedEvents.find(e => String(e.id) === String(eventId)) ||
+                eventsData.find(e => String(e.id) === String(eventId));
+            if (!event || !event.cidade) {
                 alert('Evento sem cidade para localizar no mapa.');
                 return;
             }
-            const uf = event.uf && event.uf !== 'INT' ? ` ${event.uf}` : '';
-            try {
-                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(cidade + uf)}&limit=1&lang=pt`);
-                const data = await response.json();
-                const feature = data.features && data.features[0];
-                if (!feature || !feature.geometry || !feature.geometry.coordinates) {
-                    alert(`Não foi possível localizar "${cidade}" no mapa.`);
-                    return;
-                }
-                const [lng, lat] = feature.geometry.coordinates;
-                map.flyTo([lat, lng], 12);
-                L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: 'event-marker',
-                        html: '<i class="fas fa-calendar-alt" style="color: #8b5cf6; font-size: 26px;"></i>',
-                        iconSize: [26, 26]
-                    })
-                }).addTo(map).bindPopup(`
-                    <div class="mechanic-popup">
-                        <h4>${escapeHtml(event.titulo)}</h4>
-                        <div class="popup-addr">${escapeHtml(cidade + uf)}</div>
-                        ${event.url ? `<a class="popup-link" href="${escapeHtml(event.url)}" target="_blank" rel="noopener">Ver site do evento</a>` : ''}
-                    </div>
-                `).openPopup();
-            } catch (error) {
-                console.error('Erro ao localizar evento:', error);
-                alert('Erro ao localizar o evento.');
+            await renderEventMarkers(getFilteredEvents());
+            const marker = eventMarkers.find(m => (m._evData || []).some(e => String(e.id) === String(eventId)));
+            if (marker) {
+                map.flyTo(marker.getLatLng(), 12);
+                marker.openPopup();
+            } else {
+                const coords = await geocodeCity(event.cidade, event.uf);
+                if (coords) map.flyTo([coords.lat, coords.lng], 12);
             }
         }
         
-        // Inicializar mapa
+        function initUfSelect() {
+            const el = document.getElementById('eventsUfSelect');
+            if (!el || !window.AppSelect || el._appSelect) return;
+            const api = AppSelect.mount(el, {
+                placeholder: 'Todos os locais',
+                searchPlaceholder: 'Pesquisar UF...',
+                emptyText: 'Nenhuma UF encontrada'
+            });
+            const base = Array.isArray(eventsData) ? eventsData.filter(e => e.uf) : [];
+            const foundUfs = [...new Set(base.map(e => String(e.uf).toUpperCase()))].sort();
+            if (foundUfs.length > 0) {
+                api.setOptions(
+                    [{ value: '', label: 'Todos os locais' }]
+                        .concat(foundUfs.map(u => ({ value: u, label: u === 'INT' ? 'Fora do Brasil' : u })))
+                );
+            } else {
+                api.setOptions(
+                    [{ value: '', label: 'Todos os locais' }]
+                        .concat(BR_UFS.map(u => ({ value: u, label: u })))
+                        .concat([{ value: 'INT', label: 'Fora do Brasil' }])
+                );
+            }
+            api.onChange(() => {
+                renderEventsList();
+                renderEventMarkers(getFilteredEvents());
+            });
+            el._appSelect = api;
+        }
+        
+        const EVENT_CATEGORIES = [
+            { value: '', label: 'Todas as categorias' },
+            { value: 'feira', label: 'Feira' },
+            { value: 'encontro', label: 'Encontro' },
+            { value: 'competicao', label: 'Competição' },
+            { value: 'exposicao', label: 'Exposição' },
+            { value: 'congresso', label: 'Congresso' },
+            { value: 'outros', label: 'Outros' }
+        ];
+        
+        const EVENT_PERIODS = [
+            { value: '', label: 'Qualquer data' },
+            { value: '30', label: 'Próximos 30 dias' },
+            { value: '90', label: 'Próximos 90 dias' },
+            { value: 'ano', label: 'Este ano' }
+        ];
+        
+        function initEventSearchSelects() {
+            if (!window.AppSelect) return;
+            const termInput = document.getElementById('evSearchTerm');
+            if (termInput) {
+                termInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchEvents();
+                    }
+                });
+            }
+            const setup = (id, options, placeholder) => {
+                const el = document.getElementById(id);
+                if (!el || el._appSelect) return;
+                if (el.dataset.mounted) return;
+                const api = AppSelect.mount(el, {
+                    placeholder: placeholder || 'Selecione...'
+                });
+                api.setOptions(options);
+                el._appSelect = api;
+                el.dataset.mounted = '1';
+            };
+            setup('evSearchCat', EVENT_CATEGORIES, 'Todas as categorias');
+            setup('evSearchPeriod', EVENT_PERIODS, 'Qualquer data');
+        }
+        
+        async function geocodeCity(cidade, uf) {
+            const key = `${cidade}|${uf || ''}`;
+            if (eventsGeoCache[key]) return eventsGeoCache[key];
+            const promise = (async () => {
+                const ufSuffix = uf && uf !== 'INT' ? ` ${uf}` : '';
+                const country = uf && uf !== 'INT' ? ', Brasil' : '';
+                try {
+                    const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(cidade + ufSuffix + country)}&limit=1`);
+                    const data = await response.json();
+                    const feature = data.features && data.features[0];
+                    if (!feature || !feature.geometry || !feature.geometry.coordinates) return null;
+                    const [lng, lat] = feature.geometry.coordinates;
+                    return { lat, lng };
+                } catch {
+                    return null;
+                }
+            })();
+            eventsGeoCache[key] = promise;
+            return promise;
+        }
+        
+        // Ícone/cor do pin por categoria dominante na cidade
+        const EVENT_MARKER_STYLE = {
+            feira:      { icon: 'fa-store', color: '#3b82f6' },
+            encontro:   { icon: 'fa-users', color: '#8b5cf6' },
+            competicao: { icon: 'fa-flag-checkered', color: '#ef4444' },
+            exposicao:  { icon: 'fa-car', color: '#f59e0b' },
+            congresso:  { icon: 'fa-microphone', color: '#06b6d4' },
+            outros:     { icon: 'fa-calendar-alt', color: '#94a3b8' }
+        };
+        
+        function dominantEventCategory(evs) {
+            const counts = {};
+            evs.forEach(e => {
+                const cat = e.categoria || 'outros';
+                counts[cat] = (counts[cat] || 0) + 1;
+            });
+            return Object.keys(counts).reduce((a, b) =>
+                counts[b] > counts[a] ? b : a, 'outros');
+        }
+        
+        async function renderEventMarkers(list) {
+            if (!map) return {};
+            const coordsMap = {};
+            eventMarkers.forEach(m => map.removeLayer(m));
+            eventMarkers = [];
+            
+            const target = list || getFilteredEvents().filter(e => e.cidade);
+            const byCity = new Map();
+            target.forEach(e => {
+                const key = `${e.cidade}|${e.uf || ''}`;
+                if (!byCity.has(key)) byCity.set(key, []);
+                byCity.get(key).push(e);
+            });
+            
+            for (const [key, evs] of byCity.entries()) {
+                const [cidade, uf] = key.split('|');
+                const pos = await geocodeCity(cidade, uf);
+                if (!pos || !isFinite(pos.lat) || !isFinite(pos.lng)) continue;
+                coordsMap[key] = pos;
+                const style = EVENT_MARKER_STYLE[dominantEventCategory(evs)] || EVENT_MARKER_STYLE.outros;
+                const marker = L.marker([pos.lat, pos.lng], {
+                    icon: L.divIcon({
+                        className: 'event-marker',
+                        html: `<i class="fas ${style.icon}" style="color: ${style.color}; font-size: 26px; line-height: 26px;"></i>` +
+                              (evs.length > 1 ? `<span class="event-marker-count">${evs.length}</span>` : ''),
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13],
+                        popupAnchor: [0, -14]
+                    })
+}).addTo(map);
+                const rows = evs.slice(0, 4).map(ev => {
+                    const d = formatEventDate(ev);
+                    return `
+                        <div style="margin-bottom: 6px;${ev.passado ? 'opacity: .7;' : ''}">
+                            <h4 style="margin: 0 0 2px;">${escapeHtml(ev.titulo)}</h4>
+                            <div class="popup-addr">${escapeHtml(d.periodLabel || 'Data a confirmar')}</div>
+                            ${ev.url ? `<a class="popup-link" href="${escapeHtml(ev.url)}" target="_blank" rel="noopener">Ver site do evento</a>` : ''}
+                        </div>`;
+                }).join('');
+                const moreCount = evs.length - 4;
+                const popupHtml = `
+                    <div class="mechanic-popup">
+                        <h4><i class="fas ${style.icon}" style="color: ${style.color}; margin-right: 4px; font-size: 13px;"></i>${escapeHtml(cidade)}${uf && uf !== 'INT' ? ' / ' + uf : ''} <span style="font-weight: normal; color: var(--text-muted, #888);">${evs.length} evento${evs.length !== 1 ? 's' : ''}</span></h4>
+                        ${rows}
+                        ${moreCount > 0 ? `<div class="popup-addr">+${moreCount} mais</div>` : ''}
+                    </div>
+                `;
+                marker.bindPopup(popupHtml);
+                const tooltipRows = evs.slice(0, 2).map(ev => {
+                    const d = formatEventDate(ev);
+                    return `<div class="popup-addr">&#8226; ${escapeHtml(ev.titulo)}${d.periodLabel ? ' &mdash; ' + escapeHtml(d.periodLabel) : ''}</div>`;
+                }).join('');
+                const tooltipHtml = `
+                    <div class="mechanic-popup">
+                        <h4>${escapeHtml(cidade)}${uf && uf !== 'INT' ? ' / ' + uf : ''} <span style="font-weight: normal; font-size: 12px;">(${evs.length} evento${evs.length !== 1 ? 's' : ''})</span></h4>
+                        ${tooltipRows}
+                        ${evs.length > 2 ? `<div class="popup-addr" style="color: #3b82f6;">+${evs.length - 2} mais</div>` : ''}
+                    </div>
+                `;
+                marker.bindTooltip(tooltipHtml, { direction: 'top', offset: [0, -14], sticky: true, className: 'map-preview-tooltip' });
+                marker._evData = evs;
+                eventMarkers.push(marker);
+            }
+            return coordsMap;
+        }
+        
+// Inicializar mapa
         function initMap() {
             map = L.map('map').setView([-23.5505, -46.6333], 12);
             
@@ -1591,137 +1962,105 @@ function switchTab(tab) {
                 maxZoom: 19
             }).addTo(map);
             
-            showLoading();
+            setupMapResizeWatch();
+            
             getUserLocation();
         }
         
-        function showLoading() {
-            document.getElementById('mechanics-list').innerHTML = AppLoader.block('Carregando...');
+        // Leaflet só pinta tiles quando o contêiner tem tamanho válido, então o
+        // tamanho é reavaliado ao carregar, redimensionar, rolar (qualquer
+        // container) e sempre que o mapa entra de novo na viewport — em
+        // telas menores o mapa fica abaixo da dobra e só recebe tiles com
+        // invalidateSize() depois de visível.
+        function setupMapResizeWatch() {
+            if (!map) return;
+            
+            let rafPending = false;
+            const refresh = () => {
+                if (rafPending) return;
+                rafPending = true;
+                requestAnimationFrame(() => {
+                    rafPending = false;
+                    map.invalidateSize();
+                });
+            };
+            window.addEventListener('resize', refresh);
+            window.addEventListener('load', refresh);
+            window.addEventListener('scroll', refresh, true);
+            document.addEventListener('scroll', refresh, true);
+            setTimeout(refresh, 300);
+            
+            const mapEl = document.getElementById('map');
+            if (mapEl && 'IntersectionObserver' in window) {
+                const io = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) refresh();
+                    });
+                }, { threshold: 0.01 });
+                io.observe(mapEl);
+            }
+            
+            const panel = document.querySelector('.search-panel');
+            if (panel) panel.addEventListener('scroll', refresh, { passive: true });
         }
         
-        // Obter localização do usuário
+        function addUserMarker() {
+            if (!map || !userLocation) return;
+            L.marker([userLocation.lat, userLocation.lng], {
+                icon: L.divIcon({
+                    className: 'user-marker',
+                    html: '<i class="fas fa-user-circle" style="color: var(--accent, #3b82f6); font-size: 32px;"></i>',
+                    iconSize: [32, 32]
+                })
+            }).addTo(map).bindPopup('Sua localização');
+        }
+        
+        // Obter localização do usuário (sem disparar busca automática)
         function getUserLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        userLocation = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude
-                        };
-                        localStorage.setItem("autoassist_location", JSON.stringify({
-                            lat: userLocation.lat, lng: userLocation.lng, ts: Date.now()
-                        }));
-                        map.setView([userLocation.lat, userLocation.lng], 13);
-                        
-                        L.marker([userLocation.lat, userLocation.lng], {
-                            icon: L.divIcon({
-                                className: 'user-marker',
-                                html: '<i class="fas fa-user-circle" style="color: var(--accent, #3b82f6); font-size: 32px;"></i>',
-                                iconSize: [32, 32]
-                            })
-                        }).addTo(map).bindPopup('Sua localização');
-                        
-                        searchMechanics();
-                    },
-                    () => {
-                        console.warn('Erro ao obter localização. Usando SP.');
-                        userLocation = { lat: -23.5505, lng: -46.6333 };
-                        searchMechanics();
-                    }
-                );
-            } else {
-                userLocation = { lat: -23.5505, lng: -46.6333 };
-                searchMechanics();
-            }
-        }
-        
-        // Configurar filter chips
-        function setupFilterChips() {
-            document.querySelectorAll('.filter-chip').forEach(chip => {
-                chip.addEventListener('click', function() {
-                    const filter = this.dataset.filter;
-                    this.classList.toggle('active');
-                    
-                    if (activeFilters.has(filter)) {
-                        activeFilters.delete(filter);
-                    } else {
-                        activeFilters.add(filter);
-                    }
-                    
-                    applyFilters();
-                });
-            });
-        }
-        
-        // Aplicar filtros à lista exibida
-        function applyFilters() {
-            if (mechanicsData.length === 0) return;
-            
-            let filtered = mechanicsData;
-            
-            if (activeFilters.size > 0) {
-                filtered = mechanicsData.filter(m => {
-                    const specs = m.especialidades || [];
-                    return specs.some(s => activeFilters.has(s));
-                });
-            }
-            
-            displayMechanics(filtered);
-            addMechanicsToMap(filtered);
-        }
-        
-        // Buscar mecânicos
-        async function searchMechanics() {
-            if (!userLocation) return;
-            
-            const serviceType = document.getElementById('search-service').value;
-            const radius = document.getElementById('search-radius').value;
-            const minRating = document.getElementById('search-rating').value;
-            
-            const btn = document.getElementById('btn-search');
-            btn.disabled = true;
-            btn.innerHTML = AppLoader.button('Buscando...');
-            
-            document.getElementById('mechanics-list').innerHTML = AppLoader.block('Buscando mecânicos próximos...');
-            
-            const startTime = Date.now();
-            
             try {
-                let url = `${CONFIG.API_URL}/api/mechanics/search?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=${radius}`;
-                
-                if (serviceType) url += `&service_type=${serviceType}`;
-                if (minRating > 0) url += `&min_rating=${minRating}`;
-                
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data.success) {
-                    mechanicsData = data.mechanics || [];
-                    const elapsed = Date.now() - startTime;
-                    const minLoad = 300;
-                    if (elapsed < minLoad) {
-                        await new Promise(r => setTimeout(r, minLoad - elapsed));
-                    }
-                    applyFilters();
-                } else {
-                    throw new Error(data.error || 'Erro na busca');
+                const stored = JSON.parse(localStorage.getItem('autoassist_location') || 'null');
+                if (stored && isFinite(stored.lat) && isFinite(stored.lng)) {
+                    userLocation = { lat: stored.lat, lng: stored.lng };
+                    map.setView([userLocation.lat, userLocation.lng], 12);
+                    addUserMarker();
+                    const fresh = Date.now() - (stored.ts || 0) < 24 * 3600 * 1000;
+                    if (!fresh) requestUserLocation();
+                    return;
                 }
-            } catch (error) {
-                console.error('Erro:', error);
-                document.getElementById('mechanics-list').innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <h3>Erro na busca</h3>
-                        <p>${error.message}</p>
-                    </div>
-                `;
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-search"></i> Buscar Mecânicos';
-            }
+            } catch (e) { /* cache corrompido — segue para geolocalização */ }
+            requestUserLocation();
         }
         
-        // Exibir lista de mecânicos
+        function requestUserLocation() {
+            if (!navigator.geolocation) {
+                setFallbackLocation();
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    localStorage.setItem("autoassist_location", JSON.stringify({
+                        lat: userLocation.lat, lng: userLocation.lng, ts: Date.now()
+                    }));
+                    map.setView([userLocation.lat, userLocation.lng], 13);
+                    addUserMarker();
+                },
+                () => setFallbackLocation(),
+                { timeout: 8000, maximumAge: 600000 }
+            );
+        }
+        
+function setFallbackLocation() {
+            console.warn('Erro ao obter localização. Usando SP.');
+            userLocation = { lat: -23.5505, lng: -46.6333 };
+            map.setView([-23.5505, -46.6333], 12);
+            addUserMarker();
+        }
+        
+        // Exibir lista de mecânicos (usada apenas pelos favoritos/modal)
         function displayMechanics(mechanics) {
             const listContainer = document.getElementById('mechanics-list');
             
@@ -1798,6 +2137,95 @@ function switchTab(tab) {
             `;
         }
         
+        // Configurar filter chips de especialidades
+        function setupFilterChips() {
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    const filter = this.dataset.filter;
+                    this.classList.toggle('active');
+                    
+                    if (activeFilters.has(filter)) {
+                        activeFilters.delete(filter);
+                    } else {
+                        activeFilters.add(filter);
+                    }
+                    
+                    applyFilters();
+                });
+            });
+        }
+        
+        // Aplicar filtros à lista exibida
+        function applyFilters() {
+            if (mechanicsData.length === 0) return;
+            
+            let filtered = mechanicsData;
+            
+            if (activeFilters.size > 0) {
+                filtered = mechanicsData.filter(m => {
+                    const specs = m.especialidades || [];
+                    return specs.some(s => activeFilters.has(s));
+                });
+            }
+            
+            displayMechanics(filtered);
+            addMechanicsToMap(filtered);
+        }
+        
+        // Buscar mecânicos próximos
+        async function searchMechanics() {
+            if (!userLocation) return;
+            
+            const serviceType = document.getElementById('search-service').value;
+            const radius = document.getElementById('search-radius').value;
+            const minRating = document.getElementById('search-rating').value;
+            
+            const btn = document.getElementById('btn-mechanics-search');
+            const container = document.getElementById('mechanics-list');
+            if (!btn || !container) return;
+            
+            btn.disabled = true;
+            btn.innerHTML = AppLoader.button('Buscando...');
+            
+            container.innerHTML = AppLoader.block('Buscando mecânicos próximos...');
+            
+            const startTime = Date.now();
+            
+            try {
+                let url = `${CONFIG.API_URL}/api/mechanics/search?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=${radius}`;
+                
+                if (serviceType) url += `&service_type=${serviceType}`;
+                if (minRating > 0) url += `&min_rating=${minRating}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Erro na busca');
+                }
+                
+                mechanicsData = data.mechanics || [];
+                const elapsed = Date.now() - startTime;
+                const minLoad = 300;
+                if (elapsed < minLoad) {
+                    await new Promise(r => setTimeout(r, minLoad - elapsed));
+                }
+                applyFilters();
+            } catch (error) {
+                console.error('Erro:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>Erro na busca</h3>
+                        <p>${escapeHtml(error.message)}</p>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search"></i> Buscar Mecânicos';
+            }
+        }
+        
         // Adicionar mecânicos ao mapa
         function addMechanicsToMap(mechanics) {
             markers.forEach(marker => map.removeLayer(marker));
@@ -1840,10 +2268,12 @@ function switchTab(tab) {
 
                 if (marker.bindPopup) {
                     marker.bindPopup(popupContent);
+                    marker.bindTooltip(popupContent, { direction: 'top', offset: [0, -14], sticky: true, className: 'map-preview-tooltip' });
                     marker.on('click', () => selectMechanic(mechanic.id));
                 } else if (marker.eachLayer) {
                     marker.eachLayer(l => {
                         l.bindPopup(popupContent);
+                        l.bindTooltip(popupContent, { direction: 'top', offset: [0, -14], sticky: true, className: 'map-preview-tooltip' });
                         l.on('click', () => selectMechanic(mechanic.id));
                     });
                 }
@@ -2279,7 +2709,7 @@ function switchTab(tab) {
             }
             
             container.innerHTML = favorites.map(f => `
-                <div class="favorite-item" onclick="selectMechanic('${f.id}'); switchTab('results');">
+                <div class="favorite-item" onclick="selectMechanic('${f.id}'); switchTab('mechanics');">
                     <div>
                         <div class="favorite-item-name">${escapeHtml(f.nome)}</div>
                         <div class="favorite-item-rating">
@@ -2364,12 +2794,8 @@ function switchTab(tab) {
                         }
                     }
 
-                    loadFavorites();
+loadFavorites();
                     updateFavoriteIcons();
-
-                    if (mechanicsData.length > 0) {
-                        applyFilters();
-                    }
 
                     const modal = document.getElementById('detail-modal');
                     if (modal.classList.contains('open')) {
@@ -2452,11 +2878,6 @@ function switchTab(tab) {
                     
                     // Recarregar detalhes para mostrar a nova avaliação
                     loadMechanicDetail(mechanicId);
-                    
-                    // Atualizar lista se visível
-                    if (mechanicsData.length > 0) {
-                        searchMechanics();
-                    }
                 } else {
                     alert(data.error || 'Erro ao enviar avaliação.');
                 }

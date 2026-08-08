@@ -92,6 +92,89 @@ class AutomotiveFilterTest(unittest.TestCase):
         self.assertFalse(svc._is_automotive("Plastfair - Plásticos"))
 
 
+class CategoryClassificationTest(unittest.TestCase):
+    def test_feira(self):
+        self.assertEqual(svc._classify_category("AUTOP 2026 Feira de autopeças"), "feira")
+        self.assertEqual(svc._classify_category("Automecanika - reposição automotiva"), "feira")
+
+    def test_encontro(self):
+        self.assertEqual(svc._classify_category("Encontro de Carros Antigos"), "encontro")
+
+    def test_competicao(self):
+        self.assertEqual(svc._classify_category("Rally Transbrasil 2026"), "competicao")
+        self.assertEqual(svc._classify_category("Etapa do Campeonato de Drift"), "competicao")
+
+    def test_congresso(self):
+        self.assertEqual(svc._classify_category("Congresso da Reparação Automotiva"), "congresso")
+
+    def test_exposicao(self):
+        self.assertEqual(svc._classify_category("Salão do Automóvel de São Paulo"), "exposicao")
+
+    def test_outros(self):
+        self.assertEqual(svc._classify_category("Lançamento de produto"), "outros")
+
+    def test_descricao_complementa_titulo(self):
+        self.assertEqual(
+            svc._classify_category("Evento Surpresa", "Venha para o encontro de motos"),
+            "encontro",
+        )
+
+
+class FilterEventsTest(unittest.TestCase):
+    def setUp(self):
+        self.events = [
+            svc._make_event(titulo="AUTOP 2026", url="https://x/1", data_inicio="2026-08-19",
+                            cidade="São Paulo", uf="SP", descricao="Feira de autopeças",
+                            fonte="nfeas", fonte_nome="NFeiras"),
+            svc._make_event(titulo="Encontro de Carros Antigos", url="https://x/2", data_inicio="2026-10-01",
+                            cidade="Curitiba", uf="PR", fonte="google", fonte_nome="Google"),
+            svc._make_event(titulo="Congresso da Reparação", url="https://x/3",
+                            cidade="Belo Horizonte", uf="MG",
+                            fonte="sindirepa", fonte_nome="Sindirepa"),
+        ]
+
+    def test_filter_by_uf(self):
+        result = svc.filter_events(self.events, uf="SP")
+        self.assertEqual([e["titulo"] for e in result], ["AUTOP 2026"])
+
+    def test_filter_by_query(self):
+        result = svc.filter_events(self.events, q="encontro")
+        self.assertEqual([e["titulo"] for e in result], ["Encontro de Carros Antigos"])
+        result = svc.filter_events(self.events, q="curitiba")
+        self.assertEqual([e["titulo"] for e in result], ["Encontro de Carros Antigos"])
+
+    def test_filter_by_categoria(self):
+        result = svc.filter_events(self.events, categoria="feira")
+        self.assertEqual([e["titulo"] for e in result], ["AUTOP 2026"])
+        result = svc.filter_events(self.events, categoria="competicao")
+        self.assertEqual(result, [])
+
+    def test_filter_by_periodo(self):
+        from datetime import date, timedelta
+
+        base = date.today() + timedelta(days=10)
+        events = [
+            svc._make_event(titulo="Em 10 dias", url="https://y/1", data_inicio=base.isoformat(),
+                            fonte="x", fonte_nome="X"),
+            svc._make_event(titulo="Atrasado", url="https://y/2", data_inicio=(base - timedelta(days=60)).isoformat(),
+                            fonte="x", fonte_nome="X"),
+            svc._make_event(titulo="Muito longe", url="https://y/3", data_inicio=(base + timedelta(days=400)).isoformat(),
+                            fonte="x", fonte_nome="X"),
+        ]
+        in30 = svc.filter_events(events, periodo="30")
+        self.assertEqual([e["titulo"] for e in in30], ["Em 10 dias"])
+        in90 = svc.filter_events(events, periodo="90")
+        self.assertEqual([e["titulo"] for e in in90], ["Em 10 dias"])
+        all_ = svc.filter_events(events, periodo="todos")
+        self.assertEqual(len(all_), 3)
+
+    def test_combined_filters(self):
+        result = svc.filter_events(self.events, uf="SP", categoria="feira")
+        self.assertEqual([e["titulo"] for e in result], ["AUTOP 2026"])
+        result = svc.filter_events(self.events, uf="MG", categoria="feira")
+        self.assertEqual(result, [])
+
+
 class NfeirasScraperTest(unittest.TestCase):
     def test_parses_cards(self):
         html = """

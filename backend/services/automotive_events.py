@@ -15,7 +15,7 @@ Resultados são normalizados num schema comum e cacheados (padrão 6h).
 import re
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 from bs4 import BeautifulSoup
@@ -70,6 +70,34 @@ GOOGLE_QUERIES = [
     "site:sympla.com.br feira autopecas 2026",
     "feira automotiva salao do automovel encontro de carros 2026",
 ]
+
+# Classificação de categoria por palavras-chave (ordem importa: a primeira
+# regra que bater define a categoria — específicas antes das genéricas).
+CATEGORIA_RULES = [
+    ("encontro", ("encontro", "encontros", "meetup", "meet up", "car meeting")),
+    ("competicao", ("corrida", "rally", "rali", "drift", "competi", "campeonato",
+                    "prova", "copa de", "temporada", "etapa de")),
+    ("congresso", ("congresso", "semin", "palestr", "workshop", "forum", "conference")),
+    ("feira", ("feira", "autopecas", "autopecas", "autopar", "autop", "reposicao",
+               "reposto", "automecanika", "automec", "parts", "expoautopecas",
+               "fenatra", "reparacao")),
+    ("exposicao", ("exposi", "expo ", "salao", "salao", "mostra", "showroom",
+                   "avante", "classic show")),
+]
+
+CATEGORIA_LABELS = {
+    "feira": "Feira",
+    "encontro": "Encontro",
+    "competicao": "Competição",
+    "exposicao": "Exposição",
+    "congresso": "Congresso",
+    "outros": "Outros",
+}
+
+_ACCENTS_TRANS = str.maketrans(
+    "áàâãäéèêëíìîïóòôõöúùûüç",
+    "aaaaaeeeeiiiiooooouuuuc",
+)
 
 
 # ─────────────────────── helpers genéricos ───────────────────────
@@ -170,12 +198,45 @@ def _extract_city_uf(text: str):
         if len(parts) >= 2:
             # "Fortaleza, Brasil" (UF não informada) ou "Buenos Aires - Argentina" (exterior)
             if parts[1].lower() == "brasil":
-                return parts[0], "", ""
+                return parts[0], _uf_from_city(parts[0]), ""
             if len(parts) > 2:
                 return parts[0], "INT", "".join(parts[1:])
             return parts[0], "INT", ""
-        return parts[0], "", ""
+        return parts[0], _uf_from_city(parts[0]), ""
     return "", "", ""
+
+
+# Capitais e principais cidades → UF (usado quando a fonte não informa a UF)
+_CITY_TO_UF = {
+    # Norte
+    "rio branco": "AC", "macapa": "AP", "manaus": "AM", "belem": "PA",
+    "porto velho": "RO", "boa vista": "RR", "palmas": "TO",
+    # Nordeste
+    "maceio": "AL", "salvador": "BA", "fortaleza": "CE", "sao luis": "MA",
+    "joao pessoa": "PB", "recife": "PE", "teresina": "PI", "natal": "RN",
+    "aracaju": "SE", "feira de santana": "BA",
+    # Centro-Oeste
+    "brasilia": "DF", "goiania": "GO", "cuiaba": "MT", "campo grande": "MS",
+    # Sudeste
+    "vitoria": "ES", "belo horizonte": "MG", "contagem": "MG",
+    "uberlancia": "MG", "juiz de fora": "MG", "sao paulo": "SP",
+    "campinas": "SP", "santos": "SP", "guarulhos": "SP",
+    "osasco": "SP", "sao jose dos campos": "SP", "ribeirao preto": "SP",
+    "sorocaba": "SP", "rio de janeiro": "RJ", "niteroi": "RJ",
+    "sao goncalo": "RJ", "nova iguacu": "RJ", "duque de caxias": "RJ",
+    # Sul
+    "curitiba": "PR", "londrina": "PR", "maringa": "PR", "cascavel": "PR",
+    "florianopolis": "SC", "joinville": "SC", "blumenau": "SC",
+    "criciuma": "SC", "porto alegre": "RS", "caxias do sul": "RS",
+    "pelotas": "RS", "santa maria": "RS", "passo fundo": "RS",
+    "novo hamburgo": "RS", "gramado": "RS", "canela": "RS",
+}
+
+
+def _uf_from_city(cidade: str) -> str:
+    """Infere a UF a partir do nome da cidade (quando a fonte não informa)."""
+    key = (cidade or "").strip().lower().translate(_ACCENTS_TRANS)
+    return _CITY_TO_UF.get(key, "")
 
 
 def _is_automotive(text: str) -> bool:
@@ -184,19 +245,36 @@ def _is_automotive(text: str) -> bool:
     return any(k in t for k in AUTOMOTIVE_KEYWORDS)
 
 
+def _classify_category(titulo="", descricao="", local=""):
+    """Classifica o evento numa categoria amigável de filtro.
+
+    Categorias: feira, encontro, competicao, exposicao, congresso, outros.
+    A análise usa título + descrição + local (a primeira regra que bater vence).
+    """
+    text = " ".join([titulo, descricao, local]).lower().translate(_ACCENTS_TRANS)
+    for categoria, keywords in CATEGORIA_RULES:
+        if any(k in text for k in keywords):
+            return categoria
+    return "outros"
+
+
 def _make_event(*, titulo, url, fonte, fonte_nome, data_inicio=None, data_fim=None,
                 cidade="", uf="", local="", descricao=""):
     hoje = date.today().isoformat()
+    titulo_clean = _clean_text(titulo)[:160]
+    cidade_clean = _clean_text(cidade)[:80]
     return {
         "id": f"{fonte}_{abs(hash(titulo.lower() + '|' + url)) % 99999999}",
-        "titulo": _clean_text(titulo)[:160],
+        "titulo": titulo_clean,
         "url": (url or "").strip(),
         "data_inicio": data_inicio,
         "data_fim": data_fim,
-        "cidade": _clean_text(cidade)[:80],
-        "uf": (uf or "").upper(),
+        "cidade": cidade_clean,
+        "uf": ((uf or "").upper()) or _uf_from_city(cidade_clean),
         "local": _clean_text(local)[:120],
         "descricao": _clean_text(descricao)[:400],
+        "categoria": _classify_category(titulo_clean, _clean_text(descricao)[:400], _clean_text(local)[:120]),
+        "categoria_label": "",
         "fonte": fonte,
         "fonte_nome": fonte_nome,
         "imagem": None,
@@ -422,12 +500,13 @@ def _extract_google_organic(soup):
 
 
 def _scrape_google_events():
-    """Busca no Google (orgânico) — cobre Sympla via site: e encontros em geral."""
-    events = []
-    seen_urls = set()
-    for query in GOOGLE_QUERIES:
-        if len(events) >= MAX_GOOGLE_EVENTS:
-            break
+    """Busca no Google (orgânico) — cobre Sympla via site: e encontros em geral.
+
+    As queries rodam em paralelo (cada uma com timeout próprio) para que uma
+    consulta lenta não segure a varredura inteira.
+    """
+
+    def _search(query):
         try:
             resp = requests.get(
                 "https://www.google.com.br/search",
@@ -436,15 +515,25 @@ def _scrape_google_events():
                 timeout=REQUEST_TIMEOUT,
             )
             if resp.status_code != 200:
-                continue
+                return []
             soup = BeautifulSoup(resp.text, "html.parser")
-            for item in _extract_google_organic(soup):
+            return _extract_google_organic(soup)
+        except Exception as e:
+            logger.debug("Google events falhou (%s): %s", query, e)
+            return []
+
+    events = []
+    seen_urls = set()
+    with ThreadPoolExecutor(max_workers=len(GOOGLE_QUERIES)) as pool:
+        futures = [pool.submit(_search, q) for q in GOOGLE_QUERIES]
+        for fut in as_completed(futures):
+            for item in fut.result() or []:
+                if len(events) >= MAX_GOOGLE_EVENTS:
+                    break
                 if item["url"] in seen_urls:
                     continue
                 seen_urls.add(item["url"])
                 events.append(item)
-        except Exception as e:
-            logger.debug("Google events falhou (%s): %s", query, e)
     return events
 
 
@@ -477,11 +566,19 @@ def scan_automotive_events(force=False):
     all_events = []
 
     def _run_one(slug, name, runner):
+        start = datetime.now(timezone.utc)
+        logger.info("[Events] Iniciando varredura da fonte %s (%s)", slug, name)
         try:
             found = runner() or []
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+            logger.info(
+                "[Events] Fonte %s concluída: %d evento(s) em %.2fs",
+                slug, len(found), elapsed,
+            )
             return (slug, name, True, None, found)
         except Exception as e:
-            logger.warning("Varredura de eventos %s falhou: %s", slug, e)
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+            logger.warning("Varredura de eventos %s falhou após %.2fs: %s", slug, elapsed, e)
             return (slug, name, False, str(e)[:200], [])
 
     with ThreadPoolExecutor(max_workers=len(SOURCE_RUNNERS)) as pool:
@@ -519,6 +616,8 @@ def scan_automotive_events(force=False):
         return (0, ev["data_inicio"] or "9999") if ev["data_inicio"] else (1, ev["titulo"].lower())
 
     deduped.sort(key=_sort_key)
+    for ev in deduped:
+        ev["categoria_label"] = CATEGORIA_LABELS.get(ev["categoria"], ev["categoria"])
     payload = {
         "success": True,
         "count": len(deduped[:MAX_EVENTS]),
@@ -529,3 +628,55 @@ def scan_automotive_events(force=False):
     }
     cache_set_json(cache_key, payload, ttl=EVENTS_CACHE_TTL)
     return payload
+
+
+def filter_events(events, uf=None, q=None, categoria=None, periodo=None):
+    """Aplica os filtros da busca de eventos (usado pela rota /api/events/automotive).
+
+    - uf       : UF (BR, maiúscula) ou "INT" para internacionais
+    - q        : termo livre no título/descrição/cidade/local
+    - categoria: feira | encontro | competicao | exposicao | congresso | outros
+    - periodo  : "30" | "90" | "ano" | "todos" (padrão: "todos" → futuros já
+                 filtrados na varredura)
+    Resultado é ordenado por data e cortado no limite global.
+    """
+    result = list(events)
+
+    if uf:
+        result = [e for e in result if (e.get("uf") or "").upper() == uf.upper()]
+
+    if q:
+        q = q.lower()
+        result = [
+            e for e in result
+            if q in (e.get("titulo") or "").lower()
+            or q in (e.get("descricao") or "").lower()
+            or q in (e.get("cidade") or "").lower()
+            or q in (e.get("local") or "").lower()
+        ]
+
+    if categoria:
+        result = [e for e in result if (e.get("categoria") or "") == categoria]
+
+    if periodo and periodo != "todos":
+        today = date.today()
+        if periodo == "ano":
+            cutoff_start, cutoff_end = today, date(today.year, 12, 31)
+        else:
+            try:
+                cutoff_end = today + timedelta(days=int(periodo))
+            except (TypeError, ValueError):
+                cutoff_end = None
+            cutoff_start = today
+        if cutoff_end:
+            result = [
+                e for e in result
+                if not e.get("data_inicio")
+                or cutoff_start <= date.fromisoformat(e["data_inicio"]) <= cutoff_end
+            ]
+
+    result.sort(key=lambda ev: (
+        0, ev["data_inicio"] or "9999"
+    ) if ev["data_inicio"] else (1, ev["titulo"].lower()))
+
+    return result[:MAX_EVENTS]
