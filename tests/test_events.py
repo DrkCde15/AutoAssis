@@ -1,0 +1,349 @@
+"""
+Testes da varredura de eventos automotivos
+(services/automotive_events.py + routes/events.py)
+"""
+import sys
+import os
+import unittest
+from unittest.mock import patch, MagicMock
+from pathlib import Path
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND_DIR))
+sys.path.insert(0, str(BACKEND_DIR / "backend"))
+
+os.environ["REDIS_URL"] = "memory://"
+
+from backend.services import automotive_events as svc  # noqa: E402
+
+
+class BrDatesParserTest(unittest.TestCase):
+    def test_same_month_range(self):
+        self.assertEqual(
+            svc._parse_br_dates("06 a 09 de maio de 2026"),
+            ("2026-05-06", "2026-05-09"),
+        )
+
+    def test_range_without_de(self):
+        self.assertEqual(
+            svc._parse_br_dates("19 a 22 agosto 2026"),
+            ("2026-08-19", "2026-08-22"),
+        )
+
+    def test_cross_month_range(self):
+        self.assertEqual(
+            svc._parse_br_dates("21 de julho a 1 de agosto de 2026"),
+            ("2026-07-21", "2026-08-01"),
+        )
+
+    def test_single_date(self):
+        self.assertEqual(
+            svc._parse_br_dates("7 de maio de 2026"),
+            ("2026-05-07", "2026-05-07"),
+        )
+
+    def test_month_only(self):
+        self.assertEqual(
+            svc._parse_br_dates("Novembro de 2026"),
+            ("2026-11-01", "2026-11-30"),
+        )
+
+    def test_invalid(self):
+        self.assertEqual(svc._parse_br_dates("Não temos data"), (None, None))
+
+    def test_ordinal_day(self):
+        self.assertEqual(
+            svc._parse_br_dates("29 de julho a 1º de agosto de 2026"),
+            ("2026-07-29", "2026-08-01"),
+        )
+
+
+class CityUfParserTest(unittest.TestCase):
+    def test_city_uf_local(self):
+        self.assertEqual(
+            svc._extract_city_uf("Curitiba (PR) - Expotrade Pinhais"),
+            ("Curitiba", "PR", "Expotrade Pinhais"),
+        )
+
+    def test_city_uf_only(self):
+        self.assertEqual(
+            svc._extract_city_uf("Goiânia (GO) - Centro de Convenções"),
+            ("Goiânia", "GO", "Centro de Convenções"),
+        )
+
+    def test_city_country(self):
+        self.assertEqual(
+            svc._extract_city_uf("Fortaleza, Brasil"),
+            ("Fortaleza", "", ""),
+        )
+
+    def test_international(self):
+        cidade, uf, _ = svc._extract_city_uf("Frankfurt - Alemanha")
+        self.assertEqual(cidade, "Frankfurt")
+        self.assertEqual(uf, "INT")
+
+
+class AutomotiveFilterTest(unittest.TestCase):
+    def test_automotive_keywords(self):
+        self.assertTrue(svc._is_automotive("AUTOP 2026 - Feira de autopeças"))
+        self.assertTrue(svc._is_automotive("Minasparts - Reposição automotiva"))
+        self.assertTrue(svc._is_automotive("Salão do Automóvel"))
+        self.assertFalse(svc._is_automotive("B2Beauty 2027 - Beleza e estética"))
+        self.assertFalse(svc._is_automotive("Plastfair - Plásticos"))
+
+
+class NfeirasScraperTest(unittest.TestCase):
+    def test_parses_cards(self):
+        html = """
+        <html><body>
+        <article data-id="68886" class="card card-tradeShow mb-3" data-href="https://www.nfeiras.com/autop/">
+            <div class="card-body">
+                <a href="https://www.nfeiras.com/autop/" class="text-dark medium font-l mb-1">AUTOP 2026</a>
+                <div>
+                    <span>De <time itemprop="startDate" class="dtstart" datetime="2026-08-19T00:00:00+00:00">19</time>
+                    a <time itemprop="endDate" class="dtend" datetime="2026-08-22T00:00:00+00:00">22 agosto 2026</time></span>
+                </div>
+                <div class="mb-3">Centro de Eventos do Ceará<br>Fortaleza, Brasil</div>
+                <div class="text-muted"><span>Automobilismo</span></div>
+            </div>
+        </article>
+        <article data-id="999" class="card card-tradeShow mb-3">
+            <div class="card-body">
+                <a href="https://www.nfeiras.com/outra/" class="text-dark">Feira Sem Data</a>
+                <div><span>De <time class="dtstart" datetime="2025-01-10T00:00:00+00:00">10</time></span></div>
+                <div class="mb-3">São Paulo, Brasil</div>
+            </div>
+        </article>
+        </html>
+        """
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.text = html
+        with patch("backend.services.automotive_events.requests.get", return_value=mock_resp):
+            events = svc._scrape_nfeiras()
+
+        self.assertEqual(len(events), 2)
+        ev = events[0]
+        self.assertEqual(ev["titulo"], "AUTOP 2026")
+        self.assertEqual(ev["data_inicio"], "2026-08-19")
+        self.assertEqual(ev["data_fim"], "2026-08-22")
+        self.assertEqual(ev["cidade"], "Fortaleza")
+        self.assertEqual(ev["uf"], "")
+        self.assertEqual(ev["url"], "https://www.nfeiras.com/autop/")
+
+
+class SindirepaScraperTest(unittest.TestCase):
+    def test_parses_cards(self):
+        html = """
+        <html><body>
+        <div class="se-grid">
+            <div class='se-card'>
+                <div>
+                    <span class='se-tag nacional'>Nacional</span>
+                    <h3>Autopar 2026</h3>
+                    <p class='se-desc'>Feira de autopeças e reparação automotiva.</p>
+                </div>
+                <div>
+                    <p class='se-info'><span class='dashicons dashicons-calendar-alt'></span> 06 a 09 de maio de 2026</p>
+                    <p class='se-info'><span class='dashicons dashicons-location'></span> Curitiba (PR) - Expotrade Pinhais</p>
+                </div>
+            </div>
+            <div class='se-card'>
+                <div><h3>CentroParts 2026</h3><p class='se-desc'>Reposição automotiva.</p></div>
+                <div>
+                    <p class='se-info'><span class='dashicons dashicons-calendar-alt'></span> 29 de julho a 1 de agosto de 2026</p>
+                    <p class='se-info'><span class='dashicons dashicons-location'></span> Goiânia (GO) - Centro de Convenções</p>
+                </div>
+            </div>
+        </div>
+        </body></html>
+        """
+        mock = MagicMock()
+        mock.raise_for_status.return_value = None
+        mock.text = html
+        with patch("backend.services.automotive_events.requests.get", return_value=mock):
+            events = svc._scrape_sindirepa()
+
+        self.assertEqual(len(events), 2)
+        ev = events[0]
+        self.assertEqual(ev["titulo"], "Autopar 2026")
+        self.assertEqual(ev["data_inicio"], "2026-05-06")
+        self.assertEqual(ev["data_fim"], "2026-05-09")
+        self.assertEqual(ev["cidade"], "Curitiba")
+        self.assertEqual(ev["uf"], "PR")
+
+        self.assertEqual(events[1]["data_inicio"], "2026-07-29")
+        self.assertEqual(events[1]["data_fim"], "2026-08-01")
+
+
+class DiretrizScraperTest(unittest.TestCase):
+    def test_parses_automotive_only(self):
+        html = """
+        <html><body>
+        <div class="e-con-inner">
+            <div class="e-con e-child">
+                <div class="elementor-widget-container">
+                    <h2 class="elementor-heading-title elementor-size-default">Minasparts 2026</h2>
+                </div>
+                <div class="elementor-widget-text-editor">
+                    <div class="elementor-widget-container">
+                        <h6><strong>Belo Horizonte / MG</strong></h6>
+                        <p>icone 30 de Set a 03 de Out | 2026<br/>icone Expominas Belo Horizonte</p>
+                    </div>
+                </div>
+                <div class="elementor-widget-container">
+                    <a class="elementor-button elementor-button-link" href="https://feiraminasparts.com.br/" target="_blank">Visitar</a>
+                </div>
+            </div>
+            <div class="e-con e-child">
+                <h2 class="elementor-heading-title elementor-size-default">B2Beauty 2027</h2>
+                <div class="elementor-widget-text-editor">
+                    <p>21 a 23 de Março | 2027 Expotrade</p>
+                </div>
+            </div>
+        </div>
+        </body></html>
+        """
+        mock = MagicMock()
+        mock.raise_for_status.return_value = None
+        mock.text = html
+        with patch("backend.services.automotive_events.requests.get", return_value=mock):
+            events = svc._scrape_diretriz()
+
+        self.assertEqual(len(events), 1)
+        ev = events[0]
+        self.assertEqual(ev["titulo"], "Minasparts 2026")
+        self.assertEqual(ev["data_inicio"], "2026-09-30")
+        self.assertEqual(ev["data_fim"], "2026-10-03")
+        self.assertEqual(ev["cidade"], "Belo Horizonte")
+        self.assertEqual(ev["uf"], "MG")
+        self.assertEqual(ev["url"], "https://feiraminasparts.com.br/")
+
+
+class InterlagosScraperTest(unittest.TestCase):
+    def test_filters_non_automotive(self):
+        html = """
+        <html><body>
+        <div id="carousel-noticias" class="carousel">
+            <div class="thumbnail">
+                <a href="https://www.interlagos.com.br/blog/salao-do-automovel/">
+                    <h4>SALÃO DO AUTOMÓVEL - DESTAQUE</h4>
+                    <div class="caption"><h4>SALÃO DO AUTOMÓVEL - DESTAQUE</h4></div>
+                </a>
+            </div>
+            <div class="thumbnail">
+                <a href="https://www.interlagos.com.br/blog/interafeto/">
+                    <div class="caption"><h4>ESPAÇO INTERAFETO</h4></div>
+                </a>
+            </div>
+        </div>
+        </body></html>
+        """
+        mock = MagicMock()
+        mock.raise_for_status.return_value = None
+        mock.text = html
+        with patch("backend.services.automotive_events.requests.get", return_value=mock):
+            events = svc._scrape_interlagos()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["titulo"], "SALÃO DO AUTOMÓVEL - DESTAQUE")
+        self.assertEqual(events[0]["uf"], "SP")
+
+
+class GoogleOrganicTest(unittest.TestCase):
+    def test_extracts_results(self):
+        html = """
+        <html><body>
+        <div class="g">
+            <div class="tF2Cxc">
+                <a href="https://www.sympla.com.br/evento/encontro-de-carros-2026/abc"><h3>Encontro de Carros 2026 - Sympla</h3></a>
+                <span class="VwiC3b">Bla bla bla 06 a 09 de maio de 2026 dados</span>
+                <div style="position:relative"><div class="VwiC3b">blabla</div></div>
+            </div>
+        </div>
+        </body></html>
+        """
+        soup = __import__("bs4").BeautifulSoup(html, "html.parser")
+        results = svc._extract_google_organic(soup)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["titulo"], "Encontro de Carros 2026 - Sympla")
+        self.assertIn("sympla.com.br", results[0]["url"])
+
+
+class ScanTest(unittest.TestCase):
+    def test_scan_dedup_and_sort(self):
+        def fake_nfeiras():
+            return [
+                svc._make_event(titulo="AUTOP 2026", url="https://x/1", data_inicio="2026-08-19",
+                                data_fim="2026-08-22", fonte="nfeas", fonte_nome="NFeiras"),
+            ]
+
+        def fake_sindirepa():
+            return [
+                svc._make_event(titulo="AUTOP 2026", url="https://x/1", data_inicio="2026-08-19",
+                                data_fim="2026-08-22", fonte="sindirepa", fonte_nome="Sindirepa"),
+                svc._make_event(titulo="CentroParts 2026", url="https://x/2", data_inicio="2020-01-01",
+                                fonte="sindirepa", fonte_nome="Sindirepa"),  # passado
+                svc._make_event(titulo="Sem data", url="https://x/3", fonte="google", fonte_nome="Google"),
+            ]
+
+        def fake_diretriz():
+            return []
+
+        def fake_interlagos():
+            return []
+
+        def fake_google():
+            return [
+                svc._make_event(titulo="Salão do Automóvel 2026", url="https://x/4",
+                                data_inicio="2026-10-01", fonte="google", fonte_nome="Google"),
+            ]
+
+        with patch.object(svc, "SOURCE_RUNNERS", [
+                ("nfeas", "NFeiras", fake_nfeiras),
+                ("sindirepa", "Sindirepa", fake_sindirepa),
+                ("diretriz", "Diretriz", fake_diretriz),
+                ("interlagos", "Interlagos", fake_interlagos),
+                ("google", "Google", fake_google),
+        ]), \
+                patch.object(svc, "cache_get_json", return_value=None), \
+                patch.object(svc, "cache_set_json", return_value=None):
+            payload = svc.scan_automotive_events(force=True)
+
+        self.assertTrue(payload["success"])
+        # AUTOP duplicado (mesmo titulo+url) vira 1; evento passado é removido
+        titulos = [e["titulo"] for e in payload["events"]]
+        self.assertEqual(len(titulos), 3)
+        self.assertIn("AUTOP 2026", titulos)
+        self.assertIn("Sem data", titulos)
+        self.assertIn("Salão do Automóvel 2026", titulos)
+        # eventos com data vêm antes dos sem data
+        self.assertEqual(payload["events"][0]["titulo"], "AUTOP 2026")
+        self.assertEqual(payload["events"][-1]["titulo"], "Sem data")
+        # fontes reportadas
+        slugs = {s["slug"] for s in payload["sources"]}
+        self.assertEqual(slugs, {"nfeas", "sindirepa", "diretriz", "interlagos", "google"})
+
+    def test_scan_records_source_failure(self):
+        def boom():
+            raise RuntimeError("site fora do ar")
+
+        with patch.object(svc, "SOURCE_RUNNERS", [
+                ("nfeas", "NFeiras", boom),
+                ("sindirepa", "Sindirepa", lambda: []),
+                ("diretriz", "Diretriz", lambda: []),
+                ("interlagos", "Interlagos", lambda: []),
+                ("google", "Google", lambda: []),
+        ]), \
+                patch.object(svc, "cache_get_json", return_value=None), \
+                patch.object(svc, "cache_set_json", return_value=None):
+            result = svc.scan_automotive_events(force=True)
+
+        self.assertTrue(result["success"])
+        nfeas = next(s for s in result["sources"] if s["slug"] == "nfeas")
+        self.assertFalse(nfeas["ok"])
+        self.assertIn("site fora do ar", nfeas["error"])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -916,11 +916,189 @@
             text-decoration: underline;
         }
         
-        /* Results count */
+/* Results count */
         .results-count {
             font-size: 12px;
             color: var(--text-muted);
             padding: 8px 0 4px;
+        }
+        
+        /* Events Section */
+        .events-toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            margin-bottom: 10px;
+        }
+        
+        .events-toolbar .form-group {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .btn-events-refresh {
+            padding: 10px 14px;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+        
+        .events-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .events-meta .meta-badge {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .meta-badge.ok i { color: var(--success); }
+        .meta-badge.fail { opacity: 0.6; }
+        .meta-badge.fail i { color: var(--danger); }
+        
+        .event-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 12px;
+            display: flex;
+            gap: 12px;
+            transition: var(--transition);
+        }
+        
+        .event-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .event-date-badge {
+            flex-shrink: 0;
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-sm);
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-ring);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+        }
+        
+        .event-date-badge .e-day {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        
+        .event-date-badge .e-month {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .event-date-badge.no-date {
+            background: var(--bg-input);
+            border-color: var(--border-color);
+            color: var(--text-muted);
+            width: auto;
+            height: auto;
+            padding: 6px 8px;
+            font-size: 11px;
+            border-radius: 12px;
+        }
+        
+        .event-body {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .event-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+        
+        .event-info-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-wrap: wrap;
+        }
+        
+        .event-info-row i {
+            width: 12px;
+            color: var(--accent);
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        
+        .event-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .event-links {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 2px;
+        }
+        
+        .event-source {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent);
+            background: var(--accent-soft);
+            border-radius: 10px;
+            padding: 2px 7px;
+        }
+        
+        .event-link {
+            font-size: 12px;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .event-link:hover {
+            text-decoration: underline;
+        }
+        
+        .event-past {
+            opacity: 0.6;
         }
         
         /* Responsive */
@@ -1042,10 +1220,13 @@
                     </div>
                 </div>
                 
-                <!-- Section Tabs -->
+<!-- Section Tabs -->
                 <div class="section-tabs">
                     <button class="section-tab active" data-tab="results" onclick="switchTab('results')">
                         <i class="fas fa-list"></i> Resultados
+                    </button>
+                    <button class="section-tab" data-tab="events" onclick="switchTab('events')">
+                        <i class="fas fa-calendar-alt"></i> Eventos
                     </button>
                     <button class="section-tab" data-tab="favorites" onclick="switchTab('favorites')">
                         <i class="fas fa-heart"></i> Favoritos
@@ -1059,6 +1240,29 @@
                             <i class="fas fa-map-marker-alt"></i>
                             <h3>Busque mecânicos próximos</h3>
                             <p>Clique no botão acima para encontrar mecânicos na sua região</p>
+                        </div>
+                    </div>
+                </div>
+                
+<!-- Events Section -->
+                <div id="section-events" style="display: none;">
+                    <div class="events-toolbar">
+                        <div class="form-group" style="flex: 1; min-width: 0;">
+                            <label for="events-uf">Local (UF)</label>
+                            <select id="events-uf" onchange="renderEventsList()">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <button class="btn-search btn-events-refresh" id="btn-events-refresh" onclick="loadAutomotiveEvents(true)">
+                            <i class="fas fa-sync-alt"></i> Verificar novos
+                        </button>
+                    </div>
+                    <div class="events-meta" id="events-meta"></div>
+                    <div class="mechanics-list" id="events-list">
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-alt"></i>
+                            <h3>Eventos automotivos</h3>
+                            <p>Varredura de feiras e eventos em sites especializados e no Google</p>
                         </div>
                     </div>
                 </div>
@@ -1122,9 +1326,11 @@
         let markers = [];
         let mechanicsData = [];
         let favoritesMap = {};
-        let isAuthenticated = false;
+let isAuthenticated = false;
         let activeFilters = new Set();
         let selectedRating = 0;
+        let eventsData = [];
+        let eventsLoaded = false;
         
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
@@ -1154,15 +1360,225 @@
             switchTab('results');
         }
         
-        function switchTab(tab) {
+function switchTab(tab) {
             document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
             document.querySelector(`.section-tab[data-tab="${tab}"]`)?.classList.add('active');
             
             document.getElementById('section-results').style.display = tab === 'results' ? 'block' : 'none';
+            document.getElementById('section-events').style.display = tab === 'events' ? 'block' : 'none';
             document.getElementById('section-favorites').style.display = tab === 'favorites' ? 'block' : 'none';
             
             if (tab === 'favorites') {
                 loadFavorites();
+            } else if (tab === 'events') {
+                loadAutomotiveEvents(false);
+            }
+        }
+        
+        // ─── Eventos Automotivos ──────────────────────────────────────────────
+        
+        async function loadAutomotiveEvents(force) {
+            const container = document.getElementById('events-list');
+            const btn = document.getElementById('btn-events-refresh');
+            
+            if (!force && eventsLoaded) {
+                renderEventsList();
+                return;
+            }
+            
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = AppLoader.button('Verificando...');
+            }
+            
+            container.innerHTML = AppLoader.block('Buscando eventos automotivos...');
+            
+            try {
+                const url = `${CONFIG.API_URL}/api/events/automotive${force ? '?force=1' : ''}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Erro na varredura de eventos');
+                }
+                
+                eventsData = data.events || [];
+                eventsLoaded = true;
+                populateUfFilter(data.events || []);
+                renderEventsList();
+                renderEventsMeta(data.sources || []);
+            } catch (error) {
+                console.error('Erro na varredura de eventos:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>Erro ao buscar eventos</h3>
+                        <p>${escapeHtml(error.message)}</p>
+                    </div>
+                `;
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Verificar novos';
+                }
+            }
+        }
+        
+        function populateUfFilter(events) {
+            const select = document.getElementById('events-uf');
+            if (!select) return;
+            const current = select.value;
+            const ufs = [...new Set(events.map(e => (e.uf || '').toUpperCase()).filter(u => u))].sort();
+            select.innerHTML = '<option value="">Todos os locais</option>' +
+                ufs.map(u => `<option value="${u}">${u}</option>`).join('');
+            select.value = current;
+        }
+        
+        function renderEventsList() {
+            const container = document.getElementById('events-list');
+            const ufFilter = document.getElementById('events-uf')?.value || '';
+            
+            let list = eventsData;
+            if (ufFilter) {
+                list = list.filter(e => (e.uf || '').toUpperCase() === ufFilter);
+            }
+            
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-alt"></i>
+                        <h3>Nenhum evento encontrado</h3>
+                        <p>Tente remover o filtro ou clique em "Verificar novos"</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = `
+                <div class="results-count">${list.length} evento${list.length !== 1 ? 's' : ''} encontrado${list.length !== 1 ? 's' : ''}</div>
+                ${list.map(e => renderEventCard(e)).join('')}
+            `;
+        }
+        
+        function renderEventCard(event) {
+            const dateInfo = formatEventDate(event);
+            const where = [event.cidade, event.uf && event.uf !== 'INT' ? '-' + event.uf : ''].join(' ').trim();
+            return `
+                <div class="event-card">
+                    <div class="event-date-badge${dateInfo.day ? '' : ' no-date'}" title="${escapeHtml(dateInfo.label)}">
+                        ${dateInfo.day ? `<span class="e-day">${dateInfo.day}</span><span class="e-month">${dateInfo.month}</span>` : 'Sem dados'}
+                    </div>
+                    <div class="event-body">
+                        <div class="event-title">${escapeHtml(event.titulo)}</div>
+                        ${dateInfo.periodLabel ? `
+                            <div class="event-info-row">
+                                <i class="fas fa-calendar-check"></i>
+                                <span>${dateInfo.periodLabel}</span>
+                            </div>
+                        ` : ''}
+                        ${(where || event.local) ? `
+                            <div class="event-info-row">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>${escapeHtml(where || event.local)}</span>
+                                ${event.local && where ? `<span style="color: var(--text-muted);">• ${escapeHtml(event.local)}</span>` : ''}
+                            </div>
+                        ` : ''}
+                        ${event.descricao ? `<div class="event-desc">${escapeHtml(event.descricao)}</div>` : ''}
+                        <div class="event-links">
+                            <span class="event-source">${escapeHtml(event.fonte_nome)}</span>
+                            ${event.url ? `<a class="event-link" href="${escapeHtml(event.url)}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Visitar site</a>` : ''}
+                            ${event.cidade ? `<a class="event-link" href="javascript:void(0)" onclick="showEventOnMapById('${escapeHtml(event.id)}')"><i class="fas fa-map-pin"></i> Ver no mapa</a>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function formatEventDate(event) {
+            const monthsPt = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+            const start = event.data_inicio ? new Date(event.data_inicio + 'T12:00:00') : null;
+            const end = event.data_fim ? new Date(event.data_fim + 'T12:00:00') : null;
+            
+            if (!start || isNaN(start.getTime())) {
+                return { day: null, month: null, label: 'Data a confirmar', periodLabel: '' };
+            }
+            
+            const d = String(start.getDate()).padStart(2, '0');
+            const m = monthsPt[start.getMonth()];
+            const y = String(start.getFullYear());
+            let periodLabel = `${d} ${m} ${y}`;
+            
+            if (end && !isNaN(end.getTime()) && end.toDateString() !== start.toDateString()) {
+                const d2 = String(end.getDate()).padStart(2, '0');
+                const m2 = monthsPt[end.getMonth()];
+                const y2 = String(end.getFullYear());
+                if (y === y2 && start.getMonth() === end.getMonth()) {
+                    periodLabel = `${d} a ${d2} ${m} ${y}`;
+                } else if (y === y2) {
+                    periodLabel = `${d} ${m} a ${d2} ${m2} ${y}`;
+                } else {
+                    periodLabel = `${d} ${m} ${y} a ${d2} ${m2} ${y2}`;
+                }
+            }
+            
+            return { day: d, month: m, label: periodLabel, periodLabel };
+        }
+        
+        function showEventOnMapById(eventId) {
+            const event = eventsData.find(e => String(e.id) === String(eventId));
+            if (event) {
+                showEventOnMap(event);
+            }
+        }
+        
+        function renderEventsMeta(sources) {
+            const el = document.getElementById('events-meta');
+            if (!el) return;
+            const total = sources.reduce((acc, s) => acc + (s.count || 0), 0);
+            el.innerHTML = `
+                <span>Fontes (${sources.length})</span>
+                ${sources.map(s => `
+                    <span class="meta-badge ${s.ok ? 'ok' : 'fail'}" title="${escapeHtml((s.ok ? '' : 'Falhou: ') + (s.error || ''))}">
+                        ${s.ok ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-times-circle"></i>'}
+                        ${escapeHtml(s.nome)}: ${s.count || 0}
+                    </span>
+                `).join('')}
+            `;
+        }
+        
+        async function showEventOnMap(event) {
+            const cidade = event.cidade;
+            if (!cidade) {
+                alert('Evento sem cidade para localizar no mapa.');
+                return;
+            }
+            const uf = event.uf && event.uf !== 'INT' ? ` ${event.uf}` : '';
+            try {
+                const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(cidade + uf)}&limit=1&lang=pt`);
+                const data = await response.json();
+                const feature = data.features && data.features[0];
+                if (!feature || !feature.geometry || !feature.geometry.coordinates) {
+                    alert(`Não foi possível localizar "${cidade}" no mapa.`);
+                    return;
+                }
+                const [lng, lat] = feature.geometry.coordinates;
+                map.flyTo([lat, lng], 12);
+                L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'event-marker',
+                        html: '<i class="fas fa-calendar-alt" style="color: #8b5cf6; font-size: 26px;"></i>',
+                        iconSize: [26, 26]
+                    })
+                }).addTo(map).bindPopup(`
+                    <div class="mechanic-popup">
+                        <h4>${escapeHtml(event.titulo)}</h4>
+                        <div class="popup-addr">${escapeHtml(cidade + uf)}</div>
+                        ${event.url ? `<a class="popup-link" href="${escapeHtml(event.url)}" target="_blank" rel="noopener">Ver site do evento</a>` : ''}
+                    </div>
+                `).openPopup();
+            } catch (error) {
+                console.error('Erro ao localizar evento:', error);
+                alert('Erro ao localizar o evento.');
             }
         }
         

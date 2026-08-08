@@ -1,13 +1,19 @@
 import base64
 import logging
+import sys
+from pathlib import Path
 
 import pytest
 from unittest import mock
 
-import services.nogai as nogai
-import services.vision_ai as vision
-import services.attachment_ai as attachment_ai
-from utils.cache import _local_json_cache, get_redis_client
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND_DIR))
+sys.path.insert(0, str(BACKEND_DIR / "backend"))
+
+import services.nogai as nogai  # noqa: E402
+import services.vision_ai as vision  # noqa: E402
+import services.attachment_ai as attachment_ai  # noqa: E402
+from utils.cache import _local_json_cache, get_redis_client  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -60,20 +66,20 @@ def test_file_analysis_cache_miss_then_hit():
         calls["n"] += 1
         return FAKE_JSON
 
-        with mock.patch.object(attachment_ai, "chat_completion", fake_chat), \
+    with mock.patch.object(attachment_ai, "chat_completion", fake_chat), \
          mock.patch.object(vision, "chat_completion", fake_chat), \
          mock.patch.object(attachment_ai, "extract_pdf_text", return_value="texto extraido do pdf"):
-            # Imagem via analisar_arquivo
-            img_bytes = b"fake-image-bytes"
-            a1 = attachment_ai.analisar_arquivo(img_bytes, "image/png", "foto.png", "defeito?")
-            a2 = attachment_ai.analisar_arquivo(img_bytes, "image/png", "foto.png", "defeito?")
-            assert a1 == a2 == FAKE_JSON
+        # Imagem via analisar_arquivo
+        img_bytes = b"fake-image-bytes"
+        a1 = attachment_ai.analisar_arquivo(img_bytes, "image/png", "foto.png", "defeito?")
+        a2 = attachment_ai.analisar_arquivo(img_bytes, "image/png", "foto.png", "defeito?")
+        assert a1 == a2 == FAKE_JSON
 
-            # PDF via analisar_arquivo
-            pdf_bytes = b"fake-pdf-bytes"
-            p1 = attachment_ai.analisar_arquivo(pdf_bytes, "application/pdf", "doc.pdf", "revisar?")
-            p2 = attachment_ai.analisar_arquivo(pdf_bytes, "application/pdf", "doc.pdf", "revisar?")
-            assert p1 == p2 == FAKE_JSON
+        # PDF via analisar_arquivo
+        pdf_bytes = b"fake-pdf-bytes"
+        p1 = attachment_ai.analisar_arquivo(pdf_bytes, "application/pdf", "doc.pdf", "revisar?")
+        p2 = attachment_ai.analisar_arquivo(pdf_bytes, "application/pdf", "doc.pdf", "revisar?")
+        assert p1 == p2 == FAKE_JSON
 
-        # 1 chamada Groq real por arquivo unico (imagem + pdf)
-        assert calls["n"] == 2
+    # 1 chamada Groq real por arquivo unico (imagem + pdf)
+    assert calls["n"] == 2

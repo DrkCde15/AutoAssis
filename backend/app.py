@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 print("Importando rotas...")
 from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db
 from routes.mechanics import mechanics_bp
+from routes.events import events_bp
 from routes.notifications import notifications_bp
 from routes.push import push_bp
 from routes.payment import cakto_webhook as cakto_webhook_handler
@@ -144,6 +145,7 @@ csp = {
     'connect-src': [
         "'self'",
         "https://api.cakto.com.br",
+        "https://photon.komoot.io",
         "http://localhost:5000",
         "http://127.0.0.1:5000",
         "ws://localhost:5000",
@@ -575,6 +577,7 @@ app.register_blueprint(gateway_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(push_bp)
 app.register_blueprint(mechanics_bp)
+app.register_blueprint(events_bp)
 
 # Gera VAPID keys se nao existirem
 if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):
