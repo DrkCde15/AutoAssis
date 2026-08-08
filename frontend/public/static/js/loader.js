@@ -12,3 +12,5 @@ const AppLoader = {
     return `<div class="app-loader">${this.spinner('lg')}<span class="app-loader__text">${text}</span></div>`;
   },
 };
+
+window.AppLoader = AppLoader;

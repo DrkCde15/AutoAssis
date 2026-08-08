@@ -43,8 +43,6 @@
 
     var listId = "appsel-" + (root.id || Math.random().toString(36).slice(2)) + "-list";
 
-    var listId = "appsel-" + (root.id || Math.random().toString(36).slice(2)) + "-list";
-
     var searchHtml = searchable
       ? '<div class="app-select__search-wrap">' +
           '<i class="fas fa-search app-select__search-icon" aria-hidden="true"></i>' +
