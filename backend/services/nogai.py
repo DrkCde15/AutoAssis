@@ -675,6 +675,85 @@ def search_nearby_mechanics(lat=None, lng=None, radius=10, limit=5, service_type
         return ""
 
 
+# UFs usadas para detectar menção de região na mensagem ("eventos em SP").
+_BR_UFS = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
+    "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
+    "SP", "SE", "TO",
+]
+
+
+def _parse_event_uf(text):
+    """Extrai UF da mensagem ("eventos em SP", "feira no Rio de Janeiro"). Default None."""
+    text = _normalize_text(text or "")
+    m = re.search(r"\b(" + "|".join(_BR_UFS) + r")\b", text.upper())
+    if m:
+        return m.group(1)
+    uf_cidades = {
+        "sao paulo": "SP", "rio de janeiro": "RJ", "belo horizonte": "MG",
+        "brasilia": "DF", "salvador": "BA", "fortaleza": "CE", "curitiba": "PR",
+        "manaus": "AM", "recife": "PE", "porto alegre": "RS", "belem": "PA",
+        "goiania": "GO", "campinas": "SP", "guarulhos": "SP", "sao bernardo do campo": "SP",
+        "santo andre": "SP", "osasco": "SP", "sorocaba": "SP", "ribeirao preto": "SP",
+        "uberlandia": "MG", "contagem": "MG", "juiz de fora": "MG", "nova iguaçu": "RJ",
+        "duque de caxias": "RJ", "niteroi": "RJ", "sao goncalo": "RJ", "feira de santana": "BA",
+        "campo grande": "MS", "natal": "RN", "joao pessoa": "PB", "florianopolis": "SC",
+        "joinville": "SC", "londrina": "PR", "maringa": "PR", "blumenau": "SC",
+        "porto velho": "RO", "boa vista": "RR", "macapa": "AP", "rio branco": "AC",
+        "aracaju": "SE", "teresina": "PI", "cuiaba": "MT", "palmas": "TO",
+        "vitoria": "ES", "campina grande": "PB", "caxias do sul": "RS", "pelotas": "RS",
+        "piracicaba": "SP", "sao jose dos campos": "SP", "jundiai": "SP",
+    }
+    for cidade, uf in uf_cidades.items():
+        if cidade in text:
+            return uf
+    return None
+
+
+def get_automotive_events_context(uf=None, limit=8):
+    """Busca eventos automotivos futuros para contexto do chatbot.
+
+    Usa o mesmo cache de 6h da página Mapa (scan_automotive_events).
+    uf filtra por UF (ex.: "SP") ou "INT" para internacionais.
+    """
+    try:
+        from services.automotive_events import scan_automotive_events, filter_events
+
+        payload = scan_automotive_events(force=False)
+        events = payload.get("events", [])
+
+        if uf:
+            events = filter_events(events, uf=uf)
+
+        if not events:
+            return ""
+
+        lines = []
+        for ev in events[:limit]:
+            titulo = ev.get("titulo", "Evento")
+            cidade = ev.get("cidade", "")
+            ev_uf = ev.get("uf", "")
+            local = ev.get("local", "")
+            dados = ev.get("data_inicio") or "data a confirmar"
+            linha = f"  - {titulo}"
+            if cidade:
+                linha += f" ({cidade}{'/' + ev_uf if ev_uf and ev_uf != 'INT' else ''})"
+            linha += f" — {dados}"
+            if local:
+                linha += f", {local}"
+            lines.append(linha)
+
+        prefix = "Eventos automotivos próximos"
+        if uf and uf != "INT":
+            prefix += f" no estado de {uf}"
+        elif uf == "INT":
+            prefix += " internacionais"
+        return prefix + ":\n" + "\n".join(lines)
+    except Exception as e:
+        logger.warning("Erro ao buscar eventos para o chat: %s", e)
+        return ""
+
+
 def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None, historico: list | None = None) -> str:
     try:
         logger.info(f"NOG Groq: Processando msg do usuário {user_id}")
@@ -759,6 +838,25 @@ def gerar_resposta(mensagem: str, user_id: int, user_data: dict = None, historic
                         "foi encontrada no raio de busca. Informe que nao ha "
                         "oficinas cadastradas proximas e sugira ampliar a busca."
                     )
+
+        # Injeta eventos automotivos se a mensagem for sobre eventos/feiras
+        _EVENT_KEYWORDS = [
+            "evento", "feira", "exposicao", "salão", "salao", "encontro",
+            "congresso", "auto show", "autoshow", "sympla", "interlagos",
+            "nfeiras", "sindirepa", "expo ", "mostra", "competicao",
+        ]
+        if any(kw in msg_norm for kw in _EVENT_KEYWORDS):
+            events_context = get_automotive_events_context(
+                uf=_parse_event_uf(msg_norm), limit=8
+            )
+            if events_context:
+                user_context += f"\n\n[EVENTOS AUTOMOTIVOS]\n{events_context}"
+            else:
+                user_context += (
+                    "\n\n[NOTA]: O usuario perguntou sobre eventos automotivos, "
+                    "mas nenhum evento futuro foi encontrado. Sugira acessar a "
+                    "pagina Mapa (maps.html) para acompanhar as novidades."
+                )
 
         prompt_final = f"{user_context}\n\nPergunta do usuário: {msg_clean}" if user_context else msg_clean
 

@@ -302,7 +302,8 @@ def init_db():
             ("profile_pic", "VARCHAR(500)"),
             ("maintenance_email_enabled", "BOOLEAN DEFAULT TRUE"),
             ("maintenance_email_last_sent", "DATETIME NULL"),
-            ("is_admin", "BOOLEAN DEFAULT FALSE")
+            ("is_admin", "BOOLEAN DEFAULT FALSE"),
+            ("uf", "VARCHAR(2) NULL")
         ]
         for col, dtype in columns:
             if col not in existing_columns:

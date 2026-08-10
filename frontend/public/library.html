@@ -355,6 +355,15 @@
             loadLibrary();
         });
 
+        function escapeHTML(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         async function loadLibrary() {
             const content = document.getElementById('libraryContent');
             
@@ -386,13 +395,13 @@
                         
                         mediaItems.push(`
                             <div class="video-card">
-                                <a href="${v.url}" target="_blank" class="video-play-area">
+                                <a href="${escapeHTML(v.url)}" target="_blank" class="video-play-area">
                                     <div class="play-icon-wrapper">
                                         <i class="fas fa-play"></i>
                                     </div>
                                 </a>
                                 <div class="video-info">
-                                    <div class="video-title">${v.titulo}</div>
+                                    <div class="video-title">${escapeHTML(v.titulo)}</div>
                                 </div>
                             </div>
                         `);
@@ -401,12 +410,12 @@
                     // Adicionar links
                     topic.links.forEach(l => {
                         mediaItems.push(`
-                            <a href="${l.url}" target="_blank" rel="noopener noreferrer" class="link-card">
+                            <a href="${escapeHTML(l.url)}" target="_blank" rel="noopener noreferrer" class="link-card">
                                 <div class="link-icon">
-                                    <i class="${l.icon || 'fas fa-external-link-alt'}"></i>
+                                    <i class="${escapeHTML(l.icon) || 'fas fa-external-link-alt'}"></i>
                                 </div>
                                 <div class="link-content">
-                                    <h3>${l.titulo}</h3>
+                                    <h3>${escapeHTML(l.titulo)}</h3>
                                     <p>${l.tipo === 'peca' ? 'Sugestão de Peças/Ferramentas' : 'Ofertas de Veículos'}</p>
                                 </div>
                                 <div class="link-btn">
@@ -419,7 +428,7 @@
                     return `
                         <div class="topic-section">
                             <div class="topic-header">
-                                <h2>${topic.topic}</h2>
+                                <h2>${escapeHTML(topic.topic)}</h2>
                                 <span class="topic-date">Consultado em ${date}</span>
                             </div>
                             <div class="media-grid">

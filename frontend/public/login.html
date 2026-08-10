@@ -327,6 +327,10 @@
           </div>
         </div>
 
+<div class="form-group turnstile-group">
+          <div id="cf-turnstile-widget" data-turnstile-widget data-turnstile-action="login"></div>
+        </div>
+
         <button type="submit" id="btnEntrar" class="btn btn-primary">
           Entrar
           <i class="fas fa-arrow-right"></i>
@@ -365,6 +369,7 @@
     <script src="./static/js/config.js"></script>
     <script src="./static/js/auth.js"></script>
     <script src="static/js/security-utils.js"></script>
+    <script src="./static/js/turnstile.js"></script>
     <script>
       function getRedirectUrl() {
         const params = new URLSearchParams(window.location.search);
@@ -373,6 +378,7 @@
       }
 
       document.addEventListener("DOMContentLoaded", () => {
+        TurnstileHelper.init();
         if (typeof Auth !== 'undefined') {
           Auth.syncUser({ redirectOnInvalid: false }).then((user) => {
             if (user) window.location.href = getRedirectUrl() || "index.html";
@@ -406,7 +412,8 @@
           btnEntrar.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando...';
 
           try {
-            const data = await Auth.login(email, password);
+            const turnstileToken = TurnstileHelper.getToken('cf-turnstile-widget');
+            const data = await Auth.login(email, password, turnstileToken);
             
             if (data.two_factor_required) {
               pendingToken = data.pending_token;
@@ -424,6 +431,7 @@
           } catch (err) {
             errorBox.textContent = err.message;
             errorBox.style.display = "block";
+            TurnstileHelper.reset('cf-turnstile-widget');
             btnEntrar.disabled = false;
             btnEntrar.innerHTML = originalBtnContent;
           }

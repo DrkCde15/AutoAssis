@@ -18,6 +18,12 @@ services:
     envVars:
       - key: FLASK_ENV
         value: production
+      - key: TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: TURNSTILE_HOSTNAMES
+        value: autoassist-l9lr.onrender.com
       - key: REDIS_URL
         sync: false
       - key: RATELIMIT_STORAGE_URI

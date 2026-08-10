@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 
 from extensions import limiter
+from utils.turnstile import turnstile_required
 from .database import get_db
 
 feedback_bp = Blueprint("feedback_bp", __name__)
@@ -30,6 +31,7 @@ def _get_optional_user_id():
 
 @feedback_bp.route("/api/feedback", methods=["POST"])
 @limiter.limit("10 per minute")
+@turnstile_required(action="feedback")
 def post_feedback():
     data = request.get_json(silent=True) or {}
     nome = _clean_text(data.get("nome"), 100)

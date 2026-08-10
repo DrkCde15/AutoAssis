@@ -51,3 +51,11 @@ def save_health_score(user_id, vehicle_id, health_score):
             conn.commit()
     except Exception as e:
         logger.warning("Erro ao salvar health score: %s", e)
+
+def dispatch_events_notifications():
+    from routes.events import notify_new_automotive_events
+    try:
+        result = notify_new_automotive_events()
+        logger.info("Notificações de eventos: %s", result)
+    except Exception as e:
+        logger.warning("Falha ao notificar eventos em background: %s", e)

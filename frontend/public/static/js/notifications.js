@@ -302,6 +302,56 @@ const Notifications = (() => {
     }
   }
 
+  /* ── Sincronização de localização (notificações regionais de eventos) ── */
+
+  async function syncUserLocation() {
+    if (typeof Auth === "undefined" || !Auth.isAuthenticated()) return;
+    if (!("geolocation" in navigator)) return;
+
+    let loc = null;
+    try {
+      const stored = JSON.parse(localStorage.getItem("autoassist_location") || "null");
+      if (stored && isFinite(stored.lat) && isFinite(stored.lng)) loc = stored;
+    } catch {}
+
+    // Se ainda não coletou (ex.: usuário só acessou páginas sem mapa),
+    // pede a localização uma vez — é o "permitir localização" do navegador.
+    if (!loc) {
+      try {
+        loc = await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (p) => {
+              const fresh = { lat: p.coords.latitude, lng: p.coords.longitude };
+              localStorage.setItem("autoassist_location", JSON.stringify({
+                lat: fresh.lat, lng: fresh.lng, ts: Date.now()
+              }));
+              resolve(fresh);
+            },
+            () => resolve(null),
+            { timeout: 5000, maximumAge: 600000 }
+          );
+        });
+      } catch {}
+    }
+    if (!loc) return;
+
+    // No máximo 1 envio por dia para o backend
+    const lastSync = parseInt(localStorage.getItem("autoassist_location_synced") || "0", 10);
+    if (Date.now() - lastSync < 24 * 3600 * 1000) return;
+
+    try {
+      const res = await Auth.authenticatedFetch("/api/user/location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: loc.lat, lng: loc.lng }),
+        redirectOnInvalid: false,
+      });
+      if (res.ok) {
+        localStorage.setItem("autoassist_location_synced", String(Date.now()));
+      }
+    } catch {}
+  }
+
   /* ── Init ── */
 
   function init() {
@@ -311,6 +361,7 @@ const Notifications = (() => {
       fetchUnreadCount();
       setInterval(fetchUnreadCount, 30000);
       requestPushPermission();
+      syncUserLocation();
     }
   }
 
@@ -320,5 +371,5 @@ const Notifications = (() => {
     init();
   }
 
-  return { init, fetchUnreadCount, requestPushPermission, subscribeToPush, unsubscribeFromPush };
+  return { init, fetchUnreadCount, requestPushPermission, subscribeToPush, unsubscribeFromPush, syncUserLocation };
 })();

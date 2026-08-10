@@ -466,6 +466,10 @@
         <i class="fas fa-plus"></i> Adicionar outro veículo
       </button>
 
+<div class="form-group turnstile-group">
+          <div id="cf-turnstile-widget" data-turnstile-widget data-turnstile-action="signup"></div>
+        </div>
+
       <button class="btn btn-primary" id="btnCadastrar">
         Criar Minha Conta
         <i class="fas fa-arrow-right"></i>
@@ -484,6 +488,7 @@
     <script src="./static/js/auth.js"></script>
     <script src="static/js/security-utils.js"></script>
     <script src="./static/js/app-select.js"></script>
+    <script src="./static/js/turnstile.js"></script>
     <script>
       const btn = document.getElementById("btnCadastrar");
       const alertError = document.getElementById("alertError");
@@ -705,19 +710,26 @@
           }
         }
 
+        if (TurnstileHelper.isEnabled() && !TurnstileHelper.getToken('cf-turnstile-widget')) {
+          showError("Resolva a verificação de segurança antes de continuar.");
+          return;
+        }
+
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Criando conta...';
 
         try {
-          await Auth.register(nome, email, confirmEmail, senha, confirmSenha, veiculos);
+          await Auth.register(nome, email, confirmEmail, senha, confirmSenha, veiculos, TurnstileHelper.getToken('cf-turnstile-widget'));
           alert("Conta criada com sucesso! Bem-vindo ao AutoAssist.");
           window.location.href = "login.html";
         } catch (err) {
           showError(err.message || "Erro de conexão com o servidor.");
+          TurnstileHelper.reset('cf-turnstile-widget');
           btn.disabled = false;
           btn.innerHTML = 'Criar Minha Conta <i class="fas fa-arrow-right"></i>';
         }
       });
+    TurnstileHelper.init();
     </script>
     <script src="static/vendor/anime.min.js?v=3.2.2" defer></script>
     <script src="static/vendor/lenis.min.js?v=1.3.26" defer></script>

@@ -1167,7 +1167,7 @@ def get_user():
             SELECT id, nome, email, is_premium, created_at, possui_veiculo,
                    veiculo_marca, veiculo_modelo, veiculo_ano_fabricacao,
                    veiculo_ano_compra, veiculo_tipo, veiculo_quilometragem, is_two_factor_enabled,
-                   maintenance_email_enabled, maintenance_email_last_sent
+                   maintenance_email_enabled, maintenance_email_last_sent, uf
             FROM users WHERE id = %s
         """, (user_id,))
         user = cursor.fetchone()
@@ -1234,6 +1234,42 @@ def update_user():
     except Exception as e:
         logger.error(f"❌ Erro ao atualizar perfil: {e}")
         return jsonify(error="Erro ao atualizar perfil"), 500
+
+@pages_bp.route("/api/user/location", methods=["POST"])
+@jwt_required()
+def update_user_location():
+    """Salva a localização (UF) do usuário para notificações regionais de eventos.
+
+    Recebe {lat, lng} (geolocalização do navegador) — a UF é inferida por
+    reverse geocoding (Nominatim) e cacheadas por ~1km. Também aceita {uf}
+    diretamente e {uf: ""} para limpar a localização.
+    """
+    user_id = get_jwt_identity()
+    data = request.get_json() or {}
+    uf = (data.get("uf") or "").strip().upper()
+
+    if not uf and data.get("lat") is not None and data.get("lng") is not None:
+        try:
+            from utils.geocode import reverse_geocode_uf
+            uf = reverse_geocode_uf(data["lat"], data["lng"]) or ""
+        except Exception as e:
+            logger.warning("Falha ao inferir UF pela localização: %s", e)
+            uf = ""
+
+    if uf and (len(uf) != 2 or not uf.isalpha()):
+        return jsonify(error="UF inválida"), 400
+
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "UPDATE users SET uf = %s WHERE id = %s",
+                (uf or None, user_id),
+            )
+            conn.commit()
+        return jsonify(success=True, uf=uf or None), 200
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar localização do usuário: {e}")
+        return jsonify(error="Erro ao salvar localização"), 500
 
 @pages_bp.route("/api/veiculos", methods=["POST"])
 @jwt_required()

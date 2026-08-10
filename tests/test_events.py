@@ -4,6 +4,8 @@ Testes da varredura de eventos automotivos
 """
 import sys
 import os
+import types
+import importlib.util
 import unittest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
@@ -426,6 +428,176 @@ class ScanTest(unittest.TestCase):
         nfeas = next(s for s in result["sources"] if s["slug"] == "nfeas")
         self.assertFalse(nfeas["ok"])
         self.assertIn("site fora do ar", nfeas["error"])
+
+
+class EventNotificationsTest(unittest.TestCase):
+    """Testes do fluxo de notificação de novos eventos (routes/events.py)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ev = _load_events_module()
+
+    @staticmethod
+    def _scan_payload(events):
+        return {"success": True, "events": events, "sources": []}
+
+    @staticmethod
+    def _make(titulo, url, data_inicio=None, uf="SP", cidade="São Paulo"):
+        return svc._make_event(
+            titulo=titulo, url=url, data_inicio=data_inicio,
+            cidade=cidade, uf=uf, fonte="nfeas", fonte_nome="NFeiras",
+        )
+
+    def test_key_is_deterministic(self):
+        ev = self._make("AUTOP 2026", "https://x/1", "2026-08-19")
+        k1 = self.ev._event_notification_key(ev)
+        self.assertEqual(
+            k1,
+            self.ev._event_notification_key(dict(ev, id="qualquer_outro_hash")),
+        )
+
+    def test_dry_run_returns_only_new_events(self):
+        old = self._make("AUTOP 2026", "https://x/1", "2026-08-19")
+        new = self._make("Salão do Automóvel 2026", "https://x/4", "2026-10-01")
+        known = [self.ev._event_notification_key(old)]
+        with patch.object(self.ev, "scan_automotive_events", return_value=self._scan_payload([old, new])), \
+                patch.object(self.ev, "cache_get_json", return_value=known), \
+                patch.object(self.ev, "cache_set_json"), \
+                patch.object(self.ev, "create_notification") as mock_create:
+            result = self.ev.notify_new_automotive_events(dry_run=True)
+        self.assertEqual(result["new_count"], 1)
+        self.assertEqual(result["new_events"][0]["titulo"], "Salão do Automóvel 2026")
+        mock_create.assert_not_called()
+
+    def test_creates_notification_and_push_for_all_users(self):
+        new = self._make("Salão do Automóvel 2026", "https://x/4", "2026-10-01")
+        cur = MagicMock()
+        cur.fetchall.return_value = [{"id": 10, "uf": "SP"}, {"id": 20, "uf": "SP"}]
+        fake_db = MagicMock()
+        fake_db.__enter__.return_value = (cur, MagicMock())
+        with patch.object(self.ev, "scan_automotive_events", return_value=self._scan_payload([new])), \
+                patch.object(self.ev, "cache_get_json", return_value=[]), \
+                patch.object(self.ev, "get_db", return_value=fake_db), \
+                patch.object(self.ev, "cache_set_json") as mock_set:
+            self.ev.create_notification = MagicMock(return_value=True)
+            self.ev.send_push_notification = MagicMock(return_value=True)
+            result = self.ev.notify_new_automotive_events()
+
+        self.assertEqual(result["new_count"], 1)
+        self.assertEqual(result["users_count"], 2)
+        self.assertEqual(result["notified_rows"], 2)
+        self.assertEqual(self.ev.create_notification.call_count, 2)
+        kwargs = self.ev.create_notification.call_args.kwargs
+        self.assertEqual(kwargs["user_id"], 20)
+        self.assertEqual(kwargs["type"], "info")
+        self.assertEqual(kwargs["action_url"], "/maps.html")
+        self.assertIn("Salão do Automóvel 2026", kwargs["title"])
+        self.assertEqual(self.ev.send_push_notification.call_count, 2)
+        mock_set.assert_called_once()
+
+    def test_no_new_events_skips_db_and_notification(self):
+        ev = self._make("AUTOP 2026", "https://x/1", "2026-08-19")
+        known = [self.ev._event_notification_key(ev)]
+        with patch.object(self.ev, "scan_automotive_events", return_value=self._scan_payload([ev])), \
+                patch.object(self.ev, "cache_get_json", return_value=known), \
+                patch.object(self.ev, "get_db") as mock_db, \
+                patch.object(self.ev, "create_notification") as mock_create:
+            result = self.ev.notify_new_automotive_events()
+        self.assertEqual(result["new_count"], 0)
+        mock_db.assert_not_called()
+        mock_create.assert_not_called()
+
+    def test_past_events_are_ignored(self):
+        past = self._make("AUTOP 2020", "https://x/1", "2020-01-01")
+        with patch.object(self.ev, "scan_automotive_events", return_value=self._scan_payload([past])), \
+                patch.object(self.ev, "cache_get_json", return_value=[]):
+            result = self.ev.notify_new_automotive_events(dry_run=True)
+        self.assertEqual(result["new_count"], 0)
+
+    def test_regional_filtering_by_user_uf(self):
+        ev_sp = self._make("AUTOP 2026", "https://x/1", "2026-08-19", uf="SP")
+        ev_mg = self._make("Minasparts 2026", "https://x/2", "2026-09-30", uf="MG")
+        cur = MagicMock()
+        cur.fetchall.return_value = [{"id": 10, "uf": "SP"}, {"id": 20, "uf": "MG"}]
+        fake_db = MagicMock()
+        fake_db.__enter__.return_value = (cur, MagicMock())
+        with patch.object(self.ev, "scan_automotive_events", return_value=self._scan_payload([ev_sp, ev_mg])), \
+                patch.object(self.ev, "cache_get_json", return_value=[]), \
+                patch.object(self.ev, "get_db", return_value=fake_db), \
+                patch.object(self.ev, "cache_set_json"):
+            self.ev.create_notification = MagicMock(return_value=True)
+            self.ev.send_push_notification = MagicMock(return_value=True)
+            result = self.ev.notify_new_automotive_events()
+
+        self.assertEqual(result["new_count"], 2)
+        self.assertEqual(result["users_count"], 2)
+        self.assertEqual(result["notified_rows"], 2)
+        self.assertEqual(self.ev.create_notification.call_count, 2)
+        titles_by_user = {}
+        for call in self.ev.create_notification.call_args_list:
+            titles_by_user.setdefault(call.kwargs["user_id"], []).append(call.kwargs["title"])
+        self.assertIn("AUTOP 2026", titles_by_user[10][0])
+        self.assertNotIn("Minasparts", titles_by_user[10][0])
+        self.assertIn("Minasparts 2026", titles_by_user[20][0])
+        self.assertNotIn("AUTOP", titles_by_user[20][0])
+
+    def test_user_without_uf_receives_only_generic(self):
+        ev_regional = self._make("AUTOP 2026", "https://x/1", "2026-08-19", uf="SP")
+        ev_generic = self._make("Salão do Automóvel", "https://x/3", "2026-10-01", uf="", cidade="")
+        cur = MagicMock()
+        cur.fetchall.return_value = [{"id": 10, "uf": "SP"}, {"id": 20, "uf": None}]
+        fake_db = MagicMock()
+        fake_db.__enter__.return_value = (cur, MagicMock())
+        with patch.object(self.ev, "scan_automotive_events", return_value=self._scan_payload([ev_regional, ev_generic])), \
+                patch.object(self.ev, "cache_get_json", return_value=[]), \
+                patch.object(self.ev, "get_db", return_value=fake_db), \
+                patch.object(self.ev, "cache_set_json") as mock_set:
+            self.ev.create_notification = MagicMock(return_value=True)
+            self.ev.send_push_notification = MagicMock(return_value=True)
+            result = self.ev.notify_new_automotive_events()
+
+        self.assertEqual(result["new_count"], 2)
+        self.assertEqual(result["users_count"], 2)
+        self.assertEqual(result["notified_rows"], 3)
+        titles_by_user = {}
+        for call in self.ev.create_notification.call_args_list:
+            titles_by_user.setdefault(call.kwargs["user_id"], []).append(call.kwargs["title"])
+        self.assertEqual(len(titles_by_user[10]), 2)   # regional + genérico
+        self.assertEqual(len(titles_by_user[20]), 1)   # só o genérico
+        self.assertIn("Salão do Automóvel", titles_by_user[20][0])
+        mock_set.assert_called_once()
+
+
+def _load_events_module():
+    """Carrega routes/events.py isolado, com stubs para os módulos irmãos
+    que puxariam dependências pesadas (DB, JWT, push)."""
+    backend_root = str(BACKEND_DIR / "backend")
+
+    routes_pkg = types.ModuleType("routes")
+    routes_pkg.__path__ = [backend_root]
+    sys.modules["routes"] = routes_pkg
+
+    db_stub = types.ModuleType("routes.database")
+    db_stub.get_db = MagicMock()
+    sys.modules["routes.database"] = db_stub
+
+    notif_stub = types.ModuleType("routes.notifications")
+    notif_stub.create_notification = MagicMock(return_value=True)
+    sys.modules["routes.notifications"] = notif_stub
+
+    push_stub = types.ModuleType("routes.push")
+    push_stub.send_push_notification = MagicMock(return_value=True)
+    sys.modules["routes.push"] = push_stub
+
+    cron_stub = types.ModuleType("utils.cron_auth")
+    cron_stub.require_cron_secret = lambda header_name="X-Cron-Secret": (lambda f: f)
+    sys.modules["utils.cron_auth"] = cron_stub
+
+    spec = importlib.util.spec_from_file_location("routes.events", BACKEND_DIR / "backend" / "routes" / "events.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["routes.events"] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 if __name__ == "__main__":

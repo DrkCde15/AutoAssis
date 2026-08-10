@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import monotonic
 from oauthlib.oauth2 import WebApplicationClient
+from utils.turnstile import turnstile_required
 from .database import get_db, is_valid_email_domain, is_trial_expired, get_trial_days_remaining
 from utils.email import enviar_email
 
@@ -361,6 +362,7 @@ def google_callback():
 
 @auth_bp.route("/api/cadastro", methods=["POST"])
 @limiter.limit("5 per hour")
+@turnstile_required(action="signup")
 def cadastro():
     data = request.get_json(silent=True) or {}
     nome = (data.get("nome") or "").strip()
@@ -447,6 +449,7 @@ def cadastro():
 
 @auth_bp.route("/api/login", methods=["POST"])
 @limiter.limit("10 per minute")
+@turnstile_required(action="login")
 def login():
     if request.args.get("demo") == "1":
         _demo_enabled = os.getenv("DEMO_LOGIN_ENABLED", "0")

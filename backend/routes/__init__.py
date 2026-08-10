@@ -6,3 +6,5 @@ from .feedback import feedback_bp
 from .notes import notes_bp
 from .gateway import gateway_bp
 from .database import init_db
+
+from .config import config_bp

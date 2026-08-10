@@ -51,7 +51,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 print("Importando rotas...")
-from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db
+from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db, config_bp
 from routes.mechanics import mechanics_bp
 from routes.events import events_bp
 from routes.notifications import notifications_bp
@@ -110,6 +110,7 @@ csp = {
         "https://cdnjs.cloudflare.com",
         "https://cdn.jsdelivr.net",
         "https://unpkg.com",
+        "https://challenges.cloudflare.com",
         "'unsafe-inline'",
     ] + (["'unsafe-eval'"] if os.getenv("CSP_ALLOW_UNSAFE_EVAL", "0").strip().lower() in {"1", "true", "yes", "on"} else []),
     'style-src': [
@@ -118,6 +119,7 @@ csp = {
         "https://fonts.googleapis.com",
         "https://cdn.jsdelivr.net",
         "https://unpkg.com",
+        "https://challenges.cloudflare.com",
         "'unsafe-inline'"
     ],
     'font-src': [
@@ -140,7 +142,8 @@ csp = {
         "'self'",
         "https://www.youtube.com",
         "https://youtube.com",
-        "https://pay.cakto.com.br"
+        "https://pay.cakto.com.br",
+        "https://challenges.cloudflare.com"
     ],
     'connect-src': [
         "'self'",
@@ -151,6 +154,7 @@ csp = {
         "http://127.0.0.1:5000",
         "ws://localhost:5000",
         "ws://127.0.0.1:5000",
+        "https://challenges.cloudflare.com",
     ] + ([_env_ws_origin()] if _env_ws_origin() else [])
 }
 
@@ -579,6 +583,7 @@ app.register_blueprint(notifications_bp)
 app.register_blueprint(push_bp)
 app.register_blueprint(mechanics_bp)
 app.register_blueprint(events_bp)
+app.register_blueprint(config_bp)
 
 # Gera VAPID keys se nao existirem
 if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):

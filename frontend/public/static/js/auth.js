@@ -458,12 +458,12 @@ const Auth = (() => {
    * Salva a sessão e retorna os dados do backend.
    * Lança um Error com a mensagem de erro do servidor em caso de falha.
    */
-  async function login(email, password) {
+  async function login(email, password, turnstileToken = null) {
     const res = await fetch(`${CONFIG.API_URL}/api/login`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
     });
 
     const data = await res.json();
@@ -571,7 +571,7 @@ const Auth = (() => {
    * @param {string} confirmPassword
    * @param {Array}  veiculos - lista de objetos de veículo (opcional)
    */
-  async function register(nome, email, confirmEmail, password, confirmPassword, veiculos = []) {
+  async function register(nome, email, confirmEmail, password, confirmPassword, veiculos = [], turnstileToken = null) {
     const res = await fetch(`${CONFIG.API_URL}/api/cadastro`, {
       method: "POST",
       credentials: "include",
@@ -583,6 +583,7 @@ const Auth = (() => {
         password,
         confirm_password: confirmPassword,
         veiculos,
+        turnstile_token: turnstileToken,
       }),
     });
 
