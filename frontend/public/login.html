@@ -412,6 +412,17 @@
           btnEntrar.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando...';
 
           try {
+            if (TurnstileHelper.isEnabled() && !TurnstileHelper.isSolved('cf-turnstile-widget')) {
+              btnEntrar.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando segurança...';
+              const token = await TurnstileHelper.waitForToken('cf-turnstile-widget', 10000);
+              if (!token) {
+                errorBox.textContent = "Verificação de segurança pendente. Aguarde e tente novamente.";
+                errorBox.style.display = "block";
+                btnEntrar.disabled = false;
+                btnEntrar.innerHTML = originalBtnContent;
+                return;
+              }
+            }
             const turnstileToken = TurnstileHelper.getToken('cf-turnstile-widget');
             const data = await Auth.login(email, password, turnstileToken);
             

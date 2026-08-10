@@ -362,10 +362,6 @@
                     <textarea id="comment" class="form-control" placeholder="Conte-nos o que você achou, sugestões ou críticas..." required></textarea>
                 </div>
 
-                <div class="form-group">
-      <div id="cf-turnstile-widget" data-turnstile-widget data-turnstile-action="feedback" style="margin: 4px 0;"></div>
-    </div>
-
     <button type="submit" class="btn-submit" id="btnSubmit">
                     <i class="fas fa-paper-plane"></i>
                     Enviar Feedback
@@ -398,7 +394,6 @@
 <script src="static/js/config.js"></script>
 <script src="static/js/auth.js"></script>
     <script src="static/js/security-utils.js"></script>
-    <script src="static/js/turnstile.js"></script>
 <script src="static/js/notifications.js" defer></script>
 <script src="static/js/responsive.js" defer></script>
 <script>
@@ -604,8 +599,7 @@
             nome: document.getElementById('userName').value,
             email: document.getElementById('userEmail').value,
             estrelas: selectedStars,
-            comentario: document.getElementById('comment').value,
-            turnstile_token: TurnstileHelper.getToken('cf-turnstile-widget')
+            comentario: document.getElementById('comment').value
         };
 
         try {
@@ -640,7 +634,6 @@
         } catch (err) {
             alert(err?.message || 'Erro de conexao.');
         } finally {
-            TurnstileHelper.reset('cf-turnstile-widget');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Feedback';
         }
@@ -669,8 +662,6 @@
     }
 
     loadFeedbacks();
-
-    TurnstileHelper.init();
 </script>
 <script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}</script>
     <script src="static/vendor/anime.min.js?v=3.2.2" defer></script>
