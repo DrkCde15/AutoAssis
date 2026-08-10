@@ -21,6 +21,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 ### **Dashboard e Gestão**
 
 - **Histórico Proativo:** Painel que monitora a saúde das peças e indica o status de cada manutenção (Ok, Aviso ou Atrasado).
+- **Mapa de Eventos Automotivos:** Varredura automática de feiras, encontros, competições e exposições do setor em sites especializados e no Google, exibidos no mapa com filtros por UF, categoria e período.
 - **Galeria de Vídeos Otimizada:** Nova biblioteca de vídeos com redirecionamento direto para o YouTube, miniaturas em alta resolução e carregamento ultrarrápido.
 - **Notificações Instantâneas:** Sistema de e-mail que alerta o usuário **no mesmo dia** em que uma manutenção atinge o status crítico ou vence.
 - **Tabela FIPE Real-Time:** Integração com a API FIPE para fornecer valores de mercado precisos e atualizados.
@@ -31,7 +32,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 - **Proteção Avançada:** Implementação de **SRI (Subresource Integrity)**, **CSP (Content Security Policy)** e sanitização global contra XSS.
 - **Google OAuth 2.0:** Login simplificado e seguro utilizando contas Google com propagação dinâmica de tokens.
 - **Autenticação em Duas Etapas (2FA):** Camada de segurança adicional para proteção de dados sensíveis.
-- **CAPTCHA Cloudflare Turnstile:** Proteção anti-bot em cadastro, login e feedback — validação server-side de `success`, `action` e `hostname`.
+- **CAPTCHA Cloudflare Turnstile:** Proteção anti-bot no cadastro e login — validação server-side de `success`, `action` e `hostname`.
 - **Cloud Resiliency:** Conectividade reforçada com suporte a SSL e timeouts otimizados para bancos de dados em nuvem.
 
 ---
@@ -219,7 +220,7 @@ Sem Redis, o cache recai sobre memória local (por processo) e as filas RQ não 
 - **CSP (Content Security Policy)**: `unsafe-eval` removido por padrão; reative com `CSP_ALLOW_UNSAFE_EVAL=1` apenas se estritamente necessário. `unsafe-inline` é mantido para o frontend estático (migração para nonce é recomendada).
 - **JWT Protection**: Endpoints protegidos garantem que apenas usuários autenticados acessem dados sensíveis.
 - **Cron Auth**: rotas agendadas devem exigir `X-Cron-Secret` (veja `utils/cron_auth.require_cron_secret` e `MAINTENANCE_EMAIL_CRON_SECRET`).
-- **Cloudflare Turnstile**: CAPTCHA anti-bot em `/api/cadastro` (action `signup`), `/api/login` (action `login`) e `POST /api/feedback` (action `feedback`). O siteverify é feito server-side (`utils/turnstile.turnstile_required`) validando `success`, `action` e `hostname` no allowlist `TURNSTILE_HOSTNAMES` — fail-closed em erro de rede/HTTP. Sem `TURNSTILE_SECRET_KEY` configurada, o decorator é no-op (dev/testes). Para criar o widget via API: token com escopo `Account.Turnstile:Edit` e `POST /accounts/<id>/challenges/widgets` (`{"name","domains":[...],"mode":"managed"}`). Tokens do Turnstile são single-use.
+- **Cloudflare Turnstile**: CAPTCHA anti-bot em `/api/cadastro` (action `signup`) e `/api/login` (action `login`). O siteverify é feito server-side (`utils/turnstile.turnstile_required`) validando `success`, `action` e `hostname` no allowlist `TURNSTILE_HOSTNAMES` — fail-closed em erro de rede/HTTP. Sem `TURNSTILE_SECRET_KEY` configurada, o decorator é no-op (dev/testes). Para criar o widget via API: token com escopo `Account.Turnstile:Edit` e `POST /accounts/<id>/challenges/widgets` (`{"name","domains":[...],"mode":"managed"}`). Tokens do Turnstile são single-use.
 - **Segredos**: o `.env` **não deve ser commitado**. Em produção, configure os segredos no Render via dashboard/Environment Group.
 
 ---
