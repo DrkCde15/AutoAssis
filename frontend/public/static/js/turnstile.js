@@ -36,7 +36,7 @@
       return false;
     }
     if (!siteKey) return false;
-    var opts = { sitekey: siteKey, theme: "auto", language: "pt-BR" };
+    var opts = { sitekey: siteKey, theme: "auto", language: "pt-br" };
     var action = el.getAttribute("data-turnstile-action");
     if (action) opts.action = action;
     global.turnstile.render(el, opts);
