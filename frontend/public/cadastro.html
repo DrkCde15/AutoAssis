@@ -710,12 +710,20 @@
           }
         }
 
-        if (TurnstileHelper.isEnabled() && !TurnstileHelper.getToken('cf-turnstile-widget')) {
-          showError("Resolva a verificação de segurança antes de continuar.");
-          return;
+        const btn = document.getElementById('btnCadastrar') || document.querySelector('button[type="submit"]');
+        btn.disabled = true;
+
+        if (TurnstileHelper.isEnabled() && !TurnstileHelper.isSolved('cf-turnstile-widget')) {
+          btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando segurança...';
+          const token = await TurnstileHelper.waitForToken('cf-turnstile-widget', 10000);
+          if (!token) {
+            showError("Resolva a verificação de segurança antes de continuar.");
+            btn.disabled = false;
+            btn.innerHTML = 'Criar Minha Conta <i class="fas fa-arrow-right"></i>';
+            return;
+          }
         }
 
-        btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Criando conta...';
 
         try {
