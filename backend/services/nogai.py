@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import unicodedata
 from utils.cache import TTLCache, cache_get_json, cache_set_json, make_cache_key
 from services.web_scraping import WebScraper
+from services.groq_client import build_chat_messages, chat_completion, utility_model, utility_fallback_models
 
 load_dotenv()
 
@@ -51,7 +52,6 @@ _SIMPLE_GREETINGS = re.compile(
 
 GREETING_PROMPT = """
 Você é o NOG, consultor automotivo amigável e acolhedor. Quando o usuário enviar uma saudação simples ("oi", "olá", "bom dia", "boa tarde", "boa noite", "e aí", "tudo bem" etc), responda com calor humano e entusiasmo, como se estivesse recebendo um amigo.
-Sempre que você receber um "oi" ou "olá", responda com 
 DIRETRIZES:
 - Responda em NO MÁXIMO 2 linhas, mas com um tom caloroso e convidativo.
 - Use emojis relacionados a carros ou ferramentas 🚗🔧⚡ (apenas 1 por resposta).
@@ -120,6 +120,10 @@ def _extract_fipe_year(value):
         text = f"{value.get('nome', '')} {value.get('codigo', '')}"
     else:
         text = str(value or "")
+
+    # Zero km na FIPE usa o código 32000 (ex.: "32000-1", "32000 Gasolina").
+    if "32000" in text:
+        return 32000
 
     match = re.search(r"\b(19\d{2}|20\d{2}|21\d{2})\b", text)
     if not match:
@@ -210,7 +214,7 @@ def get_fipe_value(tipo, marca_nome, modelo_nome, ano):
                 _fipe_result_cache.set(fipe_key, result)
                 return result
 
-            if requested_year is None:
+            if requested_year is None or requested_year == 32000:
                 continue
 
             for available_year in anos_disponiveis:
@@ -258,7 +262,6 @@ def get_fipe_value(tipo, marca_nome, modelo_nome, ano):
         logger.error(f"Erro ao buscar FIPE: {e}")
         return None
 
-from services.groq_client import build_chat_messages, chat_completion, utility_model, utility_fallback_models
 
 DEFAULT_TEXT_MODEL = "groq/compound-mini"
 DEFAULT_FALLBACK_MODELS = ("groq/compound",)
@@ -320,7 +323,7 @@ MODELS_TO_TRY = _parse_model_list(os.getenv("GROQ_FALLBACK_MODELS"), DEFAULT_FAL
 
 def _cache_key(mensagem: str, historico: list | None, user_id=None) -> str:
     history_tail = json.dumps(historico[-2:] if historico else [], ensure_ascii=False)
-    return f"{user_id}|{mensagem[:200]}|{hash(history_tail)}"
+    return make_cache_key("nogai:resp", user_id or "", mensagem[:200], history_tail)
 
 def _get_cached(key: str, user_id=None):
     cache = _ai_response_cache.get(user_id)
@@ -336,7 +339,7 @@ def _is_simple_query(mensagem: str) -> bool:
 
 
 _AUTOMOTIVE_TERMS = (
-    "carro", "veiculo", "veiculo", "automovel", "moto", "motocicleta",
+    "carro", "veiculo", "automovel", "automotivo", "moto", "motocicleta",
     "caminhao", "caminhonete", "onibus", "frota",
     "motor", "motorista", "km", "quilometragem", "quilometro",
     "manutencao", "revisao", "oleo", "lubrificante",
@@ -346,7 +349,6 @@ _AUTOMOTIVE_TERMS = (
     "mecanico", "oficina", "peca", "pecas", "vistoria",
     "airbag", "embreagem", "cambio", "gasolina", "etanol",
     "diesel", "abastecer", "tanque", "recall", "garantia", "seguro",
-    "automativo", "automovel",
 )
 
 
@@ -422,7 +424,7 @@ def _is_quota_error(error: Exception) -> bool:
 
 def _is_model_not_found_error(error: Exception) -> bool:
     error_str = _error_text(error).lower()
-    return _error_status_code(error) == 404 or ("not_found" in error_str and "not found" in error_str)
+    return _error_status_code(error) == 404 or "not_found" in error_str or "not found" in error_str
 
 
 def _is_retryable_model_error(error: Exception) -> bool:
@@ -684,11 +686,46 @@ _BR_UFS = [
 
 
 def _parse_event_uf(text):
-    """Extrai UF da mensagem ("eventos em SP", "feira no Rio de Janeiro"). Default None."""
+    """Extrai UF da mensagem ("eventos em SP", "feira no Rio de Janeiro"). Default None.
+
+    A UF só é reconhecida quando precedida de preposição ("em SP", "no RJ",
+    "de MG", "para SC") para evitar falsos positivos com palavras comuns
+    ("se", "to", "pa", "ma", "es" etc.). "SE" (Sergipe) fica de fora por
+    colidir com a conjunção "se" — resolve-se pelo nome por extenso.
+    """
     text = _normalize_text(text or "")
-    m = re.search(r"\b(" + "|".join(_BR_UFS) + r")\b", text.upper())
-    if m:
-        return m.group(1)
+    if not text:
+        return None
+    ufs = "|".join(uf.lower() for uf in _BR_UFS if uf != "SE")
+    match = re.search(
+        r"\b(?:em|no|na|nos|nas|de|do|da|dos|das|para|por|pra|pro)\s+(" + ufs + r")\b",
+        text,
+    )
+    if match:
+        return match.group(1).upper()
+
+    # Nomes por extenso dos estados ("sergipe" -> SE, "santa catarina" -> SC).
+    # "para" também é preposição: só casa como estado após "no", "do" ou
+    # "estado de/do" ("no pará", "estado do pará").
+    uf_estados = {
+        "acre": "AC", "alagoas": "AL", "amapa": "AP", "amazonas": "AM",
+        "bahia": "BA", "ceara": "CE", "distrito federal": "DF",
+        "espirito santo": "ES", "goias": "GO", "maranhao": "MA",
+        "mato grosso": "MT", "mato grosso do sul": "MS", "minas gerais": "MG",
+        "para": "PA", "paraiba": "PB", "parana": "PR", "pernambuco": "PE",
+        "piaui": "PI", "rio de janeiro": "RJ", "rio grande do norte": "RN",
+        "rio grande do sul": "RS", "rondonia": "RO", "roraima": "RR",
+        "santa catarina": "SC", "sao paulo": "SP", "sergipe": "SE",
+        "tocantins": "TO",
+    }
+    for estado, uf in sorted(uf_estados.items(), key=lambda kv: -len(kv[0])):
+        if estado == "para":
+            if re.search(r"\b(?:no|do|estado de|estado do)\s+para\b", text):
+                return uf
+            continue
+        if re.search(rf"\b{re.escape(estado)}\b", text):
+            return uf
+
     uf_cidades = {
         "sao paulo": "SP", "rio de janeiro": "RJ", "belo horizonte": "MG",
         "brasilia": "DF", "salvador": "BA", "fortaleza": "CE", "curitiba": "PR",
