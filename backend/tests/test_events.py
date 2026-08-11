@@ -76,7 +76,7 @@ class CityUfParserTest(unittest.TestCase):
     def test_city_country(self):
         self.assertEqual(
             svc._extract_city_uf("Fortaleza, Brasil"),
-            ("Fortaleza", "", ""),
+            ("Fortaleza", "CE", ""),
         )
 
     def test_international(self):
@@ -213,7 +213,7 @@ class NfeirasScraperTest(unittest.TestCase):
         self.assertEqual(ev["data_inicio"], "2026-08-19")
         self.assertEqual(ev["data_fim"], "2026-08-22")
         self.assertEqual(ev["cidade"], "Fortaleza")
-        self.assertEqual(ev["uf"], "")
+        self.assertEqual(ev["uf"], "CE")
         self.assertEqual(ev["url"], "https://www.nfeiras.com/autop/")
 
 
@@ -566,6 +566,75 @@ class EventNotificationsTest(unittest.TestCase):
         self.assertEqual(len(titles_by_user[20]), 1)   # só o genérico
         self.assertIn("Salão do Automóvel", titles_by_user[20][0])
         mock_set.assert_called_once()
+
+
+class EventsHtmlPageTest(unittest.TestCase):
+    """Testes da página pública estática frontend/public/eventos.html.
+
+    A página foi convertida de render server-side (/eventos) para um HTML
+    estático com nav autenticada/visitante e responsividade (padrão do site);
+    os cards são preenchidos no cliente via GET /api/events/automotive.
+    """
+
+    FRONTEND = BACKEND_DIR / "frontend" / "public"
+    PAGE = FRONTEND / "eventos.html"
+
+    def setUp(self):
+        self.assertTrue(self.PAGE.exists(), "eventos.html nao encontrado")
+        self.html = self.PAGE.read_text(encoding="utf-8")
+
+    def test_arquivo_existe_e_eh_servido_como_static(self):
+        # Flask serve frontend/public como static_folder (app.py:35),
+        # entao /eventos.html e acessivel sem rota propria no backend.
+        self.assertIn('<meta charset="UTF-8" />', self.html)
+
+    def test_meta_seo_presentes(self):
+        self.assertIn("Eventos Automotivos no Brasil", self.html)
+        self.assertIn('rel="canonical"', self.html)
+        self.assertIn("og:title", self.html)
+        self.assertIn("og:description", self.html)
+
+    def test_navbar_visitante_e_logado(self):
+        # Estado visitante (padrao): Chat/Entrar/Criar Conta.
+        self.assertIn('id="authLinks"', self.html)
+        self.assertIn('href="cadastro.html"', self.html)
+        self.assertIn('href="login.html"', self.html)
+        # Troca para estado logado via JS (Dashboard/Anotações/Biblioteca/Mapa/
+        # Perfil/Sair + sino de notificações).
+        self.assertIn('Auth.isAuthenticated()', self.html)
+        self.assertIn('href="dashboard.html"', self.html)
+        self.assertIn('href="perfil.html"', self.html)
+        self.assertIn('id="btnLogout"', self.html)
+        self.assertIn('Notifications.init()', self.html)
+
+    def test_responsividade(self):
+        # Drawer/hamburguer compartilhado + media query da grade.
+        self.assertIn("static/js/responsive.js", self.html)
+        self.assertIn("@media (max-width: 760px)", self.html)
+        self.assertIn("grid-template-columns: 1fr", self.html)
+
+    def test_filtro_por_uf(self):
+        # Caixa de selecao por UF (mesmo componente AppSelect do maps.html).
+        self.assertIn('id="eventsUfSelect"', self.html)
+        self.assertIn('class="app-select small-select"', self.html)
+        self.assertIn("static/css/app-select.css", self.html)
+        self.assertIn("static/js/app-select.js", self.html)
+        self.assertIn("AppSelect.mount", self.html)
+        self.assertIn("'Fora do Brasil'", self.html)   # INT
+        self.assertIn("const BR_UFS", self.html)
+        self.assertIn("'SP'", self.html)
+        self.assertIn("api.onChange", self.html)
+
+    def test_dados_vem_da_api_no_cliente(self):
+        # Sem JSON-LD server-side: a pagina consome /api/events/automotive.
+        self.assertNotIn("application/ld+json", self.html)
+        self.assertIn("/api/events/automotive", self.html)
+        self.assertIn("CONFIG.API_URL", self.html)
+        # Renderizacao escapa o conteudo (anti-XSS).
+        self.assertIn("SecurityUtils.escapeHTML", self.html)
+
+    def test_footer_linka_eventos_html(self):
+        self.assertIn('<a href="eventos.html" class="footer-link">Eventos</a>', self.html)
 
 
 def _load_events_module():

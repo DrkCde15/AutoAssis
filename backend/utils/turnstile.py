@@ -68,12 +68,20 @@ def turnstile_required(action: str = "default"):
     """Decorator de rotas: exige token Turnstile válido quando habilitado.
 
     Uso: `@turnstile_required(action="signup")`
+
+    Testes (só fora de produção): defina TURNSTILE_BYPASS=1 para pular a
+    verificação — usado pelos testes de integração do frontend (Playwright).
+    Em produção NUNCA setar essa variável (render.yaml não a define).
     """
 
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             if not turnstile_enabled():
+                return f(*args, **kwargs)
+            if os.getenv("FLASK_ENV") != "production" and os.getenv(
+                "TURNSTILE_BYPASS", "0"
+            ).strip().lower() in {"1", "true", "yes", "on"}:
                 return f(*args, **kwargs)
             secret = os.getenv("TURNSTILE_SECRET_KEY", "")
             token = (

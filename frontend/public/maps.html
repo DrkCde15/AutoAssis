@@ -340,6 +340,32 @@
             flex-shrink: 0;
         }
         
+        .btn-whatsapp {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            background: rgba(37, 211, 102, 0.12);
+            color: #25d366;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        .btn-whatsapp:hover {
+            background: #25d366;
+            color: #fff;
+        }
+        .contact-whatsapp a {
+            color: #25d366;
+            font-weight: 600;
+        }
+        .contact-whatsapp a:hover {
+            text-decoration: underline;
+        }
+
         .btn-favorite {
             background: none;
             border: none;
@@ -2085,6 +2111,15 @@ function setFallbackLocation() {
             }
         }
         
+        function whatsappLink(telefone) {
+            let digits = String(telefone || '').replace(/\D/g, '');
+            if (digits.length === 10 || digits.length === 11) {
+                digits = '55' + digits; // Brasil como padrão
+            }
+            if (!digits) return '#';
+            return `https://wa.me/${digits}`;
+        }
+
         function renderMechanicCard(mechanic) {
             const isOSM = isExternalMechanic(mechanic.id);
             const isFav = favoritesMap[mechanic.id];
@@ -2119,13 +2154,19 @@ function setFallbackLocation() {
                             <i class="fas fa-map-marker-alt"></i>
                             <span>${escapeHtml(mechanic.endereco)}, ${escapeHtml(mechanic.cidade)}-${mechanic.estado}</span>
                         </div>
-                        ${mechanic.telefone ? `
+${mechanic.telefone ? `
                             <div class="mechanic-info-item">
                                 <i class="fas fa-phone"></i>
                                 <span>${escapeHtml(mechanic.telefone)}</span>
                             </div>
                         ` : ''}
                     </div>
+                    
+                    ${mechanic.telefone ? `
+                        <a class="btn btn-whatsapp" target="_blank" rel="noopener" href="${whatsappLink(mechanic.telefone)}">
+                            <i class="fab fa-whatsapp"></i> Agendar no WhatsApp
+                        </a>
+                    ` : ''}
                     
                     ${mechanic.especialidades && mechanic.especialidades.length > 0 ? `
                         <div class="mechanic-services">
@@ -2498,10 +2539,14 @@ function setFallbackLocation() {
                 <div class="detail-section">
                     <div class="detail-section-title"><i class="fas fa-phone"></i> Contato</div>
                     <div class="contact-grid">
-                        ${mechanic.telefone ? `
+${mechanic.telefone ? `
                             <div class="contact-item">
                                 <i class="fas fa-phone"></i>
                                 <span>${escapeHtml(mechanic.telefone)}</span>
+                            </div>
+                            <div class="contact-item contact-whatsapp">
+                                <i class="fab fa-whatsapp"></i>
+                                <a href="${whatsappLink(mechanic.telefone)}" target="_blank" rel="noopener">Agendar no WhatsApp</a>
                             </div>
                         ` : ''}
                         ${mechanic.email ? `

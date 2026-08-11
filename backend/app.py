@@ -56,6 +56,7 @@ from routes.mechanics import mechanics_bp
 from routes.events import events_bp
 from routes.notifications import notifications_bp
 from routes.push import push_bp
+from routes.b2b import b2b_bp
 from routes.payment import cakto_webhook as cakto_webhook_handler
 print("Rotas importadas.")
 
@@ -112,7 +113,7 @@ csp = {
         "https://unpkg.com",
         "https://challenges.cloudflare.com",
         "'unsafe-inline'",
-    ] + (["'unsafe-eval'"] if os.getenv("CSP_ALLOW_UNSAFE_EVAL", "0").strip().lower() in {"1", "true", "yes", "on"} else []),
+    ],
     'style-src': [
         "'self'",
         "https://cdnjs.cloudflare.com",
@@ -575,6 +576,7 @@ app.register_blueprint(dashboard_bp, url_prefix="/api")
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(analytics_bp)
+app.register_blueprint(events_bp)
 app.register_blueprint(pages_bp)
 app.register_blueprint(payment_bp)
 app.register_blueprint(feedback_bp)
@@ -582,8 +584,8 @@ app.register_blueprint(gateway_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(push_bp)
 app.register_blueprint(mechanics_bp)
-app.register_blueprint(events_bp)
 app.register_blueprint(config_bp)
+app.register_blueprint(b2b_bp)
 
 # Gera VAPID keys se nao existirem
 if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):

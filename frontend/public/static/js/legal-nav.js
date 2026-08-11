@@ -1,50 +1,63 @@
 (function () {
   "use strict";
 
-  function renderPublic(nav) {
-    nav.innerHTML = `
-      <a href="index.html">In&iacute;cio</a>
-      <a href="login.html">Entrar</a>
-      <a href="cadastro.html">Criar conta</a>
-    `;
+  function show(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "";
   }
 
-  function renderAuthenticated(nav) {
-    nav.innerHTML = `
-      <a href="index.html">In&iacute;cio</a>
-      <a href="chat.html">Chat</a>
-      <a href="perfil.html">Perfil</a>
-      <a href="#" data-aa-logout>Sair</a>
-    `;
+  function hide(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  }
+
+  function renderPublic() {
+    show("navLogin");
+    show("navSignup");
+    hide("navDashboard");
+    hide("navMaintenance");
+    hide("navLibrary");
+    hide("navMaps");
+    hide("navProfile");
+    hide("navLogout");
+  }
+
+  function renderAuthenticated() {
+    show("navDashboard");
+    show("navMaintenance");
+    show("navLibrary");
+    show("navMaps");
+    show("navProfile");
+    show("navLogout");
+    hide("navLogin");
+    hide("navSignup");
+    if (typeof Notifications !== "undefined") Notifications.init();
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
-    const nav = document.querySelector("[data-legal-nav]");
-    if (!nav || typeof Auth === "undefined") return;
+    if (!document.querySelector("[data-legal-nav]") || typeof Auth === "undefined") return;
 
-    nav.addEventListener("click", (event) => {
-      const logoutLink = event.target.closest("[data-aa-logout]");
-      if (!logoutLink) return;
-      event.preventDefault();
-      Auth.logout();
-    });
+    const logoutBtn = document.getElementById("navLogout");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => Auth.logout());
+    }
 
     if (!Auth.isAuthenticated()) {
-      renderPublic(nav);
+      renderPublic();
       return;
     }
 
-    renderAuthenticated(nav);
+    renderAuthenticated();
 
     try {
       const user = await Auth.syncUser({ redirectOnInvalid: false });
       if (user || Auth.isAuthenticated()) {
-        renderAuthenticated(nav);
+        renderAuthenticated();
       } else {
-        renderPublic(nav);
+        renderPublic();
       }
     } catch {
-      if (!Auth.isAuthenticated()) renderPublic(nav);
+      if (!Auth.isAuthenticated()) renderPublic();
     }
   });
 })();

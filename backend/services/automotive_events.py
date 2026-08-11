@@ -7,7 +7,7 @@ Fontes por web scraping:
   - diretriz.com.br (promotora de feiras — Autopar, Minasparts, ...)
   - interlagos.com.br (Shopping Interlagos — apenas itens automotivos)
   - Google Search (fallback + eventos Sympla via site:sympla.com.br,
-    além de feiras/encontros automotivos em geral)
+    além de busca geral por feiras/encontros/exposições automotivas)
 
 Se uma fonte falhar, o erro é registrado e não quebra as demais.
 Resultados são normalizados num schema comum e cacheados (padrão 6h).
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 EVENTS_CACHE_TTL = 6 * 3600  # 6 horas
 REQUEST_TIMEOUT = 6
 MAX_EVENTS = 150
-MAX_GOOGLE_EVENTS = 30
+MAX_GOOGLE_EVENTS = 60
 
 HEADERS = {
     "User-Agent": (
@@ -64,12 +64,26 @@ AUTOMOTIVE_KEYWORDS = (
     "fenajeep", "jeep", "suv", "atv", "motoshow", "encontro",
 )
 
-GOOGLE_QUERIES = [
-    "site:sympla.com.br evento automotivo 2026",
-    "site:sympla.com.br encontro de carros 2026",
-    "site:sympla.com.br feira autopecas 2026",
-    "feira automotiva salao do automovel encontro de carros 2026",
-]
+def _google_queries():
+    """Queries do Google: restritas ao Sympla (plataforma) + busca geral.
+
+    O ano é calculado dinamicamente para a busca sempre mirar eventos
+    atuais (e do próximo ano, quando o corrente estiver no fim).
+    """
+    year = datetime.now().year
+    return [
+        f"site:sympla.com.br evento automotivo {year}",
+        f"site:sympla.com.br encontro de carros {year}",
+        f"site:sympla.com.br feira autopecas {year}",
+        f"encontro de carros antigos {year}",
+        f"encontro de carros {year} calendario",
+        f"feira de autopecas {year}",
+        f"feira automotiva {year}",
+        f"salao do automovel {year}",
+        f"exposicao de carros {year}",
+        f"encontro de motos {year}",
+        f"rally automotivo {year}",
+    ]
 
 # Classificação de categoria por palavras-chave (ordem importa: a primeira
 # regra que bater define a categoria — específicas antes das genéricas).
@@ -484,7 +498,7 @@ def _extract_google_organic(soup):
             s = el.select_one(".VwiC3b, .IsZvec")
             if s:
                 snippet = _clean_text(s.get_text(" ", strip=True))[:300]
-            inicio, fim = _parse_br_dates(snippet)
+            inicio, fim = _parse_br_dates(f"{titulo} | {snippet}")
             results.append(_make_event(
                 titulo=titulo,
                 url=url,
@@ -505,6 +519,7 @@ def _scrape_google_events():
     As queries rodam em paralelo (cada uma com timeout próprio) para que uma
     consulta lenta não segure a varredura inteira.
     """
+    queries = _google_queries()
 
     def _search(query):
         try:
@@ -524,8 +539,8 @@ def _scrape_google_events():
 
     events = []
     seen_urls = set()
-    with ThreadPoolExecutor(max_workers=len(GOOGLE_QUERIES)) as pool:
-        futures = [pool.submit(_search, q) for q in GOOGLE_QUERIES]
+    with ThreadPoolExecutor(max_workers=min(len(queries), 8)) as pool:
+        futures = [pool.submit(_search, q) for q in queries]
         for fut in as_completed(futures):
             for item in fut.result() or []:
                 if len(events) >= MAX_GOOGLE_EVENTS:

@@ -5,11 +5,16 @@ const { test, expect } = require("@playwright/test");
 // Se o backend nao estiver rodando em http://localhost:5000, eles sao
 // pulados graciosamente (nao devem crashar o CI de frontend isolado).
 
+// NOTE: usa 127.0.0.1 (e nao "localhost"), porque no Chromium o hostname
+// "localhost" resolve para ::1 (IPv6) e o backend Flask (0.0.0.0) so
+// atende IPv4 — o goto falharia e os testes seriam pulados.
+const BASE_URL = "http://127.0.0.1:5000";
+
 test.describe("Seguranca do chat (XSS e WebSocket)", () => {
   test("security-utils sanitiza HTML de mensagens de erro do WebSocket", async ({ page }) => {
     let errored = false;
     try {
-      await page.goto("/chat.html", { waitUntil: "domcontentloaded", timeout: 5000 });
+      await page.goto(`${BASE_URL}/chat.html`, { waitUntil: "domcontentloaded", timeout: 5000 });
     } catch (e) {
       errored = true;
     }
@@ -46,7 +51,7 @@ test.describe("Seguranca do chat (XSS e WebSocket)", () => {
   test("WebSocket de chat nao envia token via query string", async ({ page }) => {
     let errored = false;
     try {
-      await page.goto("/chat.html", { waitUntil: "domcontentloaded", timeout: 5000 });
+      await page.goto(`${BASE_URL}/chat.html`, { waitUntil: "domcontentloaded", timeout: 5000 });
     } catch (e) {
       errored = true;
     }

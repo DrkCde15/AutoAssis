@@ -271,6 +271,26 @@ TABLES_SQL = {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (mechanic_id) REFERENCES mechanics(id) ON DELETE CASCADE
     )""",
+    "api_clients": """CREATE TABLE IF NOT EXISTS api_clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(120) NOT NULL,
+        api_key_hash VARCHAR(128) NOT NULL UNIQUE,
+        api_key_prefix VARCHAR(12) NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        rate_limit_per_min INT DEFAULT 30,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_used_at DATETIME NULL
+    )""",
+    "api_usage_logs": """CREATE TABLE IF NOT EXISTS api_usage_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        client_id INT NOT NULL,
+        endpoint VARCHAR(120) NOT NULL,
+        status_code INT,
+        request_id VARCHAR(40) DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_usage_client_time (client_id, created_at DESC),
+        FOREIGN KEY (client_id) REFERENCES api_clients(id) ON DELETE CASCADE
+    )""",
 }
 
 

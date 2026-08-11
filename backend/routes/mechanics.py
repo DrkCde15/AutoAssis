@@ -37,6 +37,18 @@ REVGEO_BROWSER_UA = (
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
+PHONE_RE = re.compile(r"^\+?[0-9]{10,15}$")
+
+
+def _sanitize_phone(value):
+    """Normaliza telefone para dígitos (WhatsApp exige DDI+DDD+número)."""
+    digits = re.sub(r"\D", "", str(value or ""))
+    if not digits:
+        return ""
+    if len(digits) == 10 or len(digits) == 11:
+        digits = "55" + digits  # Brasil como padrão
+    return digits if PHONE_RE.match("+" + digits) else ""
+
 
 def calculate_distance(lat1, lng1, lat2, lng2):
     lat1_rad = math.radians(lat1)
@@ -641,6 +653,68 @@ def add_mechanic_review(mechanic_id):
     except Exception as e:
         logger.error(f"Erro ao adicionar avaliação: {e}")
         return jsonify(error="Erro interno"), 500
+
+
+@mechanics_bp.route('/api/mechanics', methods=['POST'])
+def create_mechanic():
+    """
+    Cadastro público de oficina/mecânico (dono da oficina).
+    O registro fica ativo e verificável depois por um admin.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        nome = (data.get('nome') or '').strip()
+        cidade = (data.get('cidade') or '').strip()[:50]
+        estado = (data.get('estado') or '').strip().upper()[:2]
+        telefone_raw = data.get('telefone') or data.get('whatsapp') or ''
+        endereco = (data.get('endereco') or '').strip()
+        lat = data.get('latitude')
+        lng = data.get('longitude')
+
+        if not nome:
+            return jsonify(error="Informe o nome da oficina."), 400
+        if not endereco:
+            return jsonify(error="Informe o endereço da oficina."), 400
+
+        try:
+            lat = float(lat) if lat not in (None, "") else None
+            lng = float(lng) if lng not in (None, "") else None
+        except (TypeError, ValueError):
+            return jsonify(error="Coordenadas inválidas."), 400
+        if lat is None or lng is None:
+            return jsonify(error="Informe a localização da oficina no mapa."), 400
+        if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+            return jsonify(error="Coordenadas fora do intervalo válido."), 400
+
+        telefone = _sanitize_phone(telefone_raw)
+
+        payload = {
+            'nome': nome,
+            'endereco': endereco[:512],
+            'cidade': cidade,
+            'estado': estado,
+            'latitude': lat,
+            'longitude': lng,
+            'telefone': telefone,
+            'website': (data.get('website') or '').strip()[:200],
+            'descricao': (data.get('descricao') or '').strip()[:1000],
+            'especialidades': [s.strip() for s in (data.get('especialidades') or []) if str(s).strip()][:10],
+        }
+
+        mechanic_id = upsert_mechanic(payload)
+        if not mechanic_id:
+            return jsonify(error="Não foi possível cadastrar a oficina."), 500
+
+        return jsonify({
+            "success": True,
+            "message": "Oficina cadastrada com sucesso!",
+            "mechanic_id": mechanic_id,
+            "telefone_whatsapp": telefone,
+        }), 201
+
+    except Exception as e:
+        logger.error(f"Erro ao cadastrar oficina: {e}")
+        return jsonify(error="Erro interno ao cadastrar oficina."), 500
 
 
 def upsert_mechanic(data):
