@@ -19,6 +19,7 @@ from services.maintenance_service import _status_from_remaining, apply_manual_ov
 from services.nogai import prever_intervalo_manutencao, _invalidate_maintenance_context, _invalidate_user_ai_cache
 from utils.async_task import _predictor, train_in_background
 import json
+from decimal import Decimal
 from .database import get_db, is_trial_expired, get_trial_days_remaining, get_mysql_history
 from utils.email import enviar_email
 from .notifications import create_notification
@@ -1271,6 +1272,80 @@ def update_user_location():
         logger.error(f"❌ Erro ao salvar localização do usuário: {e}")
         return jsonify(error="Erro ao salvar localização"), 500
 
+import re
+import json
+from datetime import datetime
+
+
+_MOD_FIPE_PCT = {
+    # Valores conservadores de agregacao de valor de mercado para veiculos
+    # modificados. NAO reflete a tabela FIPE (que e de fabrica); e uma
+    # estimativa de valorizacao negociada. Calibravel conforme mercado.
+    "motor": 0.06, "turbo": 0.08, "suspensao": 0.03, "freios": 0.03,
+    "rodas": 0.02, "pneus": 0.02, "escapamento": 0.02, "eletronica": 0.03,
+    "som": 0.015, "estetica": 0.015, "interna": 0.02, "outros": 0.02,
+}
+# Teto de valorizacao total para evitar inflacao irrealista do valor.
+_MOD_FIPE_PCT_MAX = 0.25
+
+
+def _parse_fipe_valor(valor):
+    """Extrai valor numerico (float) de uma string FIPE ('R$ 45.000,00')."""
+    if valor is None:
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    nums = re.findall(r"\d+[\.,]?\d*", str(valor).replace(".", "").replace(",", "."))
+    for n in nums:
+        try:
+            return float(n)
+        except ValueError:
+            continue
+    return 0.0
+
+
+def calcular_fipe_ajustada(base_valor, modificacoes):
+    """Calcula o valor FIPE ajustado por modificacoes (Mod Passport).
+
+    modificacoes: lista de dicts {nome, categoria, valor (absoluto opcional)}.
+    Retorna (valor_ajustado_str, pct_total, valor_extra_abs).
+    """
+    base = _parse_fipe_valor(base_valor)
+    pct_total = 0.0
+    extra_abs = 0.0
+    for m in (modificacoes or []):
+        cat = (m.get("categoria") or "outros").lower()
+        pct_total += _MOD_FIPE_PCT.get(cat, _MOD_FIPE_PCT["outros"])
+        v = m.get("valor")
+        if v:
+            try:
+                extra_abs += float(v)
+            except (TypeError, ValueError):
+                pass
+    pct_total = min(pct_total, _MOD_FIPE_PCT_MAX)
+    ajustado = base * (1 + pct_total) + extra_abs
+    valor_str = "R$ {:,.2f}".format(ajustado).replace(",", "X").replace(".", ",").replace("X", ".")
+    return (valor_str, round(pct_total, 4), round(extra_abs, 2))
+
+
+def _require_mod_passport(cursor, user_id):
+    """Exige premium ativo para o recurso Mod Passport."""
+    cursor.execute("SELECT is_premium, premium_expires_at FROM users WHERE id = %s", (user_id,))
+    row = cursor.fetchone()
+    if not row or not row.get("is_premium"):
+        return False, (jsonify(error="Recurso exclusivo Premium."), 403)
+    expira = row.get("premium_expires_at")
+    if expira is not None:
+        try:
+            if isinstance(expira, str):
+                expira = datetime.fromisoformat(expira.replace("Z", "+00:00"))
+            if expira < datetime.now():
+                return False, (jsonify(error="Premium expirado. Renove para usar o Mod Passport."), 403)
+        except Exception:
+            pass
+    return True, None
+
+
 @pages_bp.route("/api/veiculos", methods=["POST"])
 @jwt_required()
 def add_veiculo():
@@ -1318,7 +1393,8 @@ def list_veiculos():
         with get_db() as (cursor, conn):
             cursor.execute(
                 """
-                SELECT id, tipo, marca, modelo, ano_fabricacao, ano_compra, quilometragem
+                SELECT id, tipo, marca, modelo, ano_fabricacao, ano_compra, quilometragem,
+                       fipe_valor, fipe_mes_referencia, modificacoes, fipe_ajustada
                 FROM veiculos
                 WHERE user_id = %s
                 ORDER BY created_at DESC, id DESC
@@ -1326,6 +1402,11 @@ def list_veiculos():
                 (user_id,)
             )
             veiculos = cursor.fetchall()
+            for v in veiculos:
+                if isinstance(v.get("fipe_valor"), Decimal):
+                    v["fipe_valor"] = float(v["fipe_valor"])
+                if v.get("fipe_ajustada") is not None and isinstance(v.get("fipe_ajustada"), Decimal):
+                    v["fipe_ajustada"] = float(v["fipe_ajustada"])
             return jsonify(veiculos=veiculos), 200
     except Exception as e:
         logger.error(f"Erro ao listar veiculos: {e}")
@@ -1386,6 +1467,118 @@ def delete_veiculo(v_id):
     except Exception as e:
         logger.error(f"Erro ao excluir veiculo: {e}")
         return jsonify(error="Erro interno"), 500
+
+
+@pages_bp.route("/api/veiculos/<int:v_id>/modificacoes", methods=["POST"])
+@jwt_required()
+def set_veiculo_modificacoes(v_id):
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    modificacoes = data.get("modificacoes")
+    if not isinstance(modificacoes, list):
+        return jsonify(error="modificacoes deve ser uma lista."), 400
+    try:
+        with get_db() as (cursor, conn):
+            ok, err = _require_mod_passport(cursor, user_id)
+            if not ok:
+                return err
+            cursor.execute(
+                "SELECT id, fipe_valor FROM veiculos WHERE id = %s AND user_id = %s",
+                (v_id, user_id),
+            )
+            veh = cursor.fetchone()
+            if not veh:
+                return jsonify(error="Veiculo nao encontrado"), 404
+            valor_ajustado, pct, extra = calcular_fipe_ajustada(veh.get("fipe_valor"), modificacoes)
+            cursor.execute(
+                "UPDATE veiculos SET modificacoes = %s, fipe_ajustada = %s WHERE id = %s AND user_id = %s",
+                (json.dumps(modificacoes, ensure_ascii=False), valor_ajustado, v_id, user_id),
+            )
+            _invalidate_dashboard_cache_for_user(user_id)
+            return jsonify(
+                success=True,
+                fipe_base=float(veh.get("fipe_valor")) if isinstance(veh.get("fipe_valor"), Decimal) else veh.get("fipe_valor"),
+                fipe_ajustada=valor_ajustado,
+                pct_ajuste=pct,
+                valor_extra=extra,
+            ), 200
+    except Exception as e:
+        logger.error("Erro ao salvar modificacoes: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@pages_bp.route("/api/onboarding/revisao", methods=["POST"])
+@jwt_required(optional=True)
+def onboarding_sugestao_revisao():
+    data = request.get_json(silent=True) or {}
+    marca = (data.get("marca") or "").strip()
+    modelo = (data.get("modelo") or "").strip()
+    ano = data.get("ano_fabricacao")
+    km = data.get("quilometragem")
+    if not marca or not modelo:
+        return jsonify(error="Informe marca e modelo."), 400
+    try:
+        sugestao = _sugerir_revisao(marca, modelo, ano, km)
+        return jsonify(sugestao=sugestao), 200
+    except Exception as e:
+        logger.error("Erro na sugestao de revisao: %s", e, exc_info=True)
+        return jsonify(sugestao=""), 200
+
+
+_SUGESTAO_PADRAO = (
+    "Revisao preventiva sugerida: troca de oleo e filtros, inspecao de freios e "
+    "pneus, verificacao de fluidos e da bateria. Confirme em uma oficina de confianca."
+)
+_FORBIDDEN_PATTERNS = ("http://", "https://", "www.")
+_REFUSAL_PATTERNS = ("nao posso", "i cannot", "desculpe, mas", "como ia", "não posso")
+
+
+def _sanitizar_sugestao(texto):
+    """Aplica guardrails ao texto gerado pela IA (seguranca e escopo)."""
+    if not texto:
+        return _SUGESTAO_PADRAO
+    t = re.sub(r"\s+", " ", texto).strip()
+    for pat in _FORBIDDEN_PATTERNS:
+        t = t.replace(pat, "")
+    # remove citacoes de precos (R$ 1.234,56)
+    t = re.sub(r"R\$\s?[\d\.,]+", "", t)
+    t = t.strip(" \"'")
+    t = t[:600]
+    if len(t) < 10 or any(p in t.lower() for p in _REFUSAL_PATTERNS):
+        return _SUGESTAO_PADRAO
+    return t
+
+
+def _sugerir_revisao(marca, modelo, ano, km):
+    """Gera (via modelo utilitario, com cache) um plano de revisao preventiva."""
+    from services.nogai import _generate_content_with_fallback
+    from services.groq_client import utility_model, utility_fallback_models
+    from utils.cache import make_cache_key, cache_get_json, cache_set_json
+    prompt = (
+        "Voce e o NOG, consultor de manutencao automotiva da AutoAssist. "
+        "REGRA: sugira APENAS itens de revisao preventiva comuns e seguros "
+        "(ex.: troca de oleo, filtros, freios, pneus, fluidos, bateria). "
+        "NAO faca diagnostico de avarias, NAO recomende procedimentos perigosos, "
+        "NAO cite precos nem orcamentos, NAO inclua links, NAO aborde temas fora "
+        "de automoveis. Responda somente em portugues, com 3 a 5 bullet points "
+        "curtos e linguagem simples. Se faltarem dados, baseie-se no padrao geral."
+        + chr(10) + chr(10) +
+        "Veiculo: " + marca + " " + modelo + " " + str(ano or "") + " - " + str(km or "km nao informado") + " km"
+    )
+    cache_key = make_cache_key("onboarding:revisao", marca, modelo, str(ano), str(km))
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return cached
+    obj = _generate_content_with_fallback(
+        contents=prompt,
+        primary_model=utility_model(),
+        fallback_models=utility_fallback_models(),
+        temperature=0.3,
+        log_context="Onboarding revisao",
+    )
+    texto = _sanitizar_sugestao(obj.text or "")
+    cache_set_json(cache_key, texto, ttl=86400)
+    return texto
 
 def _predict_interval(vehicle_id, maintenance_type, description, veiculo_str, service_km):
     """Estima o próximo intervalo de manutenção.

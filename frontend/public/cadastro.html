@@ -640,6 +640,8 @@
       btn.addEventListener("click", async () => {
         alertError.style.display = "none";
 
+        const referralCode = new URLSearchParams(window.location.search).get('ref');
+
         const nome = document.getElementById("nome").value.trim();
         const email = document.getElementById("email").value.trim().toLowerCase();
         const confirmEmail = document.getElementById("confirmEmail").value.trim().toLowerCase();
@@ -727,7 +729,7 @@
         btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Criando conta...';
 
         try {
-          await Auth.register(nome, email, confirmEmail, senha, confirmSenha, veiculos, TurnstileHelper.getToken('cf-turnstile-widget'));
+          await Auth.register(nome, email, confirmEmail, senha, confirmSenha, veiculos, TurnstileHelper.getToken('cf-turnstile-widget'), referralCode);
           alert("Conta criada com sucesso! Bem-vindo ao AutoAssist.");
           window.location.href = "login.html";
         } catch (err) {

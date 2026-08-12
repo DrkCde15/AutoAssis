@@ -27,6 +27,106 @@ from utils.email import enviar_email
 
 auth_bp = Blueprint('auth', __name__)
 logger = logging.getLogger(__name__)
+
+def _clean_referral(code):
+    if not code:
+        return None
+    code = str(code).strip().upper()
+    return code or None
+
+
+def _generate_referral_code(cursor):
+    for _ in range(8):
+        code = secrets.token_hex(4).upper()
+        cursor.execute("SELECT 1 FROM users WHERE referral_code = %s", (code,))
+        if not cursor.fetchone():
+            return code
+    return secrets.token_hex(6).upper()
+
+
+def _grant_referral_premium(cursor, user_id):
+    """Concede 1 mes de premium ao usuario que indicou outro."""
+    expira = datetime.now() + timedelta(days=30)
+    cursor.execute(
+        "UPDATE users SET is_premium = TRUE, premium_expires_at = %s WHERE id = %s",
+        (expira, user_id),
+    )
+
+
+# Limites anti-fraude do programa de indicacao
+MAX_REFERRAL_BONUSES_PER_REFERRER = 20
+MAX_REFERRALS_PER_DAY = 5
+MAX_ACCOUNTS_PER_IP_PER_DAY = 5
+
+
+def get_client_ip():
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return (request.remote_addr or "").strip()
+
+
+def _try_grant_referral_bonus(cursor, referred_by, new_user_id, client_ip):
+    """Concede 1 mes de premium a quem indicou, aplicando heuristicas anti-fraude.
+    Retorna (concedido, motivo)."""
+    cursor.execute(
+        "SELECT id, signup_ip FROM users WHERE referral_code = %s LIMIT 1",
+        (referred_by,),
+    )
+    ref = cursor.fetchone()
+    if not ref or ref["id"] == new_user_id:
+        return False, "indicador invalido"
+
+    ref_ip = (ref.get("signup_ip") or "").strip()
+    if ref_ip and client_ip and ref_ip == client_ip:
+        return False, "ip igual ao do indicador"
+
+    cursor.execute("SELECT COUNT(*) AS cnt FROM users WHERE referred_by = %s", (referred_by,))
+    if (cursor.fetchone() or {}).get("cnt", 0) >= MAX_REFERRAL_BONUSES_PER_REFERRER:
+        return False, "teto absoluto de indicacoes atingido"
+
+    cursor.execute(
+        "SELECT COUNT(*) AS cnt FROM users WHERE referred_by = %s AND created_at >= NOW() - INTERVAL 1 DAY",
+        (referred_by,),
+    )
+    if (cursor.fetchone() or {}).get("cnt", 0) >= MAX_REFERRALS_PER_DAY:
+        return False, "rajada de indicacoes no dia"
+
+    if client_ip:
+        cursor.execute(
+            "SELECT COUNT(*) AS cnt FROM users WHERE signup_ip = %s AND created_at >= NOW() - INTERVAL 1 DAY",
+            (client_ip,),
+        )
+        if (cursor.fetchone() or {}).get("cnt", 0) >= MAX_ACCOUNTS_PER_IP_PER_DAY:
+            return False, "muitas contas no mesmo IP"
+
+    _grant_referral_premium(cursor, ref["id"])
+    return True, "ok"
+
+
+def _effective_premium(user):
+    """Premium valido considerando premium_expires_at (None = permanente)."""
+    if not user.get("is_premium"):
+        return False
+    expira = user.get("premium_expires_at")
+    if expira is None:
+        return True
+    if isinstance(expira, str):
+        try:
+            expira = datetime.fromisoformat(expira.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+    return expira > datetime.now()
+
+
+def _iso(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return value.isoformat()
+
+
 RESET_DISPATCH_LOCK_NAME = "autoassist_reset_email_dispatcher"
 
 def _get_frontend_base_url_for_email() -> str:
@@ -420,14 +520,29 @@ def cadastro():
             if cursor.fetchone():
                 return jsonify(error="Este e-mail já está cadastrado."), 409
 
+            referred_by = _clean_referral(data.get("referred_by"))
+            client_ip = get_client_ip()
+            referral_code = _generate_referral_code(cursor)
+
             cursor.execute("""
                 INSERT INTO users (
-                    nome, email, password, possui_veiculo, maintenance_email_enabled
-                ) VALUES (%s, %s, %s, %s, TRUE)
+                    nome, email, password, possui_veiculo, maintenance_email_enabled,
+                    referral_code, referred_by, signup_ip
+                ) VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s)
             """, (
-                nome, email, bcrypt.hash(password), possui_veiculo
+                nome, email, bcrypt.hash(password), possui_veiculo,
+                referral_code, referred_by, client_ip,
             ))
             user_id = cursor.lastrowid
+
+            # Indique e ganhe: quem indicou ganha 1 mes de premium (com anti-fraude)
+            if referred_by:
+                try:
+                    concedido, motivo = _try_grant_referral_bonus(cursor, referred_by, user_id, client_ip)
+                    if not concedido:
+                        logger.info("Bonus de indicacao nao concedido para %s: %s", referred_by, motivo)
+                except Exception as e:
+                    logger.warning("Falha ao conceder bonus de indicacao: %s", e)
             
             for v in veiculos:
                 ano_fab = v.get("ano_fabricacao")
@@ -522,7 +637,8 @@ def login():
                     "id": user["id"],
                     "nome": user["nome"],
                     "email": user.get("email", ""),
-                    "is_premium": bool(user.get("is_premium")),
+                    "is_premium": _effective_premium(user),
+                    "premium_expires_at": _iso(user.get("premium_expires_at")),
                     "trial_expired": is_trial_expired(user),
                     "trial_days_remaining": get_trial_days_remaining(user),
                     "possui_veiculo": len(veiculos) > 0,
@@ -829,3 +945,25 @@ def reset_password():
     except Exception as e:
         logger.error(f"Erro ao redefinir senha: {e}")
         return jsonify(error="Erro ao redefinir senha"), 500
+
+
+@auth_bp.route("/api/referral", methods=["GET"])
+@jwt_required()
+def get_referral():
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT referral_code FROM users WHERE id = %s", (user_id,))
+            row = cursor.fetchone()
+            code = row.get("referral_code") if row else None
+            if not code:
+                # Garante um codigo de indicacao mesmo para contas antigas (referral_code NULL)
+                code = _generate_referral_code(cursor)
+                cursor.execute("UPDATE users SET referral_code = %s WHERE id = %s", (code, user_id))
+                conn.commit()
+        base = (os.getenv("URL_PROD") or os.getenv("URL_DEV") or "").rstrip("/")
+        link = f"{base}/cadastro.html?ref={code}" if code else ""
+        return jsonify(referral_code=code, referral_link=link), 200
+    except Exception as e:
+        logger.error("Erro ao obter referral: %s", e)
+        return jsonify(error="Erro interno."), 500

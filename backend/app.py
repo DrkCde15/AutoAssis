@@ -173,7 +173,8 @@ def before_request():
     # Log todas as requisições para /api/dashboard
     if request.path == '/api/dashboard':
         logger.info(f">>> REQUEST: {request.method} {request.path}")
-        logger.info(f">>> Headers: Accept={request.headers.get('Accept')}, Auth={request.headers.get('Authorization')[:20] if request.headers.get('Authorization') else 'None'}")
+        auth_presente = bool(request.headers.get('Authorization'))
+        logger.info(f">>> Headers: Accept={request.headers.get('Accept')}, Auth={'presente' if auth_presente else 'None'}")
     # Desativa HSTS e HTTPS forçado se for localhost para não quebrar testes
     if is_localhost():
         pass
@@ -606,9 +607,9 @@ if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):
         )
         private_b64 = base64.b64encode(private_der).decode()
         public_b64 = base64.b64encode(public_der).decode()
-        logger.info("VAPID keys geradas. Adicione ao .env:")
-        logger.info("VAPID_PRIVATE_KEY=%s", private_b64)
-        logger.info("VAPID_PUBLIC_KEY=%s", public_b64)
+        print("VAPID keys geradas. Adicione ao .env:")
+        print("VAPID_PRIVATE_KEY=%s" % private_b64)
+        print("VAPID_PUBLIC_KEY=%s" % public_b64)
         os.environ["VAPID_PRIVATE_KEY"] = private_b64
         os.environ["VAPID_PUBLIC_KEY"] = public_b64
     except ImportError:

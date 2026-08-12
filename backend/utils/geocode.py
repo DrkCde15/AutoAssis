@@ -1,6 +1,7 @@
 """Reverse geocoding utilitário (Nominatim/OSM) para inferir a UF do usuário a
 partir das coordenadas enviadas pelo navegador (geolocalização)."""
 import logging
+import re
 
 import requests
 
@@ -65,3 +66,46 @@ def reverse_geocode_uf(lat, lng, cache=True):
         except Exception:
             pass
     return uf
+
+NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
+
+
+def _norm_query(q):
+    return re.sub(r"\s+", " ", (q or "").strip().lower())
+
+
+def geocode_address(query, cache=True):
+    """Geocodifica um endereço/cidade (Brasil) e retorna (lat, lng).
+
+    Retorna (None, None) se não encontrar. Usa Nominatim/OSM com cache de 30 dias.
+    """
+    q = _norm_query(query)
+    if not q:
+        return (None, None)
+    cache_key = f"geocode:addr:{hash(q)}"
+    if cache:
+        cached = cache_get_json(cache_key)
+        if cached:
+            return (cached.get("lat"), cached.get("lng"))
+    lat = lng = None
+    try:
+        resp = requests.get(
+            NOMINATIM_SEARCH_URL,
+            params={"q": q, "format": "jsonv2", "limit": 1,
+                    "countrycodes": "br", "accept-language": "pt-BR"},
+            headers={"User-Agent": NOMINATIM_UA},
+            timeout=NOMINATIM_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json() or []
+        if data:
+            lat = float(data[0]["lat"])
+            lng = float(data[0]["lon"])
+    except Exception as e:
+        logger.warning("Geocodificacao de '%s' falhou: %s", q, e)
+    if lat is not None and lng is not None and cache:
+        try:
+            cache_set_json(cache_key, {"lat": lat, "lng": lng}, ttl=GEOCODE_CACHE_TTL)
+        except Exception:
+            pass
+    return (lat, lng)

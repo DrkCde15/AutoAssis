@@ -291,6 +291,30 @@ TABLES_SQL = {
         INDEX idx_usage_client_time (client_id, created_at DESC),
         FOREIGN KEY (client_id) REFERENCES api_clients(id) ON DELETE CASCADE
     )""",
+    "chat_feedback": """CREATE TABLE IF NOT EXISTS chat_feedback (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        chat_id INT NULL,
+        message_id VARCHAR(80) NULL,
+        avaliacao TINYINT NOT NULL CHECK (avaliacao IN (1, -1)),
+        motivo VARCHAR(60) NULL,
+        comentario TEXT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_chat_feedback_user (user_id, created_at DESC),
+        INDEX idx_chat_feedback_chat (chat_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    )""",
+    "b2b_leads": """CREATE TABLE IF NOT EXISTS b2b_leads (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(120) NOT NULL,
+        email VARCHAR(120) NOT NULL,
+        empresa VARCHAR(120) NULL,
+        telefone VARCHAR(30) NULL,
+        mensagem TEXT NULL,
+        origem VARCHAR(60) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_b2b_leads_created (created_at DESC)
+    )""",
 }
 
 
@@ -323,7 +347,12 @@ def init_db():
             ("maintenance_email_enabled", "BOOLEAN DEFAULT TRUE"),
             ("maintenance_email_last_sent", "DATETIME NULL"),
             ("is_admin", "BOOLEAN DEFAULT FALSE"),
-            ("uf", "VARCHAR(2) NULL")
+            ("uf", "VARCHAR(2) NULL"),
+            ("referral_code", "VARCHAR(20) NULL"),
+            ("referred_by", "VARCHAR(20) NULL"),
+            ("premium_expires_at", "DATETIME NULL"),
+            ("mod_passport", "BOOLEAN DEFAULT FALSE"),
+            ("signup_ip", "VARCHAR(45) NULL")
         ]
         for col, dtype in columns:
             if col not in existing_columns:
@@ -340,6 +369,8 @@ def init_db():
             ("fipe_valor", "VARCHAR(50) NULL"),
             ("fipe_mes_referencia", "VARCHAR(50) NULL"),
             ("fipe_updated_at", "DATETIME NULL"),
+            ("modificacoes", "TEXT NULL"),
+            ("fipe_ajustada", "VARCHAR(50) NULL")
         ]
         for col, dtype in veiculos_columns:
             if col not in existing_veiculos_columns:

@@ -571,20 +571,21 @@ const Auth = (() => {
    * @param {string} confirmPassword
    * @param {Array}  veiculos - lista de objetos de veículo (opcional)
    */
-  async function register(nome, email, confirmEmail, password, confirmPassword, veiculos = [], turnstileToken = null) {
+  async function register(nome, email, confirmEmail, password, confirmPassword, veiculos = [], turnstileToken = null, referredBy = null) {
     const res = await fetch(`${CONFIG.API_URL}/api/cadastro`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nome,
-        email,
-        confirm_email: confirmEmail,
-        password,
-        confirm_password: confirmPassword,
-        veiculos,
-        turnstile_token: turnstileToken,
-      }),
+        body: JSON.stringify({
+          nome,
+          email,
+          confirm_email: confirmEmail,
+          password,
+          confirm_password: confirmPassword,
+          veiculos,
+          turnstile_token: turnstileToken,
+          referred_by: referredBy || null,
+        }),
     });
 
     const data = await res.json();
@@ -825,16 +826,35 @@ const Auth = (() => {
     return false;
   }
 
+  // Telas liberadas para usuarios GRATUITOS. Qualquer outra pagina exige Premium.
+  const FREE_PAGES = new Set([
+    "analytics.html",
+    "cadastro.html",
+    "chat.html",
+    "esqueci-senha.html",
+    "feedback.html",
+    "index.html",
+    "lgpd.html",
+    "login.html",
+    "perfil.html",
+    "planos.html",
+    "privacidade.html",
+    "redefinir-senha.html",
+    "termos.html",
+  ]);
+
+  // Paginas que NAO estao na lista free sao consideradas Premium.
+  function isPremiumPath(path) {
+    if (!path) return false;
+    const name = (path.split("/").pop() || "").toLowerCase();
+    if (!name) return false;
+    return !FREE_PAGES.has(name);
+  }
+
   function bindPremiumLinkGuards() {
     if (typeof document === "undefined") return;
     if (document.body?.dataset?.premiumGuardBound === "1") return;
     document.body.dataset.premiumGuardBound = "1";
-
-    const premiumPaths = new Set([
-      "dashboard.html",
-      "library.html",
-      "maintenance_history.html",
-    ]);
 
     document.addEventListener("click", (event) => {
       const anchor = event.target.closest("a");
@@ -846,12 +866,13 @@ const Auth = (() => {
       let targetPath = "";
       try {
         const hrefUrl = new URL(hrefRaw, window.location.href);
+        if (hrefUrl.origin !== window.location.origin) return;
         targetPath = (hrefUrl.pathname.split("/").pop() || "").toLowerCase();
       } catch {
         return;
       }
 
-      if (!premiumPaths.has(targetPath)) return;
+      if (!targetPath || FREE_PAGES.has(targetPath)) return;
       if (!isAuthenticated()) return;
 
       const user = getUser();
@@ -866,6 +887,32 @@ const Auth = (() => {
     });
   }
 
+  // Bloqueia controles marcados com [data-premium] para usuarios gratuitos,
+  // abrindo o paywall em vez de executar a acao.
+  function bindPremiumControls() {
+    if (typeof document === "undefined") return;
+    if (document.body?.dataset?.premiumControlsBound === "1") return;
+    document.body.dataset.premiumControlsBound = "1";
+
+    document.addEventListener("click", (event) => {
+      const el = event.target.closest("[data-premium]");
+      if (!el) return;
+      if (!isAuthenticated()) {
+        window.location.href = "cadastro.html";
+        return;
+      }
+      const user = getUser();
+      if (user && user.is_premium) return;
+      event.preventDefault();
+      event.stopPropagation();
+      showPremiumPaywall({
+        title: el.getAttribute("data-premium-title") || "Recurso Premium",
+        message: el.getAttribute("data-premium-msg") || "Este recurso esta disponivel apenas para usuarios Premium.",
+        backHref: "index.html",
+      });
+    });
+  }
+
   function ensurePremiumModal() {
     // Mantido para compatibilidade com paginas que chamam este metodo.
     // O CTA flutuante foi removido; agora usamos apenas modal contextual.
@@ -875,6 +922,7 @@ const Auth = (() => {
 
   // Ativa o guard global para cliques em links premium.
   bindPremiumLinkGuards();
+  bindPremiumControls();
 
   return {
     isAuthenticated,
@@ -895,6 +943,8 @@ const Auth = (() => {
     closePremiumPaywall,
     requirePremiumPage,
     bindPremiumLinkGuards,
+    bindPremiumControls,
+    isPremiumPath,
     ensurePremiumModal,
     openPremiumCheckout,
     showBackendBanner,

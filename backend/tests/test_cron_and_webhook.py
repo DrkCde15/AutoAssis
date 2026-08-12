@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-BACKEND = Path(__file__).resolve().parent.parent / "backend"
+BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
 

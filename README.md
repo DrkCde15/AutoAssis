@@ -27,6 +27,22 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 - **Tabela FIPE Real-Time:** Integração com a API FIPE para fornecer valores de mercado precisos e atualizados.
 - **Feedback Inteligente:** Sistema que coleta e organiza o feedback dos usuários para melhoria contínua do sistema.
 
+### **Programa de Indicação (Link de Convite)**
+
+- Cada usuário recebe um **link de convite** próprio, obtido via `GET /api/referral` (JWT), que retorna `referral_code` e `referral_link` no formato `https://<dominio>/cadastro.html?ref=CODIGO`.
+- Quem se cadastra informando um `referred_by` (o código do convite) **concede 1 mês de Premium automaticamente a quem indicou**.
+- Proteções anti-fraude no backend: teto de **20 bônus por indicador**, máximo de **5 indicações/dia**, máximo de **5 contas por IP/dia** e bloqueio quando o IP do indicado é igual ao do indicador.
+
+### **Mod Passport (recurso Premium)**
+
+- Recurso **exclusivo para contas Premium** (validado por `_require_mod_passport` em `routes/pages.py`).
+- Permite registrar **modificações/melhorias** do veículo (ex.: som, rodas, motor, preparação) e recalcula o **valor de tabela FIPE ajustado** (`fipe_ajustada`) com base nos upgrades aplicados.
+- O painel do veículo passa a exibir o valor FIPE base versus o valor com mods (`pct_ajuste` e `valor_extra`).
+
+### **Dashboard — Modais de Detalhes do Veículo**
+
+- O painel (`dashboard.html`) agora abre **modais interativos** com os detalhes completos de cada veículo — marca, modelo, ano de fabricação, quilometragem, valor FIPE base/ajustado e status de manutenção — além de ações rápidas como editar dados do veículo e acessar o **Mod Passport**.
+
 ### **Segurança e Cloud (Hardening de Produção)**
 
 - **Proteção Avançada:** Implementação de **SRI (Subresource Integrity)**, **CSP (Content Security Policy)** e sanitização global contra XSS.
@@ -180,6 +196,11 @@ TURNSTILE_SECRET_KEY=segredo_do_widget
 # Frontends autorizados a emitir token, separados por vírgula, SEM protocolo
 # (produção: só o domínio real; dev: localhost,127.0.0.1)
 TURNSTILE_HOSTNAMES=seu-dominio.com,localhost,127.0.0.1
+
+# API B2B (diagnóstico por foto como serviço assinável)
+# Segredo para criar API keys de clientes corporativos (POST /api/b2b/keys).
+# OBS: obrigatório — sem ele, a criação de chave retorna 500.
+B2B_ADMIN_SECRET=gere_um_segredo_forte
 ```
 
 ### 3. Instalação e Execução
@@ -214,6 +235,40 @@ Sem Redis, o cache recai sobre memória local (por processo) e as filas RQ não 
 
 ---
 
+## 🤝 API B2B (Diagnóstico por Foto como Serviço)
+
+API assinável para clientes corporativos enviarem fotos de defeitos e receberem um laudo técnico (JSON ou PDF) gerado por IA. Autenticação via header `X-API-Key` (chave criada em `POST /api/b2b/keys`, protegido por `B2B_ADMIN_SECRET`). A chave é exibida **uma vez**; no banco fica só o hash SHA-256, com comparação em tempo constante. Rate limit por cliente (Redis, com fallback local).
+
+### Endpoints
+
+| Método | Rota | Auth | Descrição |
+| :----- | :--- | :--- | :-------- |
+| `POST` | `/api/b2b/keys` | `X-Admin-Secret` = `B2B_ADMIN_SECRET` | Cria um cliente e retorna a `api_key` (uso único). Body: `{ "nome", "rate_limit_per_min"? }`. |
+| `POST` | `/api/b2b/diagnosis` | `X-API-Key` | Diagnóstico por foto. Body: `{ "image": <base64>, "pergunta"?, "formato"?: "json"\|"pdf" }`. |
+| `POST` | `/api/b2b/leads` | público | Captura lead do formulário B2B. Body: `{ "nome", "email", "empresa"?, "telefone"?, "mensagem"? }`. |
+| `GET`  | `/api/admin/b2b/leads` | JWT admin | Lista os leads capturados. |
+
+### Exemplo de fluxo
+
+```bash
+# 1) Criar chave (admin)
+curl -X POST http://localhost:5000/api/b2b/keys \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Secret: $B2B_ADMIN_SECRET" \
+  -d '{"nome":"Cliente Teste","rate_limit_per_min":30}'
+
+# 2) Diagnóstico por foto (use a api_key retornada)
+IMG=$(base64 -w0 foto.jpg)
+curl -X POST http://localhost:5000/api/b2b/diagnosis \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: aa_xxxxxxxxxxxxxxxxxxxx" \
+  -d "{\"image\":\"$IMG\",\"pergunta\":\"Qual o problema?\"}"
+```
+
+> O laudo é gerado por IA e **não substitui inspeção mecânica presencial**.
+
+---
+
 ## 🔒 Segurança e Boas Práticas
 
 - **Bcrypt Hashing**: Proteção de senhas com algoritmos de derivação de chave.
@@ -222,6 +277,44 @@ Sem Redis, o cache recai sobre memória local (por processo) e as filas RQ não 
 - **Cron Auth**: rotas agendadas devem exigir `X-Cron-Secret` (veja `utils/cron_auth.require_cron_secret` e `MAINTENANCE_EMAIL_CRON_SECRET`).
 - **Cloudflare Turnstile**: CAPTCHA anti-bot em `/api/cadastro` (action `signup`) e `/api/login` (action `login`). O siteverify é feito server-side (`utils/turnstile.turnstile_required`) validando `success`, `action` e `hostname` no allowlist `TURNSTILE_HOSTNAMES` — fail-closed em erro de rede/HTTP. Sem `TURNSTILE_SECRET_KEY` configurada, o decorator é no-op (dev/testes). Para criar o widget via API: token com escopo `Account.Turnstile:Edit` e `POST /accounts/<id>/challenges/widgets` (`{"name","domains":[...],"mode":"managed"}`). Tokens do Turnstile são single-use.
 - **Segredos**: o `.env` **não deve ser commitado**. Em produção, configure os segredos no Render via dashboard/Environment Group.
+
+---
+
+## 🧪 Testes
+
+Os testes ficam em `backend/tests/` (estilo `unittest`). Mockam banco, Redis e visão por IA, então rodam sem Groq/DB externo.
+
+```bash
+cd backend
+python -m unittest tests.test_b2b -v     # ou: python tests/test_b2b.py
+```
+
+Cobertura de `test_b2b.py` (11 testes, todos passando):
+- `POST /api/b2b/keys` — sucesso (201, hash gravado == SHA-256 da chave), secret errado (403), `B2B_ADMIN_SECRET` ausente (500)
+- `POST /api/b2b/diagnosis` — sem key (401), sem imagem (400), JSON (200), **PDF** (200, `%PDF`)
+- `POST /api/b2b/leads` — sucesso (201), campos faltando (400)
+- `GET /api/admin/b2b/leads` — sem admin (403), com admin (200)
+
+> O endpoint de PDF usa `fpdf2`; `_build_laudo_pdf` retorna `bytes`. A criação de chaves exige `B2B_ADMIN_SECRET` definido no `.env`.
+
+---
+
+## 📋 Alterações Recentes
+
+Registro das mudanças feitas nesta sessão de desenvolvimento:
+
+### Cobertura de testes da API B2B
+- **Criado `backend/tests/test_b2b.py`** (11 testes, estilo `unittest`) cobrindo todos os endpoints B2B com banco, Redis e visão por IA mockados — roda sem Groq/DB externo.
+  - `POST /api/b2b/keys`: sucesso (201, hash gravado == SHA-256 da chave), `X-Admin-Secret` errado (403), `B2B_ADMIN_SECRET` ausente (500).
+  - `POST /api/b2b/diagnosis`: sem key (401), sem imagem (400), JSON (200), **PDF** (200, `%PDF`).
+  - `POST /api/b2b/leads`: sucesso (201), campos faltando (400).
+  - `GET /api/admin/b2b/leads`: sem admin (403), com admin (200).
+
+### Correção de bug de produção (encontrado pelos testes)
+- **`backend/routes/b2b.py` (`_build_laudo_pdf`):** o método retornava `pdf.output(dest="S")`, que no `fpdf2` é **`str`**. O endpoint `/api/b2b/diagnosis` com `formato:"pdf"` faz `io.BytesIO(pdf_bytes)` → `TypeError` → **500 em produção**, nunca testado antes. Corrigido para retornar `bytes` via `.encode("latin-1")`, igual ao fallback de erro. Após o fix, o teste `test_diagnosis_pdf` passa (resposta `200` com magic bytes `%PDF`).
+
+### Documentação
+- README: adicionada a variável `B2B_ADMIN_SECRET` ao bloco `.env`, a seção **"🤝 API B2B"** (endpoints + fluxo curl) e a seção **"🧪 Testes"**.
 
 ---
 

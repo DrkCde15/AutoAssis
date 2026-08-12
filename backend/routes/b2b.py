@@ -20,6 +20,7 @@ from fpdf import FPDF
 from routes.database import get_db
 from services.vision_ai import analisar_imagem
 from utils.cache import get_redis_client
+from extensions import limiter
 
 b2b_bp = Blueprint("b2b_bp", __name__)
 logger = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ def _build_laudo_pdf(cliente_nome: str, texto_laudo: str) -> bytes:
         "AVISO: Laudo gerado por Inteligencia Artificial. Nao substitui "
         "inspecao mecanica presencial.",
     )
-    return pdf.output(dest="S")
+    return pdf.output(dest="S").encode("latin-1")
 
 
 @b2b_bp.route("/api/b2b/diagnosis", methods=["POST"])
@@ -251,3 +252,74 @@ def create_api_key():
         "rate_limit_per_min": rate_limit,
         "aviso": "Guarde esta chave agora: ela nao podera ser recuperada depois.",
     }), 201
+
+
+def _b2b_admin_user_id():
+    """Retorna o id do usuario se for admin, senao None."""
+    try:
+        from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+        verify_jwt_in_request()
+        uid = get_jwt_identity()
+    except Exception:
+        return None
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_admin FROM users WHERE id = %s", (uid,))
+            row = cursor.fetchone()
+        if row and row.get("is_admin"):
+            return uid
+    except Exception:
+        return None
+    return None
+
+
+def _clean(value, max_len):
+    if value is None:
+        return ""
+    return " ".join(str(value).split())[:max_len]
+
+
+@b2b_bp.route("/api/b2b/leads", methods=["POST"])
+@limiter.limit("10 per minute")
+def post_b2b_lead():
+    """Captura um lead do formulario publico da pagina B2B."""
+    data = request.get_json(silent=True) or {}
+    nome = _clean(data.get("nome"), 120)
+    email = _clean(data.get("email"), 120)
+    if not nome or not email:
+        return jsonify(error="nome e email sao obrigatorios."), 400
+    empresa = _clean(data.get("empresa"), 120)
+    telefone = _clean(data.get("telefone"), 30)
+    mensagem = _clean(data.get("mensagem"), 2000)
+    origem = _clean(data.get("origem") or "site_b2b", 60)
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                """
+                INSERT INTO b2b_leads (nome, email, empresa, telefone, mensagem, origem)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (nome, email, empresa, telefone, mensagem, origem),
+            )
+        return jsonify(message="Recebemos seu contato! Nossa equipe B2B entrara em contato."), 201
+    except Exception as e:
+        logger.error("Erro ao salvar lead B2B: %s", e, exc_info=True)
+        return jsonify(error="Erro interno ao enviar contato."), 500
+
+
+@b2b_bp.route("/api/admin/b2b/leads", methods=["GET"])
+@limiter.limit("20 per minute")
+def list_b2b_leads():
+    if _b2b_admin_user_id() is None:
+        return jsonify(error="Acesso restrito."), 403
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "SELECT id, nome, email, empresa, telefone, mensagem, origem, created_at "
+                "FROM b2b_leads ORDER BY created_at DESC LIMIT 200"
+            )
+            leads = cursor.fetchall()
+        return jsonify(leads=leads), 200
+    except Exception as e:
+        logger.error("Erro ao listar leads B2B: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500

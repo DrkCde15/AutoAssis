@@ -992,211 +992,6 @@
             padding: 8px 0 4px;
         }
         
-        /* Events Section (design igual a maintenance_history.html) */
-        .events-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 20px;
-        }
-        .card-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 14px;
-            flex-wrap: wrap;
-        }
-        .card-title {
-            font-size: 16px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .card-head-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            min-width: 0;
-        }
-        .small-select {
-            width: 230px;
-            max-width: 100%;
-            min-width: 0;
-        }
-        .btn-events-refresh {
-            border: 1px solid var(--border-color) !important;
-            background: transparent !important;
-            color: var(--text-secondary) !important;
-            width: 34px;
-            height: 34px;
-        }
-        .btn-events-refresh:hover {
-            color: var(--text-primary) !important;
-            border-color: #3f3f46 !important;
-        }
-        .btn-events-refresh:disabled {
-            opacity: 0.6;
-        }
-        
-        .event-marker {
-            background: transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
-            transition: transform .15s ease;
-        }
-        
-        .event-marker:hover {
-            transform: scale(1.12);
-        }
-        
-        .event-marker-count {
-            position: absolute;
-            top: -4px;
-            right: -7px;
-            background: var(--bg-card, #1f2937);
-            border: 1px solid var(--border-color, #3f3f46);
-            color: var(--text-primary, #e4e4e7);
-            font-size: 10px;
-            font-weight: 700;
-            min-width: 17px;
-            height: 17px;
-            line-height: 15px;
-            border-radius: 999px;
-            text-align: center;
-            padding: 0 3px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-        
-        .events-list .empty {
-            border: 1px dashed var(--border-color);
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 13px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-        .events-list .empty i {
-            font-size: 18px;
-            color: var(--text-muted);
-        }
-        .events-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .event-item {
-            border: 1px solid var(--border-color);
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            padding: 12px;
-        }
-        .event-item .item-top {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 6px;
-        }
-        .event-item.event-past {
-            opacity: 0.75;
-        }
-        .item-title {
-            font-weight: 600;
-            font-size: 14px;
-            line-height: 1.35;
-        }
-        .item-dates {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-        .item-dates i {
-            font-size: 11px;
-            color: var(--accent);
-        }
-        .badge {
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 4px 8px;
-            letter-spacing: 0.4px;
-            white-space: nowrap;
-        }
-        .badge-on_track, .badge-agendado {
-            background: rgba(34, 197, 94, 0.18);
-            color: #4ade80;
-        }
-        .badge-due_soon {
-            background: rgba(245, 158, 11, 0.2);
-            color: #fbbf24;
-        }
-        .badge-past, .badge-overdue {
-            background: rgba(239, 68, 68, 0.18);
-            color: #f87171;
-        }
-        .badge-semdata {
-            background: rgba(113, 113, 122, 0.25);
-            color: #d4d4d8;
-        }
-        .event-item-text {
-            color: var(--text-secondary);
-            font-size: 13px;
-            line-height: 1.45;
-            margin-top: 6px;
-        }
-        .item-meta {
-            margin-top: 8px;
-            color: var(--text-muted);
-            font-size: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .item-meta span {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .item-meta i {
-            font-size: 11px;
-            color: var(--accent);
-            width: 12px;
-        }
-        .item-stats {
-            display: inline-flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .item-action {
-            font-size: 12px;
-            color: var(--accent);
-            cursor: pointer;
-            font-weight: 500;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background: none;
-            border: 0;
-            padding: 0;
-            font-family: inherit;
-        }
-        .item-action:hover {
-            text-decoration: underline;
-        }
-        
 /* Responsive */
         @media (max-width: 1024px) {
             .main-content {
@@ -1245,12 +1040,20 @@
                 <a href="/chat.html" class="nav-link"><i class="fas fa-comments"></i> Chat IA</a>
                 <a href="/dashboard.html" id="navDashboard" class="nav-link" style="display:none"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                 <a href="/maintenance_history.html" id="navMaintenance" class="nav-link" style="display:none"><i class="fas fa-history"></i> Anotações</a>
-                <a href="/library.html" id="navLibrary" class="nav-link" style="display:none"><i class="fas fa-book"></i> Biblioteca</a>
-                <a href="/maps.html" class="nav-link active"><i class="fas fa-map-marked-alt"></i> Mapa</a>
+                
+                
                 <a href="/perfil.html" id="navProfile" class="nav-link" style="display:none"><i class="fas fa-user"></i> Perfil</a>
                 <a href="/login.html" id="navLogin" class="nav-link"><i class="fas fa-sign-in-alt"></i> Entrar</a>
                 <a href="/cadastro.html" id="navSignup" class="nav-link"><i class="fas fa-user-plus"></i> Cadastrar</a>
-                <div id="notif-bell-container"></div>
+          <div class="nav-dropdown" id="navMore">
+            <button type="button" class="nav-link nav-dropdown-toggle" id="btnNavMore">Mais <i class="fas fa-chevron-down"></i></button>
+            <div class="nav-dropdown-menu">
+              <a href="eventos.html" class="nav-dropdown-item"><i class="fas fa-calendar-alt"></i> Eventos</a>
+              <a href="/library.html" id="navLibrary" class="nav-dropdown-item" style="display:none"><i class="fas fa-book"></i> Biblioteca</a>
+              <a href="/maps.html" class="nav-dropdown-item active"><i class="fas fa-map-marked-alt"></i> Mapa</a>
+            </div>
+          </div>
+          <div id="notif-bell-container"></div>
             </div>
         </div>
     </nav>
@@ -1261,34 +1064,11 @@
 <!-- Search Panel -->
             <div class="search-panel">
                 <div class="search-header">
-                    <h1 id="searchTitle">Buscar Eventos</h1>
-                    <p id="searchSubtitle">Encontre feiras, encontros e exposições automotivas perto de você</p>
+                    <h1 id="searchTitle">Buscar Mecânicos</h1>
+                    <p id="searchSubtitle">Encontre oficinas e mecânicos próximos a você</p>
                 </div>
                 
-                <div id="form-events">
-                    <div class="search-form">
-                        <div class="form-group">
-                            <span class="field-label">Categoria</span>
-                            <div id="evSearchCat" class="app-select" data-placeholder="Todas as categorias" aria-label="Categoria"></div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <span class="field-label">Período</span>
-                            <div id="evSearchPeriod" class="app-select" data-placeholder="Qualquer data" aria-label="Período"></div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="evSearchTerm">Buscar por termo</label>
-                            <input type="text" id="evSearchTerm" placeholder="Cidade, feira ou palavra-chave">
-                        </div>
-                        
-                        <button class="btn-search" id="btn-search" onclick="searchEvents()">
-                            <i class="fas fa-calendar-alt"></i> Buscar Eventos
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="form-mechanics" style="display: none;">
+                <div id="form-mechanics">
                     <div class="search-form">
                         <div class="form-group">
                             <label for="search-service">Tipo de Serviço</label>
@@ -1344,9 +1124,6 @@
                 
 <!-- Section Tabs -->
                 <div class="section-tabs">
-                    <button class="section-tab active" data-tab="events" onclick="switchTab('events')">
-                        <i class="fas fa-calendar-alt"></i> Eventos
-                    </button>
                     <button class="section-tab" data-tab="mechanics" onclick="switchTab('mechanics')">
                         <i class="fas fa-wrench"></i> Mecânicos
                     </button>
@@ -1355,29 +1132,8 @@
                     </button>
                 </div>
                 
-<!-- Events Section -->
-                <div id="section-events">
-                    <section class="card events-card">
-                        <div class="card-head">
-                            <h2 class="card-title" style="margin:0;"><i class="fas fa-calendar-alt"></i> Eventos automotivos</h2>
-                            <div class="card-head-controls">
-                                <div id="eventsUfSelect" class="app-select small-select" data-placeholder="Todos os locais" aria-label="Local (UF)"></div>
-                                <button class="icon-btn btn-events-refresh" id="btn-events-refresh" title="Buscar novos eventos" onclick="loadAutomotiveEvents(true)">
-                                    <i class="fas fa-rotate"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="events-list" id="events-list">
-                            <div class="empty">
-                                <i class="fas fa-calendar-alt"></i>
-                                <span>Varredura de feiras e eventos em sites especializados e no Google</span>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-                
 <!-- Mechanics Section -->
-                <div id="section-mechanics" style="display: none;">
+                <div id="section-mechanics">
                     <div class="mechanics-list" id="mechanics-list">
                         <div class="empty-state">
                             <i class="fas fa-wrench"></i>
@@ -1450,16 +1206,9 @@
 let isAuthenticated = false;
         let selectedRating = 0;
         let activeFilters = new Set();
-        let eventsData = [];
-        let displayedEvents = [];
-        let eventsLoaded = false;
-        let eventMarkers = [];
-        let eventsGeoCache = {};
-        let activeEventsAbort = null;
-        let currentTab = 'events';
+        let currentTab = 'mechanics';
         
         // Todas as UFs do Brasil (para o filtro Local)
-        const BR_UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
         
         // Inicializar
         document.addEventListener('DOMContentLoaded', function() {
@@ -1469,39 +1218,41 @@ let isAuthenticated = false;
                     window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
                     return;
                 }
+                if (!Auth.requirePremiumPage({
+                    title: 'Mapa Premium',
+                    message: 'O mapa de mecânicos é exclusivo para usuários Premium.',
+                    backHref: 'index.html'
+                })) {
+                    return;
+                }
                 const show = (id) => { const el = document.getElementById(id); if (el) el.style.display = ''; };
                 const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
                 show('navDashboard'); show('navMaintenance'); show('navLibrary');
                 show('navProfile'); hide('navLogin'); hide('navSignup');
                 loadFavorites();
+                initMap();
+                setupFilterChips();
+                setupStarRating();
+                setupTabDefaults();
             }).catch(() => {
                 window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
             });
-            
-initMap();
-            initEventSearchSelects();
-            setupFilterChips();
-            setupStarRating();
-            setupTabDefaults();
         });
         
         // Configurar abas
         function setupTabDefaults() {
-            switchTab('events');
+            switchTab('mechanics');
         }
         
 function switchTab(tab) {
             currentTab = tab;
             document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
             document.querySelector(`.section-tab[data-tab="${tab}"]`)?.classList.add('active');
-            
-            document.getElementById('form-events').style.display = tab === 'events' ? '' : 'none';
+
             document.getElementById('form-mechanics').style.display = tab === 'mechanics' ? '' : 'none';
-            
-            document.getElementById('section-events').style.display = tab === 'events' ? 'block' : 'none';
             document.getElementById('section-mechanics').style.display = tab === 'mechanics' ? 'block' : 'none';
             document.getElementById('section-favorites').style.display = tab === 'favorites' ? 'block' : 'none';
-            
+
             const titleEl = document.getElementById('searchTitle');
             const subtitleEl = document.getElementById('searchSubtitle');
             if (titleEl && subtitleEl) {
@@ -1509,27 +1260,13 @@ function switchTab(tab) {
                     titleEl.textContent = 'Buscar Mecânicos';
                     subtitleEl.textContent = 'Encontre oficinas e mecânicos próximos a você';
                 } else {
-                    titleEl.textContent = 'Buscar Eventos';
-                    subtitleEl.textContent = 'Encontre feiras, encontros e exposições automotivas perto de você';
+                    titleEl.textContent = 'Mecânicos Favoritos';
+                    subtitleEl.textContent = 'Oficinas e mecânicos que você salvou';
                 }
             }
-            
-            // Evita acumular pins de abas diferentes no mapa
-            if (map && tab === 'events') {
-                markers.forEach(m => map.removeLayer(m));
-                markers = [];
-            }
-            if (map && tab === 'mechanics') {
-                eventMarkers.forEach(m => map.removeLayer(m));
-                eventMarkers = [];
-            }
-            
+
             if (tab === 'favorites') {
                 loadFavorites();
-            } else if (tab === 'events') {
-                if (map) map.invalidateSize();
-                initUfSelect();
-                loadAutomotiveEvents(false);
             } else if (tab === 'mechanics') {
                 if (map) map.invalidateSize();
                 if (userLocation) {
@@ -1547,436 +1284,6 @@ function switchTab(tab) {
                     }
                 }
             }
-        }
-        
-        // ─── Eventos Automotivos ──────────────────────────────────────────────
-        
-        function renderState(container, state, opts = {}) {
-            if (!container) return;
-            if (state === 'loading') {
-                container.innerHTML = AppLoader.block('Buscando eventos automotivos...');
-                return;
-            }
-            const icons = { idle: 'fa-calendar-alt', empty: 'fa-calendar-times', error: 'fa-exclamation-circle' };
-            const titles = {
-                idle: 'Busque eventos automotivos',
-                empty: 'Nenhum evento encontrado',
-                error: 'Erro na busca'
-            };
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas ${icons[state] || 'fa-info-circle'}"></i>
-                    <h3>${titles[state] || ''}</h3>
-                    <p>${opts.message || ''}</p>
-                    ${opts.retry ? `<button class="btn-search" style="margin-top: 12px; padding: 9px 18px; font-size: 13px; width: auto;" onclick="${opts.retry}">Tentar novamente</button>` : ''}
-                </div>
-            `;
-        }
-        
-        function getSearchParams() {
-            const read = (id) => {
-                const el = document.getElementById(id);
-                return el && el.value ? String(el.value).trim() : '';
-            };
-            return {
-                categoria: read('evSearchCat'),
-                periodo: read('evSearchPeriod'),
-                q: read('evSearchTerm')
-            };
-        }
-        
-        async function fetchAutomotiveEvents(params, { force, loadingContainer } = {}) {
-            if (activeEventsAbort) activeEventsAbort.abort();
-            const controller = new AbortController();
-            activeEventsAbort = controller;
-            const timeout = setTimeout(() => controller.abort(), 30000);
-            
-            if (loadingContainer) {
-                renderState(loadingContainer, 'loading');
-            }
-            
-            try {
-                const query = new URLSearchParams();
-                if (force) query.set('force', '1');
-                ['uf', 'categoria', 'periodo', 'q'].forEach(k => {
-                    if (params[k]) query.set(k, params[k]);
-                });
-                const qs = query.toString();
-                const url = `${CONFIG.API_URL}/api/events/automotive${qs ? `?${qs}` : ''}`;
-                const response = await fetch(url, { signal: controller.signal });
-                const data = await response.json();
-                if (!data.success) {
-                    throw new Error(data.error || 'Erro na varredura de eventos');
-                }
-                return data.events || [];
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    throw new Error('A busca demorou demais. Tente novamente.');
-                }
-                throw error;
-            } finally {
-                clearTimeout(timeout);
-                if (activeEventsAbort === controller) activeEventsAbort = null;
-            }
-        }
-        
-        // Busca do formulário "Buscar Eventos" (servidor filtra uf/categoria/período/termo)
-        async function searchEvents() {
-            const btn = document.getElementById('btn-search');
-            const container = document.getElementById('events-list');
-            if (!btn || !container) return;
-            
-            btn.disabled = true;
-            btn.innerHTML = AppLoader.button('Buscando...');
-            
-            try {
-                displayedEvents = await fetchAutomotiveEvents(getSearchParams(), { loadingContainer: container });
-                eventsLoaded = true;
-                if (displayedEvents.length === 0) {
-                    renderState(container, 'empty', {
-                        message: 'Nenhum evento encontrado para esses filtros. Tente outra UF, categoria ou período.'
-                    });
-                } else {
-                    renderEventsList();
-                }
-                renderEventMarkers(getFilteredEvents());
-            } catch (error) {
-                console.error('Erro na busca de eventos:', error);
-                renderState(container, 'error', {
-                    message: error.message,
-                    retry: 'searchEvents'
-                });
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-calendar-alt"></i> Buscar Eventos';
-            }
-        }
-        
-        async function loadAutomotiveEvents(force) {
-            const container = document.getElementById('events-list');
-            const btn = document.getElementById('btn-events-refresh');
-            
-            if (!force && eventsLoaded) {
-                displayedEvents = eventsData;
-                renderEventsList();
-                renderEventMarkers(getFilteredEvents());
-                return;
-            }
-            
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = AppLoader.button('Buscando...');
-            }
-            
-            try {
-                eventsData = await fetchAutomotiveEvents({}, { force, loadingContainer: container });
-                eventsLoaded = true;
-                displayedEvents = eventsData;
-                initUfSelect();
-                renderEventsList();
-                renderEventMarkers(getFilteredEvents());
-            } catch (error) {
-                console.error('Erro na varredura de eventos:', error);
-                renderState(container, 'error', {
-                    message: error.message,
-                    retry: 'refreshEvents'
-                });
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-rotate"></i>';
-                }
-            }
-        }
-        
-        function refreshEvents() {
-            loadAutomotiveEvents(true);
-        }
-        
-        function getFilteredEvents() {
-            const ufFilter = document.getElementById('eventsUfSelect')?.value || '';
-            if (!ufFilter) return displayedEvents;
-            return displayedEvents.filter(e => (e.uf || '').toUpperCase() === ufFilter);
-        }
-        
-        function renderEventsList() {
-            const container = document.getElementById('events-list');
-            const list = getFilteredEvents();
-            
-            if (list.length === 0) {
-                container.innerHTML = `
-                    <div class="empty">
-                        <i class="fas fa-calendar-alt"></i>
-                        <span>Nenhum evento encontrado para este local. Tente remover o filtro de UF ou buscar novamente.</span>
-                    </div>
-                `;
-                return;
-            }
-            
-            container.innerHTML = `
-                <div class="results-count">${list.length} evento${list.length !== 1 ? 's' : ''} encontrado${list.length !== 1 ? 's' : ''}</div>
-                ${list.map(e => renderEventCard(e)).join('')}
-            `;
-            
-            if (window.AAAnim && window.AAAnim.reveal) {
-                window.AAAnim.reveal.staggerIn(container, '.event-item', { stagger: 45 });
-            }
-        }
-        
-        function renderEventCard(event) {
-            const dateInfo = formatEventDate(event);
-            const where = [event.cidade, event.uf && event.uf !== 'INT' ? '-' + event.uf : ''].join(' ').trim();
-            const isPast = !!event.passado;
-            const badgeClass = isPast ? 'badge-past' : (dateInfo.day ? 'badge-agendado' : 'badge-semdata');
-            const badgeText = isPast ? 'Encerrado' : (dateInfo.periodLabel || 'Data a confirmar');
-            return `
-                <div class="event-item${isPast ? ' event-past' : ''}">
-                    <div class="item-top">
-                        <div class="item-title">${escapeHtml(event.titulo)}</div>
-                        <span class="badge ${badgeClass} item-dates">
-                            ${dateInfo.day ? '<i class="fas fa-calendar-check"></i>' : ''}
-                            ${badgeText}
-                        </span>
-                    </div>
-                    ${event.descricao ? `<div class="event-item-text">${escapeHtml(event.descricao)}</div>` : ''}
-                    <div class="item-meta">
-                        ${(where || event.local) ? `
-                            <span><i class="fas fa-map-marker-alt"></i> ${escapeHtml(where || event.local)}${event.local && where ? ` • ${escapeHtml(event.local)}` : ''}</span>
-                        ` : ''}
-                        <span class="item-stats">
-                            ${event.url ? `<a class="item-action" href="${escapeHtml(event.url)}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Visitar site</a>` : ''}
-                            ${event.cidade ? `<button class="item-action" onclick="showEventOnMapById('${escapeHtml(event.id)}')"><i class="fas fa-map-pin"></i> Ver no mapa</button>` : ''}
-                        </span>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function formatEventDate(event) {
-            const monthsPt = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-            const start = event.data_inicio ? new Date(event.data_inicio + 'T12:00:00') : null;
-            const end = event.data_fim ? new Date(event.data_fim + 'T12:00:00') : null;
-            
-            if (!start || isNaN(start.getTime())) {
-                return { day: null, month: null, label: 'Data a confirmar', periodLabel: '' };
-            }
-            
-            const d = String(start.getDate()).padStart(2, '0');
-            const m = monthsPt[start.getMonth()];
-            const y = String(start.getFullYear());
-            let periodLabel = `${d} ${m} ${y}`;
-            
-            if (end && !isNaN(end.getTime()) && end.toDateString() !== start.toDateString()) {
-                const d2 = String(end.getDate()).padStart(2, '0');
-                const m2 = monthsPt[end.getMonth()];
-                const y2 = String(end.getFullYear());
-                if (y === y2 && start.getMonth() === end.getMonth()) {
-                    periodLabel = `${d} a ${d2} ${m} ${y}`;
-                } else if (y === y2) {
-                    periodLabel = `${d} ${m} a ${d2} ${m2} ${y}`;
-                } else {
-                    periodLabel = `${d} ${m} ${y} a ${d2} ${m2} ${y2}`;
-                }
-            }
-            
-            return { day: d, month: m, label: periodLabel, periodLabel };
-        }
-        
-        async function showEventOnMapById(eventId) {
-            const event = displayedEvents.find(e => String(e.id) === String(eventId)) ||
-                eventsData.find(e => String(e.id) === String(eventId));
-            if (!event || !event.cidade) {
-                alert('Evento sem cidade para localizar no mapa.');
-                return;
-            }
-            await renderEventMarkers(getFilteredEvents());
-            const marker = eventMarkers.find(m => (m._evData || []).some(e => String(e.id) === String(eventId)));
-            if (marker) {
-                map.flyTo(marker.getLatLng(), 12);
-                marker.openPopup();
-            } else {
-                const coords = await geocodeCity(event.cidade, event.uf);
-                if (coords) map.flyTo([coords.lat, coords.lng], 12);
-            }
-        }
-        
-        function initUfSelect() {
-            const el = document.getElementById('eventsUfSelect');
-            if (!el || !window.AppSelect || el._appSelect) return;
-            const api = AppSelect.mount(el, {
-                placeholder: 'Todos os locais',
-                searchPlaceholder: 'Pesquisar UF...',
-                emptyText: 'Nenhuma UF encontrada'
-            });
-            const base = Array.isArray(eventsData) ? eventsData.filter(e => e.uf) : [];
-            const foundUfs = [...new Set(base.map(e => String(e.uf).toUpperCase()))].sort();
-            if (foundUfs.length > 0) {
-                api.setOptions(
-                    [{ value: '', label: 'Todos os locais' }]
-                        .concat(foundUfs.map(u => ({ value: u, label: u === 'INT' ? 'Fora do Brasil' : u })))
-                );
-            } else {
-                api.setOptions(
-                    [{ value: '', label: 'Todos os locais' }]
-                        .concat(BR_UFS.map(u => ({ value: u, label: u })))
-                        .concat([{ value: 'INT', label: 'Fora do Brasil' }])
-                );
-            }
-            api.onChange(() => {
-                renderEventsList();
-                renderEventMarkers(getFilteredEvents());
-            });
-            el._appSelect = api;
-        }
-        
-        const EVENT_CATEGORIES = [
-            { value: '', label: 'Todas as categorias' },
-            { value: 'feira', label: 'Feira' },
-            { value: 'encontro', label: 'Encontro' },
-            { value: 'competicao', label: 'Competição' },
-            { value: 'exposicao', label: 'Exposição' },
-            { value: 'congresso', label: 'Congresso' },
-            { value: 'outros', label: 'Outros' }
-        ];
-        
-        const EVENT_PERIODS = [
-            { value: '', label: 'Qualquer data' },
-            { value: '30', label: 'Próximos 30 dias' },
-            { value: '90', label: 'Próximos 90 dias' },
-            { value: 'ano', label: 'Este ano' }
-        ];
-        
-        function initEventSearchSelects() {
-            if (!window.AppSelect) return;
-            const termInput = document.getElementById('evSearchTerm');
-            if (termInput) {
-                termInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        searchEvents();
-                    }
-                });
-            }
-            const setup = (id, options, placeholder) => {
-                const el = document.getElementById(id);
-                if (!el || el._appSelect) return;
-                if (el.dataset.mounted) return;
-                const api = AppSelect.mount(el, {
-                    placeholder: placeholder || 'Selecione...'
-                });
-                api.setOptions(options);
-                el._appSelect = api;
-                el.dataset.mounted = '1';
-            };
-            setup('evSearchCat', EVENT_CATEGORIES, 'Todas as categorias');
-            setup('evSearchPeriod', EVENT_PERIODS, 'Qualquer data');
-        }
-        
-        async function geocodeCity(cidade, uf) {
-            const key = `${cidade}|${uf || ''}`;
-            if (eventsGeoCache[key]) return eventsGeoCache[key];
-            const promise = (async () => {
-                const ufSuffix = uf && uf !== 'INT' ? ` ${uf}` : '';
-                const country = uf && uf !== 'INT' ? ', Brasil' : '';
-                try {
-                    const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(cidade + ufSuffix + country)}&limit=1`);
-                    const data = await response.json();
-                    const feature = data.features && data.features[0];
-                    if (!feature || !feature.geometry || !feature.geometry.coordinates) return null;
-                    const [lng, lat] = feature.geometry.coordinates;
-                    return { lat, lng };
-                } catch {
-                    return null;
-                }
-            })();
-            eventsGeoCache[key] = promise;
-            return promise;
-        }
-        
-        // Ícone/cor do pin por categoria dominante na cidade
-        const EVENT_MARKER_STYLE = {
-            feira:      { icon: 'fa-store', color: '#3b82f6' },
-            encontro:   { icon: 'fa-users', color: '#8b5cf6' },
-            competicao: { icon: 'fa-flag-checkered', color: '#ef4444' },
-            exposicao:  { icon: 'fa-car', color: '#f59e0b' },
-            congresso:  { icon: 'fa-microphone', color: '#06b6d4' },
-            outros:     { icon: 'fa-calendar-alt', color: '#94a3b8' }
-        };
-        
-        function dominantEventCategory(evs) {
-            const counts = {};
-            evs.forEach(e => {
-                const cat = e.categoria || 'outros';
-                counts[cat] = (counts[cat] || 0) + 1;
-            });
-            return Object.keys(counts).reduce((a, b) =>
-                counts[b] > counts[a] ? b : a, 'outros');
-        }
-        
-        async function renderEventMarkers(list) {
-            if (!map) return {};
-            const coordsMap = {};
-            eventMarkers.forEach(m => map.removeLayer(m));
-            eventMarkers = [];
-            
-            const target = list || getFilteredEvents().filter(e => e.cidade);
-            const byCity = new Map();
-            target.forEach(e => {
-                const key = `${e.cidade}|${e.uf || ''}`;
-                if (!byCity.has(key)) byCity.set(key, []);
-                byCity.get(key).push(e);
-            });
-            
-            for (const [key, evs] of byCity.entries()) {
-                const [cidade, uf] = key.split('|');
-                const pos = await geocodeCity(cidade, uf);
-                if (!pos || !isFinite(pos.lat) || !isFinite(pos.lng)) continue;
-                coordsMap[key] = pos;
-                const style = EVENT_MARKER_STYLE[dominantEventCategory(evs)] || EVENT_MARKER_STYLE.outros;
-                const marker = L.marker([pos.lat, pos.lng], {
-                    icon: L.divIcon({
-                        className: 'event-marker',
-                        html: `<i class="fas ${style.icon}" style="color: ${style.color}; font-size: 26px; line-height: 26px;"></i>` +
-                              (evs.length > 1 ? `<span class="event-marker-count">${evs.length}</span>` : ''),
-                        iconSize: [26, 26],
-                        iconAnchor: [13, 13],
-                        popupAnchor: [0, -14]
-                    })
-}).addTo(map);
-                const rows = evs.slice(0, 4).map(ev => {
-                    const d = formatEventDate(ev);
-                    return `
-                        <div style="margin-bottom: 6px;${ev.passado ? 'opacity: .7;' : ''}">
-                            <h4 style="margin: 0 0 2px;">${escapeHtml(ev.titulo)}</h4>
-                            <div class="popup-addr">${escapeHtml(d.periodLabel || 'Data a confirmar')}</div>
-                            ${ev.url ? `<a class="popup-link" href="${escapeHtml(ev.url)}" target="_blank" rel="noopener">Ver site do evento</a>` : ''}
-                        </div>`;
-                }).join('');
-                const moreCount = evs.length - 4;
-                const popupHtml = `
-                    <div class="mechanic-popup">
-                        <h4><i class="fas ${style.icon}" style="color: ${style.color}; margin-right: 4px; font-size: 13px;"></i>${escapeHtml(cidade)}${uf && uf !== 'INT' ? ' / ' + uf : ''} <span style="font-weight: normal; color: var(--text-muted, #888);">${evs.length} evento${evs.length !== 1 ? 's' : ''}</span></h4>
-                        ${rows}
-                        ${moreCount > 0 ? `<div class="popup-addr">+${moreCount} mais</div>` : ''}
-                    </div>
-                `;
-                marker.bindPopup(popupHtml);
-                const tooltipRows = evs.slice(0, 2).map(ev => {
-                    const d = formatEventDate(ev);
-                    return `<div class="popup-addr">&#8226; ${escapeHtml(ev.titulo)}${d.periodLabel ? ' &mdash; ' + escapeHtml(d.periodLabel) : ''}</div>`;
-                }).join('');
-                const tooltipHtml = `
-                    <div class="mechanic-popup">
-                        <h4>${escapeHtml(cidade)}${uf && uf !== 'INT' ? ' / ' + uf : ''} <span style="font-weight: normal; font-size: 12px;">(${evs.length} evento${evs.length !== 1 ? 's' : ''})</span></h4>
-                        ${tooltipRows}
-                        ${evs.length > 2 ? `<div class="popup-addr" style="color: #3b82f6;">+${evs.length - 2} mais</div>` : ''}
-                    </div>
-                `;
-                marker.bindTooltip(tooltipHtml, { direction: 'top', offset: [0, -14], sticky: true, className: 'map-preview-tooltip' });
-                marker._evData = evs;
-                eventMarkers.push(marker);
-            }
-            return coordsMap;
         }
         
 // Inicializar mapa

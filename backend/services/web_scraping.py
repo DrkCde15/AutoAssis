@@ -1,4 +1,5 @@
 # backend/services/web_scrapping.py
+import os
 import re
 import math
 import logging
@@ -74,9 +75,11 @@ def search_mechanics_web(user_lat, user_lng, radius, service_type=None):
 
     try:
         results = _scrape_google_maps(user_lat, user_lng, radius)
+        _record_source_health("google_web", True)
         cache_set_json(cache_key, results, ttl=GOOGLE_CACHE_TTL)
         return results
     except Exception as e:
+        _record_source_health("google_web", False)
         logger.warning("Google scraping indisponivel: %s", e)
         return []
 
@@ -238,3 +241,115 @@ def _estimate_distance_from_city(lat1, lng1, city, state):
     # Retorna distância determinística baseada no nome da cidade
     return 1.0 + (int(h[:8], 16) % 100) / 10
 
+# ───────────────────── saúde das fontes + fallback SerpApi ─────────────────────
+
+SOURCE_HEALTH = {}
+SOURCE_DEAD_THRESHOLD = int(os.getenv("SOURCE_DEAD_THRESHOLD", "3"))
+
+
+def _record_source_health(name, ok):
+    """Registra sucesso/falha de uma fonte; dispara alerta apos N falhas seguidas."""
+    st = SOURCE_HEALTH.setdefault(name, {"failures": 0, "dead": False})
+    if ok:
+        st["failures"] = 0
+        st["dead"] = False
+    else:
+        st["failures"] += 1
+        if st["failures"] >= SOURCE_DEAD_THRESHOLD and not st["dead"]:
+            st["dead"] = True
+            logger.error(
+                "ALERTA FONTE MORTA: '%s' falhou %d vezes consecutivas.",
+                name, st["failures"],
+            )
+
+
+def dead_sources():
+    """Retorna lista de nomes de fontes consideradas 'mortas' (falha repetida)."""
+    return [n for n, st in SOURCE_HEALTH.items() if st["dead"]]
+
+
+def search_mechanics_serpapi(user_lat, user_lng, radius, service_type=None):
+    """Fallback de busca de oficinas via SerpApi (Google Maps).
+
+    Só é usado quando OSM e o scraping do Google nao retornam resultados.
+    Requer a variavel de ambiente SERPAPI_KEY; sem ela retorna [] (sem custo).
+    """
+    api_key = os.getenv("SERPAPI_KEY")
+    if not api_key:
+        return []
+    cache_key = f"serpapi_mechanics:{user_lat:.4f}:{user_lng:.4f}:{radius}:{service_type or ''}"
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return cached
+    try:
+        resp = requests.get(
+            "https://serpapi.com/search.json",
+            params={
+                "engine": "google_maps",
+                "q": "oficina mecanica",
+                "ll": f"@{user_lat:.6f},{user_lng:.6f},-{int(radius)}z",
+                "type": "search",
+                "hl": "pt-br",
+                "gl": "br",
+                "api_key": api_key,
+            },
+            timeout=8,
+        )
+        resp.raise_for_status()
+        data = resp.json() or {}
+        local = data.get("local_results") or []
+        results = []
+        for item in local:
+            try:
+                nome = (item.get("name") or "").strip()
+                if not nome:
+                    continue
+                geo = item.get("gps_coordinates") or {}
+                lat = float(geo.get("latitude", user_lat))
+                lng = float(geo.get("longitude", user_lng))
+                distance_km = round(_haversine(user_lat, user_lng, lat, lng), 1)
+                if distance_km > radius:
+                    continue
+                rating = item.get("rating")
+                reviews = item.get("reviews") or 0
+                results.append({
+                    "id": f"serpapi_{item.get('place_id', re.sub(r'[^a-zA-Z0-9]', '', nome)[:20])}",
+                    "nome": nome,
+                    "endereco": item.get("address", ""),
+                    "cidade": (item.get("city") or ""),
+                    "estado": (item.get("state") or ""),
+                    "latitude": lat,
+                    "longitude": lng,
+                    "geometry": {"type": "Point", "coordinates": [lng, lat]},
+                    "telefone": item.get("phone", ""),
+                    "website": item.get("website", ""),
+                    "descricao": "",
+                    "especialidades": [service_type] if service_type else ["troca_oleo"],
+                    "servicos": [],
+                    "horario_funcionamento": item.get("hours"),
+                    "avaliacao_media": float(rating) if rating else None,
+                    "total_avaliacoes": int(reviews) if reviews else 0,
+                    "foto_url": None,
+                    "is_verified": bool(item.get("claimed")),
+                    "distance_km": distance_km,
+                    "_source": "serpapi",
+                })
+            except Exception:
+                continue
+        _record_source_health("serpapi", True)
+        cache_set_json(cache_key, results, ttl=GOOGLE_CACHE_TTL)
+        return results
+    except Exception as e:
+        _record_source_health("serpapi", False)
+        logger.warning("SerpApi indisponivel: %s", e)
+        return []
+
+
+def _haversine(lat1, lng1, lat2, lng2):
+    """Distancia em km entre duas coordenadas."""
+    from math import radians, sin, cos, asin, sqrt
+    r = 6371
+    dlat = radians(lat2 - lat1)
+    dlng = radians(lng2 - lng1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
+    return 2 * r * asin(sqrt(a))

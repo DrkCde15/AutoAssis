@@ -214,6 +214,32 @@ body.aa-menu-lock {
     padding: 0 12px;
   }
 
+  /* "Mais" no drawer mobile: achata os itens direto no menu (sem popup) */
+  .aa-mobile-menu-ready .nav-dropdown {
+    display: block;
+    width: 100%;
+    position: static;
+  }
+  .aa-mobile-menu-ready .nav-dropdown-toggle {
+    display: none;
+  }
+  .aa-mobile-menu-ready .nav-dropdown-menu {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .aa-mobile-menu-ready .nav-dropdown-item {
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 10px;
+  }
+
   body.aa-chat-layout header {
     padding: 10px 14px;
   }
