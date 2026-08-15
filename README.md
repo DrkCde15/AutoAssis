@@ -21,7 +21,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 ### **Dashboard e Gestão**
 
 - **Histórico Proativo:** Painel que monitora a saúde das peças e indica o status de cada manutenção (Ok, Aviso ou Atrasado).
-- **Mapa de Eventos Automotivos:** Varredura automática de feiras, encontros, competições e exposições do setor em sites especializados e no Google, exibidos no mapa com filtros por UF, categoria e período.
+- **Agenda de Eventos Automotivos:** Varredura automática de feiras, encontros, competições e exposições do setor, exibidas em cards na página de eventos (`eventos.html`) com filtros por UF, categoria e período, mais **selo de status** (Agendado / Acontecendo / Cancelado / Encerrado / Data a confirmar) e a **fonte** de cada evento. As fontes de **alta confiança** são sites especializados estruturados (NFeiras, Sindirepa, Diretriz, Shopping Interlagos); a **busca web** (Bing via Scrapling, sem browser) entra como fallback de baixa confiança.
 - **Galeria de Vídeos Otimizada:** Nova biblioteca de vídeos com redirecionamento direto para o YouTube, miniaturas em alta resolução e carregamento ultrarrápido.
 - **Notificações Instantâneas:** Sistema de e-mail que alerta o usuário **no mesmo dia** em que uma manutenção atinge o status crítico ou vence.
 - **Tabela FIPE Real-Time:** Integração com a API FIPE para fornecer valores de mercado precisos e atualizados.
@@ -66,6 +66,9 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 | **JWT + Refresh**     | Autenticação moderna com Tokens de Acesso e Refresh.   |
 | **Overpass API (OSM)**| Consulta de oficinas mecânicas via OpenStreetMap.      |
 | **Google Search**     | Scraping de resultados locais para mecanicas.           |
+| **Scrapling (Bing)**  | Varredura web de eventos via TLS stealth (curl_cffi), sem browser; Brave Search API como fallback se `BRAVE_API_KEY`. |
+| **OpenStreetMap Nominatim** | Geocodificação cidade→lat/lng dos eventos (cache 30d). |
+| **MySQL `events`**    | Persistência estruturada dos eventos (upsert, status, confiança, coords). |
 | **Redis**             | Cache distribuído de IA, dashboard e mechanics (OSM/Web).|
 
 ### **Frontend**
@@ -85,9 +88,9 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 AutoAssist/
 ├── backend/
 │   ├── models/                    # Modelos de ML para treinamento
-│   ├── routes/                    # Módulos de API (Auth, Pages, Database, Mechanics)
+│   ├── routes/                    # Módulos de API (Auth, Pages, Database, Mechanics, Events)
 │   ├── scripts/                   # Treinamento do ML
-│   ├── services/                  # IA e Lógica (NOG IA, Vision, Maintenance, Web Scraping)
+│   ├── services/                  # IA e Lógica (NOG IA, Vision, Maintenance, Web Scraping, Automotive Events)
 │   ├── utils/                     # Cache Redis, e-mail, tasks assíncronas e cron auth
 │   ├── app.py                     # Entry-point (Servidor Flask)
 │   ├── render.yaml                # Blueprint de deploy (Render)
@@ -96,7 +99,7 @@ AutoAssist/
 ├── frontend/
 │   ├── index.html                 # Landing Page
 │   ├── chat.html                  # Consultor NOG IA
-│   ├── maps.html                   # Mapa (eventos automotivos + mecânicos)
+│   ├── maps.html                   # Mapa de mecânicos (OpenStreetMap)
     ├── dashboard.html             # Dashboard
 │   ├── library.html               # Galeria de Vídeos YouTube
 │   ├── maintenance_history.html   # Gestão de Manutenções
@@ -138,6 +141,10 @@ GROQ_PRIMARY_MODEL=groq/compound-mini
 GROQ_UTILITY_MODEL=openai/gpt-oss-20b
 GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 GROQ_FALLBACK_MODELS=groq/compound
+
+# Busca web de eventos (fallback de baixa confiança)
+# Scrapling/Bing nao exige chave. Brave Search API eleva a qualidade se configurada:
+BRAVE_API_KEY=
 
 # Redis (cache de IA, dashboard, filas RQ e rate limit)
 # Local (docker-compose): redis://localhost:6379/0
@@ -269,6 +276,31 @@ curl -X POST http://localhost:5000/api/b2b/diagnosis \
 
 ---
 
+## 📅 Agenda de Eventos Automotivos
+
+Pipeline de coleta de eventos tratado como **dado estruturado** (não scraping genérico):
+
+1. **Provedores de alta confiança** (HTML estável e curado): `nfeiras.com` (automobilismo), `sindirepabrasil.org.br/eventos` (reparação), `diretriz.com.br` (Autopar, Minasparts…) e `interlagos.com.br` (itens automotivos).
+2. **Busca web (fallback, baixa confiança):** Bing via **Scrapling** (`Fetcher`, TLS stealth com `curl_cffi`, sem abrir browser); **Brave Search API** entra se `BRAVE_API_KEY` estiver configurado; Playwright como último recurso.
+3. **Normalização:** título normalizado (minúsculo, sem acento), `confidence` por fonte (fontes oficiais `0.90`, web `0.40`) e `status` (`upcoming` / `ongoing` / `finished` / `cancelled` / `unknown`).
+4. **Deduplicação por score:** similaridade ponderada (título + data + cidade + venue + organizador); mantém o registro de **maior confiança** como canônico.
+5. **Geocodificação:** cidade→lat/lng via Nominatim/OSM (cache 30d), reutilizando o cache de geocoding.
+6. **Persistência:** upsert na tabela MySQL `events` (id estável via `sha1`), preservando eventos passados e o `status` (não são apagados).
+7. **API:** `GET /api/events/automotive` (filtros `uf`, `q`, `categoria`, `periodo`, `lat`/`lng`/`radius` para "perto de mim") e `GET /api/events/<id>`.
+8. **Frontend:** `eventos.html` renderiza cards com badge de `status` e selo de fonte; a lista mostra apenas eventos futuros.
+
+> Eventos de comunidade (Facebook/Instagram/WhatsApp) e plataformas fechadas (Sympla/Eventbrite sem token) não são cobertos — ficam como fontes futuras. Nenhuma área protegida/CAPTCHA é contornada.
+
+### Endpoints
+
+| Método | Rota | Auth | Descrição |
+| :----- | :--- | :--- | :-------- |
+| `GET`  | `/api/events/automotive` | Página exige Premium | Lista eventos (filtros `uf`, `q`, `categoria`, `periodo`, `lat`, `lng`, `radius`). `?force=1` refaz a varredura. |
+| `GET`  | `/api/events/<id>` | Página exige Premium | Detalhe de um evento (cache da varredura + MySQL). |
+| `POST` | `/api/cron/events-notifications` | `X-Cron-Secret` | Notifica usuários sobre novos eventos (via RQ/thread). |
+
+---
+
 ## 🔒 Segurança e Boas Práticas
 
 - **Bcrypt Hashing**: Proteção de senhas com algoritmos de derivação de chave.
@@ -315,6 +347,19 @@ Registro das mudanças feitas nesta sessão de desenvolvimento:
 
 ### Documentação
 - README: adicionada a variável `B2B_ADMIN_SECRET` ao bloco `.env`, a seção **"🤝 API B2B"** (endpoints + fluxo curl) e a seção **"🧪 Testes"**.
+
+### Arquitetura de Eventos Automotivos (estruturada)
+- **Nova tabela `events`** em `backend/routes/database.py` (`TABLES_SQL`): `id` (PK estável `sha1`), `title`, `normalized_title`, `category`, `start_date`/`end_date`, `venue_name`, `address`, `city`, `state`, `latitude`/`longitude`, `organizer`, `event_url`, `source`, `status`, `confidence`, `last_verified_at`, índices por UF/cidade/data/status/fonte. Criada via `init_db()`.
+- **`backend/services/automotive_events.py`:**
+  - `_make_event` estendido com `normalized_title`, `confidence` (via `CONFIDENCE_BY_SOURCE`), `status` (via `derive_status`), `latitude`/`longitude`, `organizer`, `venue_name`, `address`, `country` e **id estável** (`sha1(fonte|titulo|data|cidade)`) — substitui o `hash()` frágil entre processos.
+  - `_dedupe_events` por score (título + data + cidade + venue + organizador; mantém o canônico de maior confiança), no lugar do set ingênuo `(titulo, data)`.
+  - `_geocode_event` (Nominatim/OSM, reuso de cache) e `persist_events` (upsert MySQL em lote) integrados ao `scan_automotive_events`.
+  - `_haversine` + filtro `lat`/`lng`/`radius` em `filter_events` ("perto de mim").
+  - Web passa a usar **Scrapling/Bing** como fonte primária (sem browser), Brave API se `BRAVE_API_KEY`, Playwright como fallback.
+- **`backend/routes/events.py`:** `GET /api/events/automotive` aceita `lat`/`lng`/`radius`; adicionado `GET /api/events/<id>`.
+- **`frontend/public/eventos.html`:** card com badge de `status` (Agendado/Acontecendo/Cancelado/Encerrado/Data a confirmar) e selo de `fonte_nome`. Lista apenas eventos futuros.
+- **Testes** (`backend/tests/test_events.py`): +7 testes (normalize, modelo/confiança, status, dedupe por score, mapeamento DB, nearby). Suíte de eventos: **51 passam**, 1 falha pré-existente não relacionada (`test_footer_linka_eventos_html`).
+- `requirements.txt`: adicionado `scrapling[fetchers]==0.4.14`.
 
 ---
 

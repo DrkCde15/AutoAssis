@@ -509,9 +509,25 @@
         function renderEventCard(event) {
           const dateInfo = formatEventDate(event);
           const where = [event.cidade, event.uf && event.uf !== 'INT' ? `- ${event.uf}` : ''].join(' ').trim();
+          const status = (event.status || '').toLowerCase();
           const isPast = !!event.passado;
-          const badgeClass = isPast ? 'event-badge--past' : (dateInfo.day ? 'event-badge--agendado' : 'event-badge--semdata');
-          const badgeText = isPast ? 'Encerrado' : (dateInfo.periodLabel ? 'Agendado' : 'Data a confirmar');
+          let badgeClass, badgeText;
+          if (status === 'cancelled') {
+            badgeClass = 'event-badge--past';
+            badgeText = 'Cancelado';
+          } else if (status === 'ongoing') {
+            badgeClass = 'event-badge--agendado';
+            badgeText = 'Acontecendo';
+          } else if (isPast || status === 'finished') {
+            badgeClass = 'event-badge--past';
+            badgeText = 'Encerrado';
+          } else if (dateInfo.day) {
+            badgeClass = 'event-badge--agendado';
+            badgeText = 'Agendado';
+          } else {
+            badgeClass = 'event-badge--semdata';
+            badgeText = 'Data a confirmar';
+          }
           const cat = CATEGORY_LABELS[event.categoria] || '';
           return `
             <article class="event-card">
@@ -524,6 +540,7 @@
                 ${dateInfo.periodLabel ? `<span><i class="fas fa-calendar-alt"></i> ${escapeHtml(dateInfo.periodLabel)}</span>` : ''}
                 ${(where || event.local) ? `<span><i class="fas fa-map-marker-alt"></i> ${escapeHtml(where || event.local)}${event.local && where ? ` &middot; ${escapeHtml(event.local)}` : ''}</span>` : ''}
                 ${cat ? `<span><i class="fas fa-tag"></i> ${escapeHtml(cat)}</span>` : ''}
+                ${event.fonte_nome ? `<span><i class="fas fa-building"></i> ${escapeHtml(event.fonte_nome)}</span>` : ''}
               </div>
               ${event.url ? `
                 <div class="event-card-actions">

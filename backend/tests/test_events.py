@@ -634,6 +634,113 @@ class EventsHtmlPageTest(unittest.TestCase):
         self.assertIn('<a href="eventos.html" class="footer-link">Eventos</a>', self.html)
 
 
+class EventModelTest(unittest.TestCase):
+    def test_make_event_adds_structured_fields(self):
+        ev = svc._make_event(
+            titulo="AUTOP 2026", url="https://x/1", data_inicio="2026-08-19",
+            data_fim="2026-08-22", cidade="São Paulo", uf="SP",
+            fonte="nfeas", fonte_nome="NFeiras",
+        )
+        self.assertEqual(ev["normalized_title"], "autop 2026")
+        self.assertEqual(ev["confidence"], 0.90)
+        self.assertEqual(ev["status"], "upcoming")
+        self.assertEqual(ev["country"], "BR")
+        # id estável e reproduzível
+        self.assertEqual(
+            ev["id"],
+            svc._make_event(
+                titulo="Autop 2026", url="https://x/2", data_inicio="2026-08-19",
+                cidade="São Paulo", uf="SP", fonte="nfeas", fonte_nome="NFeiras",
+            )["id"],
+        )
+
+    def test_web_source_has_lower_confidence(self):
+        ev = svc._make_event(
+            titulo="Salão do Automóvel", url="https://x", data_inicio="2026-10-01",
+            fonte="web", fonte_nome="Busca Web",
+        )
+        self.assertEqual(ev["confidence"], 0.40)
+
+    def test_status_derived(self):
+        self.assertEqual(
+            svc.derive_status("2020-01-01", None, ""), "finished"
+        )
+        self.assertEqual(
+            svc.derive_status("2030-01-01", None, ""), "upcoming"
+        )
+        self.assertEqual(
+            svc.derive_status("2026-01-01", "2026-01-02", "Evento cancelado"), "cancelled"
+        )
+
+
+class EventDedupeTest(unittest.TestCase):
+    def _ev(self, titulo, data, cidade="", fonte="nfeas", conf=None):
+        ev = svc._make_event(
+            titulo=titulo, url="https://x", data_inicio=data, cidade=cidade,
+            fonte=fonte, fonte_nome=fonte,
+        )
+        if conf is not None:
+            ev["confidence"] = conf
+        return ev
+
+    def test_merges_same_event_keeps_higher_confidence(self):
+        a = self._ev("AUTOP 2026", "2026-08-19", "São Paulo", "nfeas", 0.90)
+        b = self._ev("AUTOP 2026", "2026-08-19", "São Paulo", "web", 0.40)
+        out = svc._dedupe_events([a, b])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["confidence"], 0.90)
+
+    def test_keeps_different_events(self):
+        a = self._ev("AUTOP 2026", "2026-08-19", "São Paulo", "nfeas")
+        b = self._ev("Seminário Pneus 2026", "2026-09-10", "Curitiba", "sindirepa")
+        out = svc._dedupe_events([a, b])
+        self.assertEqual(len(out), 2)
+
+
+class EventDbRowTest(unittest.TestCase):
+    def test_event_db_row_maps_fields(self):
+        ev = svc._make_event(
+            titulo="AUTOP 2026", url="https://x/1", data_inicio="2026-08-19",
+            data_fim="2026-08-22", cidade="São Paulo", uf="SP",
+            latitude=-23.55, longitude=-46.63, fonte="nfeas", fonte_nome="NFeiras",
+        )
+        row = svc._event_db_row(ev)
+        self.assertEqual(row["id"], ev["id"])
+        self.assertEqual(row["title"], "AUTOP 2026")
+        self.assertEqual(row["start_date"], "2026-08-19")
+        self.assertEqual(row["latitude"], -23.55)
+        self.assertEqual(row["state"], "SP")
+        self.assertEqual(row["source"], "nfeas")
+        self.assertIn("last_verified_at", row)
+
+
+class EventNearbyTest(unittest.TestCase):
+    def test_filter_events_by_radius(self):
+        sp = svc._make_event(
+            titulo="Feira SP", url="https://x", data_inicio="2026-08-19",
+            cidade="São Paulo", uf="SP", latitude=-23.55, longitude=-46.63,
+            fonte="nfeas", fonte_nome="NFeiras",
+        )
+        rj = svc._make_event(
+            titulo="Feira RJ", url="https://y", data_inicio="2026-08-19",
+            cidade="Rio de Janeiro", uf="RJ", latitude=-22.90, longitude=-43.20,
+            fonte="nfeas", fonte_nome="NFeiras",
+        )
+        # perto de SP (~10km): só SP
+        near = svc.filter_events([sp, rj], lat=-23.56, lng=-46.64, radius_km=50)
+        self.assertEqual([e["titulo"] for e in near], ["Feira SP"])
+        # raio grande: ambos
+        both = svc.filter_events([sp, rj], lat=-23.56, lng=-46.64, radius_km=500)
+        self.assertEqual(len(both), 2)
+        # sem coordenadas: excluídos do filtro geográfico
+        no_coord = svc._make_event(
+            titulo="Sem Geo", url="https://z", data_inicio="2026-08-19",
+            cidade="Recife", uf="PE", fonte="nfeas", fonte_nome="NFeiras",
+        )
+        only_near = svc.filter_events([sp, no_coord], lat=-23.56, lng=-46.64, radius_km=50)
+        self.assertEqual([e["titulo"] for e in only_near], ["Feira SP"])
+
+
 def _load_events_module():
     """Carrega routes/events.py isolado, com stubs para os módulos irmãos
     que puxariam dependências pesadas (DB, JWT, push)."""

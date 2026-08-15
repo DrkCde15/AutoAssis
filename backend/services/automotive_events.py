@@ -15,7 +15,11 @@ Resultados são normalizados num schema comum e cacheados (padrão 6h).
 import re
 import os
 import base64
+import hashlib
+import difflib
 import logging
+from math import radians, sin, cos, atan2, sqrt
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 
@@ -182,6 +186,78 @@ def _clean_text(value):
     return re.sub(r"\s+", " ", value).strip()
 
 
+def _normalize_title(value):
+    """Título normalizado para matching/deduplicação (minúsculo, sem acento)."""
+    if not value:
+        return ""
+    s = _clean_text(value).lower().translate(_ACCENTS_TRANS)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _iso_to_date(value):
+    """Converte 'YYYY-MM-DD' em date; retorna None se inválido."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (ValueError, TypeError):
+        return None
+
+
+def _stable_event_id(fonte, normalized_title, start_date, city):
+    """ID determinístico e estável entre processos (substitui o hash() frágil)."""
+    seed = f"{fonte}|{normalized_title}|{start_date or ''}|{city or ''}"
+    h = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:10]
+    return f"{fonte}:{h}"
+
+
+# Confiança da fonte (0-1): quanto mais estruturada/confiável, maior.
+# Fontes oficiais/especializadas têm HTML estável e curado; busca web genérica
+# é ruído e raramente traz data estruturada -> confiança baixa.
+CONFIDENCE_BY_SOURCE = {
+    "nfeas": 0.90,
+    "sindirepa": 0.90,
+    "diretriz": 0.90,
+    "interlagos": 0.90,
+    "web": 0.40,
+}
+
+
+def _source_confidence(fonte):
+    return CONFIDENCE_BY_SOURCE.get(fonte, 0.50)
+
+
+def derive_status(start_date, end_date, text=""):
+    """Status temporal do evento (não apaga registros passados)."""
+    if "cancelad" in (text or "").lower():
+        return "cancelled"
+    today = date.today()
+    sd, ed = _iso_to_date(start_date), _iso_to_date(end_date)
+    if ed and ed < today:
+        return "finished"
+    if sd and sd < today:
+        return "finished"
+    if sd and sd > today:
+        return "upcoming"
+    if sd and sd <= today and ed and ed >= today:
+        return "ongoing"
+    return "unknown"
+
+
+def _haversine(lat1, lng1, lat2, lng2):
+    """Distância em km entre dois pontos (fórmula de Haversine)."""
+    try:
+        lat1, lng1, lat2, lng2 = map(float, (lat1, lng1, lat2, lng2))
+    except (TypeError, ValueError):
+        return float("inf")
+    r = 6371.0
+    p1, p2 = radians(lat1), radians(lat2)
+    dp = radians(lat2 - lat1)
+    dl = radians(lng2 - lng1)
+    a = sin(dp / 2) ** 2 + cos(p1) * cos(p2) * sin(dl / 2) ** 2
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a))
+
+
 def _fetch_html(url: str) -> str:
     resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
@@ -345,26 +421,49 @@ def _classify_category(titulo="", descricao="", local=""):
 
 
 def _make_event(*, titulo, url, fonte, fonte_nome, data_inicio=None, data_fim=None,
-                cidade="", uf="", local="", descricao=""):
+                cidade="", uf="", local="", descricao="", venue_name="",
+                address="", organizer="", organizer_url="", image_url="",
+                latitude=None, longitude=None, country="BR",
+                start_time=None, end_time=None, source_url=""):
     hoje = date.today().isoformat()
-    titulo_clean = _clean_text(titulo)[:160]
+    titulo_clean = _clean_text(titulo)[:200]
     cidade_clean = _clean_text(cidade)[:80]
+    normalized = _normalize_title(titulo_clean)
+    desc_clean = _clean_text(descricao)[:400]
+    local_clean = _clean_text(local)[:120]
+    status = derive_status(data_inicio, data_fim, f"{titulo_clean} {desc_clean}")
     return {
-        "id": f"{fonte}_{abs(hash(titulo.lower() + '|' + url)) % 99999999}",
+        "id": _stable_event_id(fonte, normalized, data_inicio, cidade_clean),
         "titulo": titulo_clean,
+        "original_title": titulo_clean,
+        "normalized_title": normalized,
         "url": (url or "").strip(),
         "data_inicio": data_inicio,
         "data_fim": data_fim,
+        "start_time": start_time,
+        "end_time": end_time,
         "cidade": cidade_clean,
         "uf": ((uf or "").upper()) or _uf_from_city(cidade_clean),
-        "local": _clean_text(local)[:120],
-        "descricao": _clean_text(descricao)[:400],
-        "categoria": _classify_category(titulo_clean, _clean_text(descricao)[:400], _clean_text(local)[:120]),
+        "local": local_clean,
+        "venue_name": _clean_text(venue_name)[:160],
+        "address": _clean_text(address)[:200],
+        "descricao": desc_clean,
+        "categoria": _classify_category(titulo_clean, desc_clean, local_clean),
         "categoria_label": "",
+        "organizer": _clean_text(organizer)[:160],
+        "organizer_url": (organizer_url or "").strip(),
+        "event_url": (url or source_url or "").strip(),
+        "image_url": (image_url or "").strip(),
+        "latitude": latitude,
+        "longitude": longitude,
+        "country": (country or "BR")[:2].upper(),
         "fonte": fonte,
         "fonte_nome": fonte_nome,
-        "imagem": None,
+        "source_url": (source_url or url or "").strip(),
+        "status": status,
+        "confidence": _source_confidence(fonte),
         "passado": bool(data_inicio and data_inicio < hoje),
+        "last_verified_at": None,
     }
 
 
@@ -663,27 +762,37 @@ def _extract_event_blocks(soup, fonte_nome="Busca Web"):
 
 
 def _scrape_bing_events():
-    """Busca web via Bing (último fallback, sem custo, sujeito a bloqueio).
+    """Busca web via Bing usando Scrapling (curl_cffi, TLS stealth, sem navegador).
 
     O Google exige JS (interstitial "enablejs"); o Bing ainda serve o HTML dos
-    resultados sem JS. É o fallback quando o Playwright e a Brave API falham.
+    resultados sem JS. O Scrapling aplica fingerprint TLS de navegador (curl_cffi),
+    lendo a SERP sem cair em captcha e sem abrir um browser — é a fonte primária
+    da busca web, com Brave API e Playwright como fallbacks.
     """
     queries = _web_queries()
 
     def _search(query):
         try:
-            resp = requests.get(
-                WEB_SEARCH_URL,
-                params={"q": query, "setlang": "pt-BR", "cc": "BR", "count": "20"},
-                headers=HEADERS,
+            from scrapling.fetchers import Fetcher
+            url = (WEB_SEARCH_URL + "?q=" + quote(query)
+                   + "&setlang=pt-BR&cc=BR&count=20")
+            resp = Fetcher.get(
+                url,
+                impersonate="chrome",
                 timeout=REQUEST_TIMEOUT,
+                headers={"Accept-Language": "pt-BR,pt;q=0.9"},
             )
-            if resp.status_code != 200:
+            body = getattr(resp, "body", b"") or b""
+            if isinstance(body, (bytes, bytearray)):
+                html = body.decode("utf-8", "ignore")
+            else:
+                html = str(body)
+            if not html:
                 return []
-            if _is_bot_page(resp.text):
+            if _is_bot_page(html):
                 logger.warning("Bing retornou bloqueio para '%s'", query)
                 return []
-            soup = BeautifulSoup(resp.text, "html.parser")
+            soup = BeautifulSoup(html, "html.parser")
             return _extract_event_blocks(soup)
         except Exception as e:
             logger.debug("Busca web falhou (%s): %s", query, e)
@@ -808,13 +917,11 @@ def _scrape_brave_events(api_key: str):
 
 
 def _scrape_web_playwright():
-    """Busca web via navegador real (Playwright) — alternativa sem custo à Brave API.
+    """Fallback de busca web via navegador real (Playwright).
 
-    Requisições HTTP puras às SERPs caem em captcha ("enablejs"); acessando a
-    busca por um Chromium headless com User-Agent e locale pt-BR, o Bing serve o
-    HTML renderizado com `li.b_algo`. É o equivalente ao anti-blocking que o
-    Crawlee aplicaria — porém com Playwright direto (o backend do Crawlee não tem
-    wheel para o Python 3.13 deste ambiente).
+    Usado quando o Scrapling/Bing e a Brave API falham em retornar eventos. Um
+    Chromium headless com User-Agent e locale pt-BR lê a SERP renderizada do Bing
+    (com `li.b_algo`), contornando bloqueios que o HTTP puro não supera.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -869,13 +976,13 @@ def _scrape_web_playwright():
 
 
 def _scrape_web_events():
-    """Canal de busca web: Playwright (browser, sem custo) -> Brave API -> Bing HTTP.
+    """Canal de busca web: Scrapling/Bing (HTTP stealth) -> Brave API -> Playwright.
 
-    O Playwright é a fonte primária: lê a SERP renderizada sem cair em captcha.
-    A Brave Search API só entra se BRAVE_API_KEY estiver configurada; o Bing HTTP
-    é o último fallback (sem custo, porém sujeito a bloqueio).
+    O Scrapling lê a SERP do Bing com fingerprint TLS de navegador, sem captcha e
+    sem abrir browser — é a fonte primária. A Brave Search API entra se BRAVE_API_KEY
+    existir; o Playwright (Chromium headless) é o fallback final contra bloqueios.
     """
-    events = _scrape_web_playwright()
+    events = _scrape_bing_events()
     if events:
         return events
     api_key = os.getenv("BRAVE_API_KEY")
@@ -883,8 +990,8 @@ def _scrape_web_events():
         events = _scrape_brave_events(api_key)
         if events:
             return events
-        logger.warning("[Events] Brave Search vazio/indisponível — usando fallback Bing.")
-    return _scrape_bing_events()
+        logger.warning("[Events] Brave Search vazio/indisponível — fallback Playwright.")
+    return _scrape_web_playwright()
 
 
 # ─────────────────────────── orquestrador / API ───────────────────────────
@@ -896,6 +1003,149 @@ SOURCE_RUNNERS = [
     ("interlagos", "Shopping Interlagos", _scrape_interlagos),
     ("web", "Busca Web", _scrape_web_events),
 ]
+
+
+def _event_similarity(a, b):
+    """Score 0-100 de similaridade entre dois eventos (deduplicação por score)."""
+    score = 0
+    ta, tb = a.get("normalized_title") or "", b.get("normalized_title") or ""
+    if ta and tb:
+        ratio = difflib.SequenceMatcher(None, ta, tb).ratio()
+        if ratio >= 0.85:
+            score += 30
+        elif ratio >= 0.6:
+            score += 20
+    sd_a, sd_b = a.get("data_inicio"), b.get("data_inicio")
+    if sd_a and sd_b and sd_a == sd_b:
+        score += 30
+    ca, cb = (a.get("cidade") or "").lower(), (b.get("cidade") or "").lower()
+    if ca and cb and ca == cb:
+        score += 20
+    va, vb = (a.get("venue_name") or "").lower(), (b.get("venue_name") or "").lower()
+    if va and vb and va == vb:
+        score += 20
+    oa, ob = (a.get("organizer") or "").lower(), (b.get("organizer") or "").lower()
+    if oa and ob and oa == ob:
+        score += 15
+    return score
+
+
+def _dedupe_events(events, threshold=60):
+    """Remove duplicados mantendo o registro de MAIOR confiança (canônico)."""
+    accepted = []
+    for ev in events:
+        is_dup = False
+        for kept in accepted:
+            if _event_similarity(ev, kept) >= threshold:
+                is_dup = True
+                if (ev.get("confidence") or 0) > (kept.get("confidence") or 0):
+                    kept.clear()
+                    kept.update(ev)
+                break
+        if not is_dup:
+            accepted.append(ev)
+    return accepted
+
+
+def _geocode_event(ev):
+    """Preenche latitude/longitude se faltarem (reuso do cache Nominatim)."""
+    if ev.get("latitude") is not None and ev.get("longitude") is not None:
+        return
+    city = ev.get("cidade")
+    uf = ev.get("uf")
+    if not city:
+        return
+    try:
+        from utils.geocode import geocode_address
+        query = f"{city}, {uf}, Brasil" if uf else f"{city}, Brasil"
+        lat, lng = geocode_address(query)
+        if lat is not None and lng is not None:
+            ev["latitude"], ev["longitude"] = lat, lng
+    except Exception as exc:
+        logging.getLogger(__name__).debug("geocode falhou para %s: %s", city, exc)
+
+
+_EVENT_COLUMNS = [
+    "id", "title", "original_title", "normalized_title", "description", "category",
+    "categoria_label", "start_date", "end_date", "start_time", "end_time", "venue_name",
+    "address", "city", "state", "country", "latitude", "longitude", "organizer",
+    "organizer_url", "event_url", "image_url", "source", "source_url", "status",
+    "confidence", "last_verified_at",
+]
+
+_EVENT_INSERT_SQL = (
+    "INSERT INTO events (" + ", ".join(_EVENT_COLUMNS) + ") VALUES ("
+    + ", ".join(["%s"] * len(_EVENT_COLUMNS)) + ")"
+)
+
+_EVENT_UPSERT_SQL = _EVENT_INSERT_SQL + " ON DUPLICATE KEY UPDATE " + ", ".join(
+    f"{c}=VALUES({c})" for c in _EVENT_COLUMNS if c != "id"
+)
+
+
+def _event_db_row(ev):
+    """Mapeia o evento normalizado para a tupla de colunas do MySQL."""
+    return {
+        "id": ev["id"],
+        "title": ev.get("titulo") or "",
+        "original_title": ev.get("original_title") or ev.get("titulo") or "",
+        "normalized_title": ev.get("normalized_title") or "",
+        "description": ev.get("descricao"),
+        "category": ev.get("categoria"),
+        "categoria_label": ev.get("categoria_label") or ev.get("categoria") or "",
+        "start_date": ev.get("data_inicio"),
+        "end_date": ev.get("data_fim"),
+        "start_time": ev.get("start_time"),
+        "end_time": ev.get("end_time"),
+        "venue_name": ev.get("venue_name") or None,
+        "address": ev.get("address") or None,
+        "city": ev.get("cidade") or None,
+        "state": ev.get("uf") or None,
+        "country": ev.get("country") or "BR",
+        "latitude": ev.get("latitude"),
+        "longitude": ev.get("longitude"),
+        "organizer": ev.get("organizer") or None,
+        "organizer_url": ev.get("organizer_url") or None,
+        "event_url": ev.get("event_url") or ev.get("url") or None,
+        "image_url": ev.get("image_url") or None,
+        "source": ev.get("fonte"),
+        "source_url": ev.get("source_url") or ev.get("url") or None,
+        "status": ev.get("status") or "unknown",
+        "confidence": ev.get("confidence") or 0.5,
+        "last_verified_at": datetime.now(),
+    }
+
+
+def persist_events(events):
+    """Upsert em lote dos eventos no MySQL. Retorna (inseridos, atualizados)."""
+    if not events:
+        return 0, 0
+    from routes.database import get_db
+    rows = [_event_db_row(ev) for ev in events]
+    ids = [r["id"] for r in rows]
+    inserted = updated = 0
+    with get_db() as (cursor, conn):
+        existing = set()
+        if ids:
+            placeholders = ", ".join(["%s"] * len(ids))
+            cursor.execute(f"SELECT id FROM events WHERE id IN ({placeholders})", ids)
+            existing = {row[0] for row in cursor.fetchall()}
+        to_insert = [r for r in rows if r["id"] not in existing]
+        to_update = [r for r in rows if r["id"] in existing]
+        if to_insert:
+            cursor.executemany(
+                _EVENT_INSERT_SQL,
+                [tuple(r[c] for c in _EVENT_COLUMNS) for r in to_insert],
+            )
+            inserted = len(to_insert)
+        if to_update:
+            cursor.executemany(
+                _EVENT_UPSERT_SQL,
+                [tuple(r[c] for c in _EVENT_COLUMNS) for r in to_update],
+            )
+            updated = len(to_update)
+        conn.commit()
+    return inserted, updated
 
 
 def scan_automotive_events(force=False):
@@ -951,16 +1201,18 @@ def scan_automotive_events(force=False):
                     continue
                 all_events.append(ev)
 
-    # deduplicação por (titulo min + data_inicio) — fontes indexam o mesmo
-    # evento com URLs diferentes (ex.: NFeiras x Sindirepa)
-    seen = set()
-    deduped = []
-    for ev in all_events:
-        key = (ev["titulo"].lower(), ev["data_inicio"] or ev["url"])
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(ev)
+    # deduplicação por score (fontes indexam o mesmo evento com URLs diferentes)
+    deduped = _dedupe_events(all_events)
+
+    # geocodifica eventos sem coordenadas (reuso do cache do Nominatim)
+    for ev in deduped:
+        _geocode_event(ev)
+
+    # persiste no MySQL (histórico/status; mantém passados + futuros)
+    try:
+        persist_events(deduped)
+    except Exception as exc:  # nunca quebra a varredura por falha de DB
+        logging.getLogger(__name__).warning("Falha ao persistir eventos: %s", exc)
 
     def _sort_key(ev):
         return (0, ev["data_inicio"] or "9999") if ev["data_inicio"] else (1, ev["titulo"].lower())
@@ -980,7 +1232,8 @@ def scan_automotive_events(force=False):
     return payload
 
 
-def filter_events(events, uf=None, q=None, categoria=None, periodo=None):
+def filter_events(events, uf=None, q=None, categoria=None, periodo=None,
+                  lat=None, lng=None, radius_km=None):
     """Aplica os filtros da busca de eventos (usado pela rota /api/events/automotive).
 
     - uf       : UF (BR, maiúscula) ou "INT" para internacionais
@@ -988,6 +1241,7 @@ def filter_events(events, uf=None, q=None, categoria=None, periodo=None):
     - categoria: feira | encontro | competicao | exposicao | congresso | outros
     - periodo  : "30" | "90" | "ano" | "todos" (padrão: "todos" → futuros já
                  filtrados na varredura)
+    - lat/lng/radius_km: filtro geográfico "perto de mim" (raio em km, padrão 50)
     Resultado é ordenado por data e cortado no limite global.
     """
     result = list(events)
@@ -1028,5 +1282,21 @@ def filter_events(events, uf=None, q=None, categoria=None, periodo=None):
     result.sort(key=lambda ev: (
         0, ev["data_inicio"] or "9999"
     ) if ev["data_inicio"] else (1, ev["titulo"].lower()))
+
+    if lat is not None and lng is not None:
+        try:
+            lat_f, lng_f = float(lat), float(lng)
+        except (TypeError, ValueError):
+            lat_f = lng_f = None
+        if lat_f is not None:
+            radius = float(radius_km) if radius_km else 50.0
+            nearby = []
+            for ev in result:
+                ela, elng = ev.get("latitude"), ev.get("longitude")
+                if ela is None or elng is None:
+                    continue
+                if _haversine(lat_f, lng_f, ela, elng) <= radius:
+                    nearby.append(ev)
+            result = nearby
 
     return result[:MAX_EVENTS]

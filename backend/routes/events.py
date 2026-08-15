@@ -177,7 +177,7 @@ def cron_events_notifications():
 @events_bp.route('/api/events/automotive', methods=['GET'])
 def automotive_events():
     """
-    Retorna eventos automotivos coletados por web scraping / Google.
+    Retorna eventos automotivos coletados por web scraping / fontes especializadas.
 
     Query params:
       - force=1       : ignora o cache e refaz a varredura
@@ -185,6 +185,8 @@ def automotive_events():
       - q=auto        : filtra por termo no título/descrição/cidade/local
       - categoria=    : feira | encontro | competicao | exposicao | congresso | outros
       - periodo=      : "30" | "90" | "ano" | "todos" — janela a partir de hoje
+      - lat=/lng=     : filtro geográfico "perto de mim"
+      - radius=       : raio em km (padrão 50) usado com lat/lng
     """
     try:
         force = request.args.get('force', '').lower() in ('1', 'true', 'yes')
@@ -192,6 +194,9 @@ def automotive_events():
         q = (request.args.get('q') or '').strip().lower()
         categoria = (request.args.get('categoria') or '').strip().lower()
         periodo = (request.args.get('periodo') or '').strip().lower()
+        lat = request.args.get('lat') or None
+        lng = request.args.get('lng') or None
+        radius = request.args.get('radius') or None
 
         data = scan_automotive_events(force=force)
 
@@ -201,6 +206,9 @@ def automotive_events():
             q=q or None,
             categoria=categoria or None,
             periodo=periodo or None,
+            lat=lat,
+            lng=lng,
+            radius_km=radius,
         )
 
         data['count'] = len(events)
@@ -210,3 +218,41 @@ def automotive_events():
     except Exception as e:
         logger.error(f"Erro na varredura de eventos: {e}")
         return jsonify({"success": False, "error": "Erro interno na varredura de eventos"}), 500
+
+
+@events_bp.route('/api/events/<event_id>', methods=['GET'])
+def get_event(event_id):
+    """Retorna um evento específico (busca no cache da varredura + MySQL)."""
+    try:
+        event_id = event_id.strip()
+        data = scan_automotive_events(force=False)
+        for ev in data.get('events', []):
+            if ev.get('id') == event_id:
+                return jsonify({"success": True, "event": ev}), 200
+
+        from routes.database import get_db
+        with get_db() as (cursor, conn):
+            cols = ", ".join([
+                "id", "title", "original_title", "normalized_title", "description",
+                "category", "categoria_label", "start_date", "end_date", "start_time",
+                "end_time", "venue_name", "address", "city", "state", "country",
+                "latitude", "longitude", "organizer", "organizer_url", "event_url",
+                "image_url", "source", "source_url", "status", "confidence",
+                "last_verified_at",
+            ])
+            cursor.execute(f"SELECT {cols} FROM events WHERE id=%s LIMIT 1", (event_id,))
+            row = cursor.fetchone()
+        if not row:
+            return jsonify({"success": False, "error": "Evento não encontrado"}), 404
+        keys = ["id", "titulo", "original_title", "normalized_title", "descricao",
+                "categoria", "categoria_label", "data_inicio", "data_fim", "start_time",
+                "end_time", "venue_name", "address", "cidade", "uf", "country",
+                "latitude", "longitude", "organizer", "organizer_url", "event_url",
+                "image_url", "fonte", "source_url", "status", "confidence",
+                "last_verified_at"]
+        ev = {k: v for k, v in zip(keys, row)}
+        return jsonify({"success": True, "event": ev}), 200
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar evento {event_id}: {e}")
+        return jsonify({"success": False, "error": "Erro interno ao buscar evento"}), 500
