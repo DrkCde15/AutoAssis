@@ -129,7 +129,7 @@ class FilterEventsTest(unittest.TestCase):
                             cidade="São Paulo", uf="SP", descricao="Feira de autopeças",
                             fonte="nfeas", fonte_nome="NFeiras"),
             svc._make_event(titulo="Encontro de Carros Antigos", url="https://x/2", data_inicio="2026-10-01",
-                            cidade="Curitiba", uf="PR", fonte="google", fonte_nome="Google"),
+                            cidade="Curitiba", uf="PR", fonte="web", fonte_nome="web"),
             svc._make_event(titulo="Congresso da Reparação", url="https://x/3",
                             cidade="Belo Horizonte", uf="MG",
                             fonte="sindirepa", fonte_nome="Sindirepa"),
@@ -335,21 +335,18 @@ class InterlagosScraperTest(unittest.TestCase):
         self.assertEqual(events[0]["uf"], "SP")
 
 
-class GoogleOrganicTest(unittest.TestCase):
+class WebSearchTest(unittest.TestCase):
     def test_extracts_results(self):
         html = """
         <html><body>
-        <div class="g">
-            <div class="tF2Cxc">
-                <a href="https://www.sympla.com.br/evento/encontro-de-carros-2026/abc"><h3>Encontro de Carros 2026 - Sympla</h3></a>
-                <span class="VwiC3b">Bla bla bla 06 a 09 de maio de 2026 dados</span>
-                <div style="position:relative"><div class="VwiC3b">blabla</div></div>
-            </div>
-        </div>
+        <li class="b_algo">
+            <h2><a href="https://www.sympla.com.br/evento/encontro-de-carros-2026/abc">Encontro de Carros 2026 - Sympla</a></h2>
+            <div class="b_caption"><p>Bla bla bla 06 a 09 de maio de 2026 dados</p></div>
+        </li>
         </body></html>
         """
         soup = __import__("bs4").BeautifulSoup(html, "html.parser")
-        results = svc._extract_google_organic(soup)
+        results = svc._extract_event_blocks(soup)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["titulo"], "Encontro de Carros 2026 - Sympla")
         self.assertIn("sympla.com.br", results[0]["url"])
@@ -369,7 +366,7 @@ class ScanTest(unittest.TestCase):
                                 data_fim="2026-08-22", fonte="sindirepa", fonte_nome="Sindirepa"),
                 svc._make_event(titulo="CentroParts 2026", url="https://x/2", data_inicio="2020-01-01",
                                 fonte="sindirepa", fonte_nome="Sindirepa"),  # passado
-                svc._make_event(titulo="Sem data", url="https://x/3", fonte="google", fonte_nome="Google"),
+                svc._make_event(titulo="Sem data", url="https://x/3", fonte="web", fonte_nome="web"),
             ]
 
         def fake_diretriz():
@@ -378,10 +375,10 @@ class ScanTest(unittest.TestCase):
         def fake_interlagos():
             return []
 
-        def fake_google():
+        def fake_web():
             return [
                 svc._make_event(titulo="Salão do Automóvel 2026", url="https://x/4",
-                                data_inicio="2026-10-01", fonte="google", fonte_nome="Google"),
+                                data_inicio="2026-10-01", fonte="web", fonte_nome="web"),
             ]
 
         with patch.object(svc, "SOURCE_RUNNERS", [
@@ -389,7 +386,7 @@ class ScanTest(unittest.TestCase):
                 ("sindirepa", "Sindirepa", fake_sindirepa),
                 ("diretriz", "Diretriz", fake_diretriz),
                 ("interlagos", "Interlagos", fake_interlagos),
-                ("google", "Google", fake_google),
+                ("web", "web", fake_web),
         ]), \
                 patch.object(svc, "cache_get_json", return_value=None), \
                 patch.object(svc, "cache_set_json", return_value=None):
@@ -407,7 +404,7 @@ class ScanTest(unittest.TestCase):
         self.assertEqual(payload["events"][-1]["titulo"], "Sem data")
         # fontes reportadas
         slugs = {s["slug"] for s in payload["sources"]}
-        self.assertEqual(slugs, {"nfeas", "sindirepa", "diretriz", "interlagos", "google"})
+        self.assertEqual(slugs, {"nfeas", "sindirepa", "diretriz", "interlagos", "web"})
 
     def test_scan_records_source_failure(self):
         def boom():
@@ -418,7 +415,7 @@ class ScanTest(unittest.TestCase):
                 ("sindirepa", "Sindirepa", lambda: []),
                 ("diretriz", "Diretriz", lambda: []),
                 ("interlagos", "Interlagos", lambda: []),
-                ("google", "Google", lambda: []),
+                ("web", "web", lambda: []),
         ]), \
                 patch.object(svc, "cache_get_json", return_value=None), \
                 patch.object(svc, "cache_set_json", return_value=None):

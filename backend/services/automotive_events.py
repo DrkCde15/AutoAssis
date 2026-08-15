@@ -13,6 +13,8 @@ Se uma fonte falhar, o erro é registrado e não quebra as demais.
 Resultados são normalizados num schema comum e cacheados (padrão 6h).
 """
 import re
+import os
+import base64
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
@@ -21,13 +23,16 @@ import requests
 from bs4 import BeautifulSoup
 
 from utils.cache import cache_get_json, cache_set_json
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
 EVENTS_CACHE_TTL = 6 * 3600  # 6 horas
 REQUEST_TIMEOUT = 6
 MAX_EVENTS = 150
-MAX_GOOGLE_EVENTS = 60
+MAX_GOOGLE_EVENTS = 80
+
+WEB_SEARCH_URL = "https://www.bing.com/search"
 
 HEADERS = {
     "User-Agent": (
@@ -55,35 +60,89 @@ MONTHS = {
 }
 _MONTH_ALT = "|".join(sorted(set(MONTHS), key=len, reverse=True))
 
-# Filtra conteúdos não-automotivos das fontes genéricas
-AUTOMOTIVE_KEYWORDS = (
-    "automot", "autopar", "automecanika", "automec", "auto", "veicul", "veiculo",
-    "automove", "autopec", "pecas", "peca", "reposicao", "reposto", "pneu",
-    "mecanic", "oficina", "carro", "caminhao", "truck", "parts", "moto",
-    "turbo", "drift", "rally", "corrida", "formula", "eletrocar",
-    "fenajeep", "jeep", "suv", "atv", "motoshow", "encontro",
+# Filtra conteúdos não-automotivos das fontes genéricas.
+# STRONG: termo sozinho já indica automotivo (carro, peça, marca, etc.).
+# WEAK: substantivo de evento ("encontro", "exposição", "feira"...) que só
+#   conta SE vier acompanhado de um termo veicular — evita falsos positivos
+#   como "Encontro com Patrícia Poeta" ou "Exposição no MASP".
+AUTOMOTIVE_STRONG = (
+    "automot", "autopar", "automecanika", "automec", "veicul", "veiculo",
+    "automove", "autopec", "autop", "pecas", "peca", "reposicao", "reposto",
+    "pneu", "mecanic", "oficina", "carro", "carros", "caminhao", "caminhão",
+    "truck", "parts", "moto", "motos", "turbo", "drift", "rally", "rali",
+    "corrida", "formula", "eletrocar", "fenajeep", "jeep", "suv", "atv",
+    "motoshow", "hot wheels", "hotwheel", "diecast", "miniatura", "colecionador",
+    "leilao", "leilão", "motor", "trackday", "arrancada", "off road", "off-road",
+    "4x4", "jipe", "jipeiro", "kart", "monster", "tuning", "trator", "ônibus",
+    "onibus", "pilotagem", "restauracao", "restauração", "garagem", "chassi",
+    "motorista", "combustivel", "gasolina", "diesel", "bumper", "carroceria",
+    "autodrom",
+)
+AUTOMOTIVE_WEAK = (
+    "encontro", "expo", "exposi", "feira", "salao", "salão", "mostra",
+    "show", "feirinha", "antigo", "antiga", "classic", "clássico", "clássicos",
+    "clubes", "clube", "encontros", "meet", "meetup",
+)
+# palavras-veículo usadas para validar os termos WEAK
+_VEHICLE_WORDS = (
+    "carro", "carros", "veicul", "moto", "caminhao", "caminhão", "auto", "pneu",
+    "jeep", "4x4", "trator", "ônibus", "onibus", "bike", "quadriciclo",
+    "hot wheels", "diecast", "miniatura", "reboque", "tanque",
 )
 
-def _google_queries():
-    """Queries do Google: restritas ao Sympla (plataforma) + busca geral.
+def _web_queries(location="São Paulo"):
+    """Queries do Google: Sympla (plataforma) + buscas gerais amplas + viés local.
 
-    O ano é calculado dinamicamente para a busca sempre mirar eventos
-    atuais (e do próximo ano, quando o corrente estiver no fim).
+    - O ano é calculado dinamicamente (e o próximo, se estivermos no fim do ano).
+    - As queries "broad" capturam eventos genéricos (feira/expo/encontro/leilão)
+      que antes escapavam (ex.: Hot Wheels, colecionadores, comunidade).
+    - As queries "local" incluem a cidade para surfar a aba de Eventos do Google
+      e o Google Maps ("Próximos eventos"), que é onde eventos de bairro
+      (ex.: Aricanduva)_costumam aparecer.
     """
     year = datetime.now().year
-    return [
-        f"site:sympla.com.br evento automotivo {year}",
-        f"site:sympla.com.br encontro de carros {year}",
-        f"site:sympla.com.br feira autopecas {year}",
-        f"encontro de carros antigos {year}",
-        f"encontro de carros {year} calendario",
-        f"feira de autopecas {year}",
-        f"feira automotiva {year}",
-        f"salao do automovel {year}",
-        f"exposicao de carros {year}",
-        f"encontro de motos {year}",
-        f"rally automotivo {year}",
+    years = [year]
+    if datetime.now().month >= 10:
+        years.append(year + 1)
+
+    base = []
+    for y in years:
+        base += [
+            f"site:sympla.com.br evento automotivo {y}",
+            f"site:sympla.com.br encontro de carros {y}",
+            f"site:sympla.com.br feira autopecas {y}",
+        ]
+
+    broad = [
+        "eventos automotivos",
+        "evento de carros",
+        "feira de carros",
+        "encontro de carros",
+        "exposição de carros",
+        "feira auto peças",
+        "salão do automóvel",
+        "hot wheels evento",
+        "hot wheels encontro",
+        "leilão de carros",
+        "encontro de motos",
+        "rally de carros",
+        "expo automotiva",
+        "feirinha de carros",
     ]
+
+    local = [
+        f"eventos de carros em {location}",
+        f"feira de carros em {location}",
+        f"encontro de carros em {location}",
+        f"evento automotivo {location}",
+        f"hot wheels {location}",
+        f"encontro de carros antigos {location}",
+    ]
+
+    # anexa o ano a cada query ampla/local para restringir a eventos atuais
+    broad = [f"{q} {year}" for q in broad]
+    local = [f"{q} {year}" for q in local]
+    return base + broad + local
 
 # Classificação de categoria por palavras-chave (ordem importa: a primeira
 # regra que bater define a categoria — específicas antes das genéricas).
@@ -216,7 +275,11 @@ def _extract_city_uf(text: str):
             if len(parts) > 2:
                 return parts[0], "INT", "".join(parts[1:])
             return parts[0], "INT", ""
-        return parts[0], _uf_from_city(parts[0]), ""
+        # token único: só é cidade se reconhecida no mapeamento (evita
+        # poluir o campo com o snippet inteiro quando não há localização)
+        cidade = parts[0]
+        uf = _uf_from_city(cidade)
+        return (cidade, uf, "") if uf else ("", "", "")
     return "", "", ""
 
 
@@ -254,9 +317,18 @@ def _uf_from_city(cidade: str) -> str:
 
 
 def _is_automotive(text: str) -> bool:
-    """True se o texto citar termos do mundo automotivo."""
+    """True se o texto for claramente do mundo automotivo.
+
+    Termos STRONG validam sozinhos; termos WEAK (encontro, exposição, feira...)
+    só contam acompanhados de uma palavra-veículo, para evitar ruído como
+    'Encontro com Patrícia Poeta' ou 'Exposição no MASP'.
+    """
     t = (text or "").lower()
-    return any(k in t for k in AUTOMOTIVE_KEYWORDS)
+    if any(k in t for k in AUTOMOTIVE_STRONG):
+        return True
+    if any(w in t for w in AUTOMOTIVE_WEAK) and any(v in t for v in _VEHICLE_WORDS):
+        return True
+    return False
 
 
 def _classify_category(titulo="", descricao="", local=""):
@@ -477,69 +549,149 @@ def _scrape_interlagos():
     return events
 
 
-def _extract_google_organic(soup):
-    """Extrai resultado orgânico do Google (h3 + url + snippet + datas)."""
+def _is_bot_page(html: str) -> bool:
+    """Detecta páginas de bloqueio/CAPTCHA do Google (devolve 200 mas sem resultados)."""
+    markers = (
+        "nosso sistema detectou", "verificação de segurança", "unusual traffic",
+        "digite os caracteres", "our systems have detected", "before you continue",
+        "captcha", "robots", "sistema detectou tráfego incomum",
+    )
+    low = (html or "").lower()
+    return any(m in low for m in markers)
+
+
+# Domínios de plataformas de evento — isentos da exigência de data (já são
+# eventos por definição) e priorizados na busca web.
+EVENT_DOMAINS = (
+    "sympla", "eventbrite", "feverup", "fever", "facebook.com/events",
+    "meetup.com", "ingresso", "bileto", "guiaeventos", "eventos.com.br",
+    "wikievents", "loominee", "even3", "tickets", "lewear", "vamos",
+)
+# Domínios que nunca são eventos — descartados da busca web.
+NON_EVENT_DOMAINS = (
+    "wikipedia", "wikimedia", "youtube.com", "youtu.be", "gov.br", "gov",
+    "nyc.gov", "microsoft", "bing.com", "googleusercontent", "amazon",
+    "mercadolivre", "olx", "instagram.com", "twitter.com", "x.com",
+    "linkedin.com", "tiktok", "pinterest", "reddit.com",
+)
+
+
+def _is_event_domain(url: str) -> bool:
+    u = (url or "").lower()
+    return any(d in u for d in EVENT_DOMAINS)
+
+
+def _is_blocked_domain(url: str) -> bool:
+    u = (url or "").lower()
+    return any(d in u for d in NON_EVENT_DOMAINS)
+
+
+def _decode_search_redirect(href: str) -> str:
+    """Decodifica URLs de redirecionamento do Bing (`/ck/a?...&u=a1<base64>`).
+
+    O Bing envolve o link real num redirecionador; o alvo vem em base64 no
+    parâmetro `u=a1...`. Sem isso, todos os links apontariam para bing.com.
+    """
+    if not href or "bing.com/ck/a" not in href:
+        return href
+    m = re.search(r"u=a1([^&]+)", href)
+    if not m:
+        return href
+    try:
+        s = m.group(1)
+        s += "=" * (-len(s) % 4)
+        dec = base64.urlsafe_b64decode(s).decode("utf-8", "ignore")
+        if dec.startswith("http"):
+            return dec
+    except Exception:
+        pass
+    return href
+
+
+def _extract_event_blocks(soup, fonte_nome="Busca Web"):
+    """Extrai blocos de evento de uma SERP (Bing).
+
+    O Bing renderiza resultados server-side em `li.b_algo` (não exige JS, ao
+    contrário do Google que devolve um interstitial "enablejs"). Filtra
+    não-automotivos e extrai data/cidade do título+snippet.
+    """
     results = []
-    for el in soup.select("div.MjjYud, div.tF2Cxc"):
+    for el in soup.select("li.b_algo"):
         try:
-            link = el.select_one("a[href]")
-            if not link:
+            a = el.select_one("h2 a")
+            if not a:
                 continue
-            url = link.get("href", "")
+            url = _decode_search_redirect(a.get("href", ""))
             if not url.startswith("http"):
                 continue
-            if any(dom in url for dom in ("google.", "gstatic", "/redirect?")):
+            if any(d in url for d in ("bing.com", "microsoft.com", "msn.com", "live.com")):
                 continue
-            h3 = el.select_one("h3")
-            titulo = _clean_text(h3.get_text(strip=True))
-            if not titulo:
+            if _is_blocked_domain(url):
                 continue
-            snippet = ""
-            s = el.select_one(".VwiC3b, .IsZvec")
-            if s:
-                snippet = _clean_text(s.get_text(" ", strip=True))[:300]
-            inicio, fim = _parse_br_dates(f"{titulo} | {snippet}")
+
+            titulo = _clean_text(a.get_text(strip=True))
+            if not titulo or len(titulo) < 3:
+                continue
+
+            snippet_el = el.select_one(".b_caption p, p")
+            snippet = _clean_text(snippet_el.get_text(" ", strip=True)) if snippet_el else ""
+
+            raw = f"{titulo} | {snippet}"
+            if not _is_automotive(raw):
+                continue
+
+            cidade, uf, local = _extract_city_uf(snippet) if snippet else ("", "", "")
+            inicio, fim = _parse_br_dates(raw)
+            # Evento de verdade tem data; plataformas de evento são isentas.
+            if not _is_event_domain(url) and inicio is None:
+                continue
             results.append(_make_event(
                 titulo=titulo,
                 url=url,
                 data_inicio=inicio,
                 data_fim=fim,
+                cidade=cidade,
+                uf=uf,
+                local=local,
                 descricao=snippet,
-                fonte="google",
-                fonte_nome="Google",
+                fonte="web",
+                fonte_nome=fonte_nome,
             ))
         except Exception:
             continue
     return results
 
 
-def _scrape_google_events():
-    """Busca no Google (orgânico) — cobre Sympla via site: e encontros em geral.
+def _scrape_bing_events():
+    """Busca web via Bing (último fallback, sem custo, sujeito a bloqueio).
 
-    As queries rodam em paralelo (cada uma com timeout próprio) para que uma
-    consulta lenta não segure a varredura inteira.
+    O Google exige JS (interstitial "enablejs"); o Bing ainda serve o HTML dos
+    resultados sem JS. É o fallback quando o Playwright e a Brave API falham.
     """
-    queries = _google_queries()
+    queries = _web_queries()
 
     def _search(query):
         try:
             resp = requests.get(
-                "https://www.google.com.br/search",
-                params={"q": query, "hl": "pt-BR", "gl": "br", "num": "15"},
+                WEB_SEARCH_URL,
+                params={"q": query, "setlang": "pt-BR", "cc": "BR", "count": "20"},
                 headers=HEADERS,
                 timeout=REQUEST_TIMEOUT,
             )
             if resp.status_code != 200:
                 return []
+            if _is_bot_page(resp.text):
+                logger.warning("Bing retornou bloqueio para '%s'", query)
+                return []
             soup = BeautifulSoup(resp.text, "html.parser")
-            return _extract_google_organic(soup)
+            return _extract_event_blocks(soup)
         except Exception as e:
-            logger.debug("Google events falhou (%s): %s", query, e)
+            logger.debug("Busca web falhou (%s): %s", query, e)
             return []
 
     events = []
     seen_urls = set()
-    with ThreadPoolExecutor(max_workers=min(len(queries), 8)) as pool:
+    with ThreadPoolExecutor(max_workers=min(len(queries), 12)) as pool:
         futures = [pool.submit(_search, q) for q in queries]
         for fut in as_completed(futures):
             for item in fut.result() or []:
@@ -552,6 +704,189 @@ def _scrape_google_events():
     return events
 
 
+BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+
+
+def _parse_iso_date(value):
+    """Tenta extrair YYYY-MM-DD de um timestamp ISO (ex.: page_age da Brave)."""
+    if not value:
+        return None
+    m = re.match(r"(\d{4}-\d{2}-\d{2})", str(value))
+    if m:
+        try:
+            date.fromisoformat(m.group(1))
+            return m.group(1)
+        except ValueError:
+            return None
+    return None
+
+
+def _scrape_brave_events(api_key: str):
+    """Busca web via Brave Search API (JSON estruturado, sem desafio de JS).
+
+    Retorna resultados muito mais limpos e estáveis que o scraping de SERPs.
+    Requer BRAVE_API_KEY. Usa só as queries genéricas/localizadas (as queries
+    `site:sympla` são cobertas pelas fontes diretas), para economizar a cota
+    gratuita (~2000 consultas/mês).
+    """
+    queries = [q for q in _web_queries() if "site:sympla" not in q]
+
+    def _search(query):
+        try:
+            resp = requests.get(
+                BRAVE_SEARCH_URL,
+                params={
+                    "q": query,
+                    "country": "BR",
+                    "search_lang": "pt-BR",
+                    "count": "20",
+                    "safesearch": "moderate",
+                },
+                headers={
+                    "X-Subscription-Token": api_key,
+                    "Accept": "application/json",
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code != 200:
+                logger.warning("Brave API status %s para '%s'", resp.status_code, query)
+                return []
+            data = resp.json() or {}
+            results = []
+            for item in (data.get("web") or {}).get("results") or []:
+                try:
+                    url = (item.get("url") or "").strip()
+                    if not url.startswith("http"):
+                        continue
+                    if _is_blocked_domain(url):
+                        continue
+                    titulo = _clean_text(item.get("title", ""))
+                    if not titulo or len(titulo) < 3:
+                        continue
+                    snippet = _clean_text(item.get("description", ""))
+                    raw = f"{titulo} | {snippet}"
+                    if not _is_automotive(raw):
+                        continue
+                    cidade, uf, local = _extract_city_uf(snippet) if snippet else ("", "", "")
+                    inicio = _parse_iso_date(item.get("page_age") or item.get("age")) \
+                        or _parse_br_dates(raw)[0]
+                    # Evento de verdade tem data; plataformas de evento são isentas.
+                    if not _is_event_domain(url) and inicio is None:
+                        continue
+                    results.append(_make_event(
+                        titulo=titulo,
+                        url=url,
+                        data_inicio=inicio,
+                        data_fim=None,
+                        cidade=cidade,
+                        uf=uf,
+                        local=local,
+                        descricao=snippet,
+                        fonte="web",
+                        fonte_nome="Brave Search",
+                    ))
+                except Exception:
+                    continue
+            return results
+        except Exception as e:
+            logger.debug("Brave falhou (%s): %s", query, e)
+            return []
+
+    events = []
+    seen_urls = set()
+    with ThreadPoolExecutor(max_workers=min(len(queries), 12)) as pool:
+        futures = [pool.submit(_search, q) for q in queries]
+        for fut in as_completed(futures):
+            for item in fut.result() or []:
+                if len(events) >= MAX_GOOGLE_EVENTS:
+                    break
+                if item["url"] in seen_urls:
+                    continue
+                seen_urls.add(item["url"])
+                events.append(item)
+    return events
+
+
+def _scrape_web_playwright():
+    """Busca web via navegador real (Playwright) — alternativa sem custo à Brave API.
+
+    Requisições HTTP puras às SERPs caem em captcha ("enablejs"); acessando a
+    busca por um Chromium headless com User-Agent e locale pt-BR, o Bing serve o
+    HTML renderizado com `li.b_algo`. É o equivalente ao anti-blocking que o
+    Crawlee aplicaria — porém com Playwright direto (o backend do Crawlee não tem
+    wheel para o Python 3.13 deste ambiente).
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        logger.debug("[Events] Playwright indisponível — busca web via browser pulada.")
+        return []
+
+    queries = _web_queries()
+    ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+    events = []
+    seen = set()
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"]
+            )
+            ctx = browser.new_context(
+                user_agent=ua, locale="pt-BR", viewport={"width": 1280, "height": 800}
+            )
+            for q in queries:
+                try:
+                    page = ctx.new_page()
+                    page.goto(
+                        WEB_SEARCH_URL + "?q=" + quote(q),
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                    try:
+                        page.wait_for_selector("li.b_algo", timeout=8000)
+                    except Exception:
+                        pass
+                    html = page.content()
+                    page.close()
+                except Exception as e:
+                    logger.debug("[Events] Playwright query falhou (%s): %s", q, e)
+                    continue
+                for item in _extract_event_blocks(BeautifulSoup(html, "html.parser")):
+                    key = (item["titulo"].lower(), item["url"])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    events.append(item)
+                    if len(events) >= MAX_GOOGLE_EVENTS:
+                        break
+            ctx.close()
+            browser.close()
+    except Exception as e:
+        logger.warning("[Events] Playwright indisponível: %s", e)
+        return []
+    return events[:MAX_GOOGLE_EVENTS]
+
+
+def _scrape_web_events():
+    """Canal de busca web: Playwright (browser, sem custo) -> Brave API -> Bing HTTP.
+
+    O Playwright é a fonte primária: lê a SERP renderizada sem cair em captcha.
+    A Brave Search API só entra se BRAVE_API_KEY estiver configurada; o Bing HTTP
+    é o último fallback (sem custo, porém sujeito a bloqueio).
+    """
+    events = _scrape_web_playwright()
+    if events:
+        return events
+    api_key = os.getenv("BRAVE_API_KEY")
+    if api_key:
+        events = _scrape_brave_events(api_key)
+        if events:
+            return events
+        logger.warning("[Events] Brave Search vazio/indisponível — usando fallback Bing.")
+    return _scrape_bing_events()
+
+
 # ─────────────────────────── orquestrador / API ───────────────────────────
 
 SOURCE_RUNNERS = [
@@ -559,7 +894,7 @@ SOURCE_RUNNERS = [
     ("sindirepa", "Sindirepa Brasil", _scrape_sindirepa),
     ("diretriz", "Diretriz Feiras", _scrape_diretriz),
     ("interlagos", "Shopping Interlagos", _scrape_interlagos),
-    ("google", "Google", _scrape_google_events),
+    ("web", "Busca Web", _scrape_web_events),
 ]
 
 
