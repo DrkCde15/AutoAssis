@@ -1188,9 +1188,19 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <!-- Shared JS -->
-<script src="static/js/config.js"></script>
+    <script src="static/js/config.js"></script>
     <script src="static/js/security-utils.js"></script>
     <script src="static/js/auth.js"></script>
+    <script>
+      // Revela o header logado de forma síncrona (antes do paint) para evitar
+      // o flash de "deslogado -> logado" ao navegar entre páginas.
+      if (typeof Auth !== 'undefined' && Auth.isAuthenticated && Auth.isAuthenticated()) {
+        var aaShow = function (id) { var el = document.getElementById(id); if (el) el.style.display = ''; };
+        var aaHide = function (id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; };
+        aaShow('navDashboard'); aaShow('navMaintenance'); aaShow('navLibrary'); aaShow('navProfile');
+        aaHide('navLogin'); aaHide('navSignup');
+      }
+    </script>
     <script src="static/js/notifications.js"></script>
     <script src="static/js/responsive.js"></script>
     <script src="static/js/loader.js"></script>

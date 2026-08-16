@@ -955,6 +955,21 @@ const Auth = (() => {
   };
 })();
 
+// Atualiza o rótulo "Perfil" do header com o primeiro nome do usuário.
+function setNavUserName(name) {
+  const label = (name && String(name).trim()) ? String(name).trim().split(" ")[0] : "Perfil";
+  const links = document.querySelectorAll('a#navProfile, a[href$="perfil.html"], a[href$="/perfil.html"]');
+  links.forEach((a) => {
+    const span = a.querySelector("span");
+    if (span) { span.textContent = label; return; }
+    const icon = a.querySelector("i");
+    Array.from(a.childNodes).forEach((n) => { if (n.nodeType === Node.TEXT_NODE) a.removeChild(n); });
+    if (icon) icon.insertAdjacentText("afterend", " " + label);
+    else a.appendChild(document.createTextNode(" " + label));
+  });
+}
+window.setNavUserName = setNavUserName;
+
 // Sincronização automática ao carregar o script (se autenticado)
 const autoassistCurrentPage = (window.location.pathname.split("/").pop() || "").toLowerCase();
 const autoassistPublicPages = new Set([
@@ -965,6 +980,12 @@ const autoassistPublicPages = new Set([
   "esqueci-senha.html",
   "redefinir-senha.html",
 ]);
-if (Auth.isAuthenticated() && !autoassistPublicPages.has(autoassistCurrentPage)) {
-  Auth.syncUser().catch(() => {});
+if (Auth.isAuthenticated()) {
+  const cached = Auth.getUser();
+  if (cached && cached.nome) setNavUserName(cached.nome);
+  if (!autoassistPublicPages.has(autoassistCurrentPage)) {
+    Auth.syncUser({ redirectOnInvalid: false, force: true })
+      .then((user) => { if (user && user.nome) setNavUserName(user.nome); })
+      .catch(() => {});
+  }
 }

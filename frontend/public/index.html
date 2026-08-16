@@ -884,10 +884,16 @@
     <script src="static/js/analytics-consent.js"></script>
     <script src="static/js/auth.js"></script>
     <script src="static/js/security-utils.js"></script>
+    <script src="static/js/navbar.js"></script>
     <script src="static/js/notifications.js" defer></script>
     <script src="static/js/responsive.js" defer></script>
     <script type="module" src="static/js/car-scrollytelling.js"></script>
     <script>
+        // Renderiza o header correto ANTES do primeiro paint (sem flash).
+        if (typeof Navbar !== 'undefined') {
+            Navbar.init({ validate: true });
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             if (typeof Auth !== 'undefined' && Auth.ensurePremiumModal) {
                 Auth.ensurePremiumModal();
@@ -962,69 +968,9 @@
         });
 
         function renderDashboard(userData, maintenanceAlerts) {
-            const authLinks = document.getElementById('authLinks');
-            if (!authLinks) return;
-
-            const escapeHtml = (text) => String(text ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-
-            const getBadgeClass = (code) => {
-                const normalized = String(code || '').toLowerCase();
-                if (normalized === 'overdue') return 'overdue';
-                if (normalized === 'due_soon') return 'due_soon';
-                return 'on_track';
-            };
-
-            const actionableAlerts = maintenanceAlerts.filter(a => {
-                const code = String(a.status_code || '').toLowerCase();
-                return code === 'overdue' || code === 'due_soon';
-            });
-            
-            const badgeCount = actionableAlerts.length > 9 ? '9+' : String(actionableAlerts.length);
-            const notificationsHtml = actionableAlerts.length
-                ? actionableAlerts.slice(0, 6).map(alert => `
-                    <div class="notif-item">
-                        <div class="notif-item-title">
-                            <span>${escapeHtml(alert.item || 'Manutencao')}</span>
-                            <span class="notif-badge ${getBadgeClass(alert.status_code)}">${escapeHtml(alert.status || 'Aviso')}</span>
-                        </div>
-                        <div class="notif-item-text">${escapeHtml(alert.msg || '')}</div>
-                    </div>
-                `).join('')
-                : '<div class="notif-empty">Sem notificacoes de manutencao no momento.</div>';
-                    
-                    // Update navbar for logged in user
-                    authLinks.innerHTML = `
-                        <a href="dashboard.html" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                        <a href="chat.html" class="nav-link"><i class="fas fa-comments"></i> Chat</a>
-                        <a href="maintenance_history.html" class="nav-link"><i class="fas fa-history"></i> Anotações</a>
-                        <a href="perfil.html" class="nav-link"><i class="fas fa-user"></i> Perfil</a>
-                        <div class="nav-dropdown" id="navMore">
-                            <button type="button" class="nav-link nav-dropdown-toggle" id="btnNavMore">Mais <i class="fas fa-chevron-down"></i></button>
-                            <div class="nav-dropdown-menu">
-                                <a href="eventos.html" class="nav-dropdown-item"><i class="fas fa-calendar-alt"></i> Eventos</a>
-                                <a href="library.html" class="nav-dropdown-item"><i class="fas fa-book"></i> Biblioteca</a>
-                                <a href="maps.html" class="nav-dropdown-item"><i class="fas fa-map-marked-alt"></i> Mapa</a>
-                            </div>
-                        </div>
-                        <div id="notif-bell-container"></div>
-                        <button id="btnLogout" class="nav-link">
-                            <i class="fas fa-sign-out-alt"></i> Sair
-                        </button>
-                    `;
-
-                    const btnLogout = document.getElementById('btnLogout');
-                    if (btnLogout) {
-                        btnLogout.addEventListener('click', () => Auth.logout());
-                    }
-
-                    if (typeof Notifications !== 'undefined') {
-                        Notifications.init();
-                    }
+            // O header (navbar) é renderizado de forma síncrona pelo Navbar.init(),
+            // eliminando o flash de "deslogado -> logado". Os alertas de manutenção
+            // já são cacheados em Auth.Cache dentro de atualizarDashboard().
         }
 
         document.addEventListener('click', (event) => {

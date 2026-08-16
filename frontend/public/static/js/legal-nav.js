@@ -34,20 +34,33 @@
     if (typeof Notifications !== "undefined") Notifications.init();
   }
 
-  document.addEventListener("DOMContentLoaded", async () => {
-    if (!document.querySelector("[data-legal-nav]") || typeof Auth === "undefined") return;
-
+  function attachLogout() {
     const logoutBtn = document.getElementById("navLogout");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", () => Auth.logout());
     }
+  }
+
+  // Renderiza o header correto DE FORMA SÍNCRONA (antes do primeiro paint),
+  // usando apenas o token local. Elimina o flash de "deslogado -> logado".
+  function renderSync() {
+    if (!document.querySelector("[data-legal-nav]") || typeof Auth === "undefined") return;
+    attachLogout();
+    if (Auth.isAuthenticated()) {
+      renderAuthenticated();
+    } else {
+      renderPublic();
+    }
+  }
+  renderSync();
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    if (!document.querySelector("[data-legal-nav]") || typeof Auth === "undefined") return;
 
     if (!Auth.isAuthenticated()) {
       renderPublic();
       return;
     }
-
-    renderAuthenticated();
 
     try {
       const user = await Auth.syncUser({ redirectOnInvalid: false });

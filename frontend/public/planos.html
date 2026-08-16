@@ -460,35 +460,19 @@
     <script src="static/js/config.js"></script>
     <script src="static/js/auth.js"></script>
     <script src="static/js/security-utils.js"></script>
+    <script src="static/js/navbar.js"></script>
     <script src="static/js/notifications.js" defer></script>
     <script src="static/js/responsive.js" defer></script>
     <script>
+      // Renderiza o header correto ANTES do primeiro paint (sem flash).
+      if (typeof Navbar !== 'undefined') {
+        Navbar.init({ validate: true });
+      }
+
       document.addEventListener('DOMContentLoaded', () => {
         // A navegação mobile (hamburguer + drawer) é fornecida pelo
         // componente compartilhado em static/js/responsive.js, exatamente
         // como nas demais páginas do AutoAssist. Nenhuma lógica própria aqui.
-
-        // Preenche a navbar conforme o estado de login (visitante x logado).
-        const authLinks = document.getElementById('authLinks');
-        if (typeof Auth !== 'undefined' && Auth.isAuthenticated && Auth.isAuthenticated()) {
-          if (authLinks) {
-            authLinks.innerHTML = `
-              <a href="dashboard.html" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-              <a href="chat.html" class="nav-link"><i class="fas fa-comments"></i> Chat</a>
-              <a href="maintenance_history.html" class="nav-link"><i class="fas fa-history"></i> Anota&ccedil;&otilde;es</a>
-              <a href="library.html" class="nav-link"><i class="fas fa-book"></i> Biblioteca</a>
-              <a href="maps.html" class="nav-link"><i class="fas fa-map-marked-alt"></i> Mapa</a>
-
-              <a href="perfil.html" class="nav-link"><i class="fas fa-user"></i> Perfil</a>
-              <div id="notif-bell-container"></div>
-              <button id="btnLogout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Sair</button>
-            `;
-            const btnLogout = document.getElementById('btnLogout');
-            if (btnLogout) btnLogout.addEventListener('click', () => Auth.logout());
-            if (typeof Notifications !== 'undefined') Notifications.init();
-          }
-        }
-
 
         const btnPlanPremium = document.getElementById('btnPlanPremium');
         if (btnPlanPremium && typeof Auth !== 'undefined') {
