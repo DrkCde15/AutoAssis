@@ -70,7 +70,7 @@ def turnstile_required(action: str = "default"):
     Uso: `@turnstile_required(action="signup")`
 
     Testes (só fora de produção): defina TURNSTILE_BYPASS=1 para pular a
-    verificação — usado pelos testes de integração do frontend (Playwright).
+    verificação - usado pelos testes de integração do frontend (Playwright).
     Em produção NUNCA setar essa variável (render.yaml não a define).
     """
 

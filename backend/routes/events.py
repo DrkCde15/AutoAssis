@@ -25,7 +25,7 @@ EVENTS_PAGE_URL = "/maps.html"
 
 def _event_notification_key(ev):
     """Chave determinística por evento (id do scrape usa hash(), que varia
-    entre processos — não pode ser usado para deduplicar notificações)."""
+    entre processos - não pode ser usado para deduplicar notificações)."""
     titulo = (ev.get("titulo") or "").strip().lower()
     return f"{titulo}|{ev.get('data_inicio') or ev.get('url') or ''}"
 
@@ -98,7 +98,7 @@ def notify_new_automotive_events(max_per_run=MAX_EVENT_NOTIFICATIONS_PER_RUN, dr
             local = f"{cidade}{f' ({uf_ev})' if uf_ev else ''}".strip()
             body = ev.get("data_inicio") or "Data a confirmar"
             if local:
-                body += f" — {local}"
+                body += f", {local}"
             try:
                 if create_notification(
                     user_id=user["id"],
@@ -181,10 +181,10 @@ def automotive_events():
 
     Query params:
       - force=1       : ignora o cache e refaz a varredura
-      - uf=SP         : filtra por UF (BR) — "INT" para internacionais
+      - uf=SP         : filtra por UF (BR) - "INT" para internacionais
       - q=auto        : filtra por termo no título/descrição/cidade/local
       - categoria=    : feira | encontro | competicao | exposicao | congresso | outros
-      - periodo=      : "30" | "90" | "ano" | "todos" — janela a partir de hoje
+      - periodo=      : "30" | "90" | "ano" | "todos" - janela a partir de hoje
       - lat=/lng=     : filtro geográfico "perto de mim"
       - radius=       : raio em km (padrão 50) usado com lat/lng
     """

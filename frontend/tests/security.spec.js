@@ -7,7 +7,7 @@ const { test, expect } = require("@playwright/test");
 
 // NOTE: usa 127.0.0.1 (e nao "localhost"), porque no Chromium o hostname
 // "localhost" resolve para ::1 (IPv6) e o backend Flask (0.0.0.0) so
-// atende IPv4 — o goto falharia e os testes seriam pulados.
+// atende IPv4 - o goto falharia e os testes seriam pulados.
 const BASE_URL = "http://127.0.0.1:5000";
 
 test.describe("Seguranca do chat (XSS e WebSocket)", () => {

@@ -44,12 +44,12 @@ def send_push_notification(user_id, title, body, icon=None, data=None):
     try:
         from pywebpush import webpush, WebPushException
     except ImportError:
-        logger.warning("pywebpush nao instalado — push notification ignorada")
+        logger.warning("pywebpush nao instalado - push notification ignorada")
         return False
 
     vapid_private_key = get_vapid_private_key()
     if not vapid_private_key:
-        logger.warning("VAPID keys nao configuradas — push ignorada")
+        logger.warning("VAPID keys nao configuradas - push ignorada")
         return False
 
     try:
@@ -107,7 +107,7 @@ def send_push_notification(user_id, title, body, icon=None, data=None):
         except Exception as e:
             logger.warning("Erro push inesperado: %s", e)
 
-    logger.info("Push %s — %d/%d subscriptions entregues", "OK" if sent else "FALHOU", sent, len(rows))
+    logger.info("Push %s - %d/%d subscriptions entregues", "OK" if sent else "FALHOU", sent, len(rows))
     return sent > 0
 
 

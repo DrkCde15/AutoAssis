@@ -14,8 +14,12 @@ logger = logging.getLogger(__name__)
 # Planos esperados (fonte unica de verdade para valor/plano no backend).
 # Evita fraudes de valor/plano: o upgrade so e confirmado se o pedido interno
 # confere com o que foi efetivamente pago.
+# Plano Premium = ASSINATURA MENSAL (R$ 19,99/mês), conforme produto na Cakto.
+# O valor deve bater EXATAMENTE com o cobrado na Cakto, senão o webhook
+# de ativação rejeita por divergência ("Valor pago diverge do pedido").
+# Não incluir planos que não existem na Cakto (ex.: anual) - causaria falso positivo.
 PREMIUM_PLANS = {
-    "completo": {"amount": 29.90, "currency": "BRL"},
+    "completo": {"amount": 19.90, "currency": "BRL", "interval": "month"},
 }
 DEFAULT_PLAN = "completo"
 
@@ -63,6 +67,24 @@ def _get_user_email(user_id: str) -> str | None:
 def _set_premium_by_user_id(user_id: str, is_premium: bool) -> int:
     target_state = bool(is_premium)
     with get_db() as (cursor, conn):
+        if target_state:
+            # P2-1: aplica crédito de indicação (meses grátis) ao ativar premium.
+            cursor.execute(
+                "SELECT referral_credit_months FROM users WHERE id = %s",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            credit = int((row or {}).get("referral_credit_months") or 0)
+            if credit > 0:
+                cursor.execute(
+                    """UPDATE users
+                       SET is_premium = TRUE,
+                           premium_expires_at = DATE_ADD(COALESCE(premium_expires_at, NOW()), INTERVAL %s MONTH),
+                           referral_credit_months = 0
+                       WHERE id = %s""",
+                    (credit, user_id),
+                )
+                return 1
         cursor.execute(
             "UPDATE users SET is_premium = %s WHERE id = %s",
             (target_state, user_id),

@@ -273,11 +273,15 @@ TABLES_SQL = {
     )""",
     "api_clients": """CREATE TABLE IF NOT EXISTS api_clients (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
         nome VARCHAR(120) NOT NULL,
         api_key_hash VARCHAR(128) NOT NULL UNIQUE,
         api_key_prefix VARCHAR(12) NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
         rate_limit_per_min INT DEFAULT 30,
+        plan VARCHAR(40) NULL,
+        requests_used INT DEFAULT 0,
+        requests_limit INT DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_used_at DATETIME NULL
     )""",
@@ -389,7 +393,8 @@ def init_db():
             ("referred_by", "VARCHAR(20) NULL"),
             ("premium_expires_at", "DATETIME NULL"),
             ("mod_passport", "BOOLEAN DEFAULT FALSE"),
-            ("signup_ip", "VARCHAR(45) NULL")
+            ("signup_ip", "VARCHAR(45) NULL"),
+            ("referral_credit_months", "INT DEFAULT 0")
         ]
         for col, dtype in columns:
             if col not in existing_columns:
@@ -484,6 +489,17 @@ def init_db():
         for col, dtype in payments_columns:
             try:
                 cursor.execute(f"ALTER TABLE payments_orders ADD COLUMN {col} {dtype}")
+            except Exception:
+                pass
+        api_clients_columns = [
+            ("user_id", "INT NULL"),
+            ("plan", "VARCHAR(40) NULL"),
+            ("requests_used", "INT DEFAULT 0"),
+            ("requests_limit", "INT DEFAULT 0"),
+        ]
+        for col, dtype in api_clients_columns:
+            try:
+                cursor.execute(f"ALTER TABLE api_clients ADD COLUMN {col} {dtype}")
             except Exception:
                 pass
         # Otimizações de Banco de Dados: Adicionando Índices para consultas frequentes

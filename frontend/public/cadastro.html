@@ -706,10 +706,7 @@
             }
           });
 
-          if (veiculos.length === 0 || !veiculos[0].marca || !veiculos[0].modelo) {
-            showError("Preencha a marca e o modelo de pelo menos um veículo.");
-            return;
-          }
+          // P0-5: cadastro leve - veículo é opcional. Se não preencheu, segue sem veículo.
         }
 
         const btn = document.getElementById('btnCadastrar') || document.querySelector('button[type="submit"]');

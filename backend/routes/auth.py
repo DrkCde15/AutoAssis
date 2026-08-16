@@ -44,12 +44,13 @@ def _generate_referral_code(cursor):
     return secrets.token_hex(6).upper()
 
 
-def _grant_referral_premium(cursor, user_id):
-    """Concede 1 mes de premium ao usuario que indicou outro."""
-    expira = datetime.now() + timedelta(days=30)
+def _grant_referral_credit(cursor, user_id, months=1):
+    """P2-1: recompensa de indicacao = crédito de desconto (meses grátis na
+    assinatura), nao premium grátis. O crédito é aplicado no momento da ativacao
+    do premium (veja _apply_referral_credit em payment.py)."""
     cursor.execute(
-        "UPDATE users SET is_premium = TRUE, premium_expires_at = %s WHERE id = %s",
-        (expira, user_id),
+        "UPDATE users SET referral_credit_months = referral_credit_months + %s WHERE id = %s",
+        (months, user_id),
     )
 
 
@@ -67,7 +68,7 @@ def get_client_ip():
 
 
 def _try_grant_referral_bonus(cursor, referred_by, new_user_id, client_ip):
-    """Concede 1 mes de premium a quem indicou, aplicando heuristicas anti-fraude.
+    """Concede crédito de desconto a quem indicou (P2-1), aplicando heurísticas anti-fraude.
     Retorna (concedido, motivo)."""
     cursor.execute(
         "SELECT id, signup_ip FROM users WHERE referral_code = %s LIMIT 1",
@@ -100,7 +101,7 @@ def _try_grant_referral_bonus(cursor, referred_by, new_user_id, client_ip):
         if (cursor.fetchone() or {}).get("cnt", 0) >= MAX_ACCOUNTS_PER_IP_PER_DAY:
             return False, "muitas contas no mesmo IP"
 
-    _grant_referral_premium(cursor, ref["id"])
+    _grant_referral_credit(cursor, ref["id"], months=1)
     return True, "ok"
 
 
@@ -478,7 +479,17 @@ def cadastro():
 
     if veiculo and veiculo.get("possui"):
         veiculos.append(veiculo)
-    
+
+    # P0-5: cadastro leve - veículo é opcional. Remove entradas vazias
+    # para não obrigar o usuário a informar o carro no momento do signup.
+    veiculos = [
+        v for v in veiculos
+        if (v.get("marca") or "").strip()
+        or (v.get("modelo") or "").strip()
+        or (v.get("tipo") or "").strip()
+        or v.get("ano_fabricacao")
+        or v.get("quilometragem")
+    ]
     possui_veiculo = len(veiculos) > 0
     
     if not nome:
@@ -508,11 +519,8 @@ def cadastro():
     if password != confirm_password:
         return jsonify(error="As senhas informadas não conferem."), 400
 
-    for index, veiculo_data in enumerate(veiculos, start=1):
-        marca = (veiculo_data.get("marca") or "").strip()
-        modelo = (veiculo_data.get("modelo") or "").strip()
-        if not marca or not modelo:
-            return jsonify(error=f"Informe marca e modelo do veículo {index}."), 400
+    # P0-5: cadastro leve - veículo é opcional; nada obrigatório aqui.
+    # As entradas vazias já foram filtradas antes do insert.
 
     try:
         with get_db() as (cursor, conn):

@@ -10,6 +10,25 @@ from utils.cache import cache_get_json, cache_set_json
 
 logger = logging.getLogger(__name__)
 
+
+def _affiliate_id(network: str):
+    """P2-2: IDs de afiliado configuráveis por rede (env). Sem ID, o link fica limpo."""
+    env_map = {
+        "mercadolivre": "AFFILIATE_MERCADOLIVRE_ID",
+        "webmotors": "AFFILIATE_WEBMOTORS_ID",
+    }
+    key = env_map.get(network)
+    return os.getenv(key, "").strip() if key else ""
+
+
+def _with_affiliate(url: str, network: str):
+    aid = _affiliate_id(network)
+    if not aid:
+        return url
+    sep = "&" if "?" in url else "?"
+    return f"{url}{sep}u={quote(aid)}"
+
+
 GOOGLE_CACHE_TTL = 86400  # 24h (resultados de busca mudam pouco)
 GOOGLE_SEARCH_URL = "https://www.google.com.br/search"
 
@@ -46,9 +65,9 @@ class WebScraper:
         q_encoded = quote(query)
         q_dash = query.replace(' ', '-')
         return [
-            {'url': f"https://www.webmotors.com.br/carros/estoque?busca={q_plus}"},
+            {'url': _with_affiliate(f"https://www.webmotors.com.br/carros/estoque?busca={q_plus}", "webmotors")},
             {'url': f"https://www.icarros.com.br/ache/listaanuncios.jsp?busca={q_encoded}"},
-            {'url': f"https://lista.mercadolivre.com.br/veiculos/{q_dash}"},
+            {'url': _with_affiliate(f"https://lista.mercadolivre.com.br/veiculos/{q_dash}", "mercadolivre")},
             {'url': f"https://www.olx.com.br/autos-e-pecas/carros-vans-e-utilitarios?q={q_plus}"},
         ]
 
@@ -56,10 +75,60 @@ class WebScraper:
         q_plus = query.replace(' ', '+')
         q_dash = query.replace(' ', '-')
         return [
-            {'url': f"https://lista.mercadolivre.com.br/acessorios-veiculos/{q_dash}"},
+            {'url': _with_affiliate(f"https://lista.mercadolivre.com.br/acessorios-veiculos/{q_dash}", "mercadolivre")},
             {'url': f"https://www.canaldapeca.com.br/busca?q={q_plus}"},
             {'url': f"https://www.olx.com.br/autos-e-pecas/pecas-e-acessorios?q={q_plus}"},
         ]
+
+
+def get_market_price_estimate(make, model, year):
+    """Melhor-esforco: mediana de precos de anuncios reais (Mercado Livre).
+
+    Usado apenas para FUNDAMENTAR o valor estimado de mercado (nao e fonte
+    oficial). Falha silenciosa e rapida (timeout curto, cache 24h): se nao
+    houver amostra confiavel, retorna None e o chamador usa a Tabela FIPE.
+    Retorna (mediana:float, amostra:int) ou None.
+    """
+    try:
+        if not (make and model and year):
+            return None
+        query = f"{make} {model} {year}".replace(" ", "-")
+        url = f"https://lista.mercadolivre.com.br/veiculos/{query}"
+        cache_key = f"ml_price:{query}"
+        cached = cache_get_json(cache_key)
+        if cached is not None:
+            return tuple(cached) if cached else None
+        resp = requests.get(url, headers=HEADERS, timeout=5)
+        if resp.status_code != 200:
+            cache_set_json(cache_key, None, ttl=GOOGLE_CACHE_TTL)
+            return None
+        html = resp.text
+        precos = set()
+        # JSON embutido / meta de preco
+        for m in re.finditer(r'"price"\s*:\s*"?(\d{4,7}(?:\.\d{1,2})?)', html):
+            try:
+                precos.add(float(m.group(1)))
+            except ValueError:
+                pass
+        # spans de valor do Mercado Livre
+        for m in re.finditer(r'andes-money-amount__fraction">([\d.]+)<', html):
+            try:
+                precos.add(float(m.group(1).replace(".", "")))
+            except ValueError:
+                pass
+        # filtra faixas plausiveis de carro
+        vals = [p for p in precos if 3000 <= p <= 2_000_000]
+        if len(vals) < 3:
+            cache_set_json(cache_key, None, ttl=GOOGLE_CACHE_TTL)
+            return None
+        vals.sort()
+        n = len(vals)
+        mediana = vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2
+        cache_set_json(cache_key, [mediana, n], ttl=GOOGLE_CACHE_TTL)
+        return (mediana, n)
+    except Exception as e:
+        logger.debug("market price indisponivel: %s", e)
+        return None
 
 
 def search_mechanics_web(user_lat, user_lng, radius, service_type=None):

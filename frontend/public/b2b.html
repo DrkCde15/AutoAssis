@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoAssist IA para Empresas - Laudo por Foto em API</title>
+  <meta name="description" content="Oficinas, seguradoras e marketplaces integram o diagnóstico automotivo por foto da AutoAssist via API. Planos por volume de requisições." />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root { --bg:#09090b; --card:#18181b; --line:#27272a; --text:#e4e4e7; --muted:#a1a1aa; --accent:#3b82f6; --success:#30d158; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 48px 20px 80px; }
+    .hero { text-align:center; }
+    .eyebrow { color:var(--accent); font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:.8rem; }
+    h1 { font-size: 2.1rem; margin: .4rem 0; }
+    .hero p { color:var(--muted); max-width: 640px; margin: 0 auto; }
+    .plans { display:grid; grid-template-columns: repeat(auto-fit, minmax(210px,1fr)); gap:16px; margin: 36px 0; }
+    .plan { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; }
+    .plan h3 { margin:.2rem 0; }
+    .plan .limit { font-size:1.6rem; font-weight:700; }
+    .plan .sub { color:var(--muted); font-size:.85rem; }
+    .features { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin-bottom:36px; }
+    .features li { margin:.3rem 0; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:24px; margin-bottom:24px; }
+    .card h2 { margin-top:0; }
+    label { display:block; font-size:.85rem; color:var(--muted); margin:12px 0 4px; }
+    input, textarea, select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#0f0f12; color:var(--text); font-size:.95rem; }
+    button { cursor:pointer; border:none; border-radius:10px; padding:12px 16px; font-weight:600; font-size:.95rem; }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-primary:hover { filter:brightness(1.08); }
+    .msg { margin-top:12px; font-size:.9rem; }
+    .msg.ok { color:var(--success); }
+    .msg.err { color:#ff6b6b; }
+    code { background:#0f0f12; padding:2px 6px; border-radius:6px; font-size:.85rem; word-break:break-all; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">AutoAssist para Empresas</div>
+      <h1>Diagnóstico automotivo por foto, via API</h1>
+      <p>Oficinas, seguradoras, inspectoras e marketplaces integram a IA NOG para gerar laudos a partir de uma foto. Cada chamada devolve diagnóstico em JSON ou PDF.</p>
+    </section>
+
+    <section class="plans" id="planCards"></section>
+
+    <section class="features">
+      <h2>Como funciona</h2>
+      <ul>
+        <li><i class="fas fa-key"></i> Crie uma API key de autoatendimento (plano trial gratuito com 100 chamadas).</li>
+        <li><i class="fas fa-camera"></i> Envie a imagem em base64 para <code>POST /api/b2b/diagnosis</code>.</li>
+        <li><i class="fas fa-file-pdf"></i> Receba o laudo em JSON ou PDF pronto para anexar ao processo.</li>
+        <li><i class="fas fa-chart-line"></i> Acompanhe o consumo da sua cota por chave.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Crie sua API key (autoatendimento)</h2>
+      <p class="sub" style="color:var(--muted);font-size:.85rem;">Disponível para usuários logados. O plano trial é gratuito e inclui 100 chamadas.</p>
+      <div id="keyArea">
+        <label for="keyName">Nome do cliente / integração</label>
+        <input id="keyName" placeholder="Ex: Oficina Centro Automotivo" />
+        <label for="keyPlan">Plano</label>
+        <select id="keyPlan"></select>
+        <button class="btn-primary" id="btnCreateKey" style="margin-top:16px;">Criar API key</button>
+        <div class="msg" id="keyMsg"></div>
+        <div id="keyResult" class="hidden" style="margin-top:12px;">
+          <p>Sua chave (guarde agora, não será exibida novamente):</p>
+          <code id="keyValue"></code>
+        </div>
+      </div>
+      <div id="loginNeeded" class="hidden">
+        <p>Faça <a href="login.html">login</a> ou <a href="cadastro.html">crie uma conta</a> para gerar sua API key.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Fale com o time B2B</h2>
+      <p style="color:var(--muted);font-size:.9rem;">Para volumes maiores ou faturamento mensal, deixe seu contato.</p>
+      <label for="leadNome">Nome</label>
+      <input id="leadNome" />
+      <label for="leadEmail">E-mail</label>
+      <input id="leadEmail" type="email" />
+      <label for="leadEmpresa">Empresa</label>
+      <input id="leadEmpresa" />
+      <label for="leadTelefone">Telefone</label>
+      <input id="leadTelefone" />
+      <label for="leadMsg">Mensagem</label>
+      <textarea id="leadMsg" rows="3"></textarea>
+      <button class="btn-primary" id="btnLead" style="margin-top:16px;">Enviar contato</button>
+      <div class="msg" id="leadMsg"></div>
+    </section>
+  </div>
+
+  <script src="static/js/auth.js"></script>
+  <script>
+    const PLANS = {
+      trial:   { label: "Trial gratuito", limit: 100,   rate: 10 },
+      pro_1k:  { label: "Pro 1k",        limit: 1000,  rate: 30 },
+      pro_5k:  { label: "Pro 5k",        limit: 5000,  rate: 60 },
+      pro_20k: { label: "Pro 20k",       limit: 20000, rate: 120 },
+    };
+
+    function renderPlans() {
+      const el = document.getElementById("planCards");
+      el.innerHTML = Object.entries(PLANS).map(([k, p]) => `
+        <div class="plan">
+          <h3>${p.label}</h3>
+          <div class="limit">${p.limit.toLocaleString("pt-BR")}</div>
+          <div class="sub">chamadas · ${p.rate}/min</div>
+        </div>`).join("");
+      const sel = document.getElementById("keyPlan");
+      sel.innerHTML = Object.entries(PLANS).map(([k, p]) =>
+        `<option value="${k}">${p.label} (${p.limit.toLocaleString("pt-BR")} chamadas)</option>`).join("");
+    }
+
+    function renderKeyArea() {
+      const logged = (typeof Auth !== "undefined") && Auth.isAuthenticated && Auth.isAuthenticated();
+      document.getElementById("keyArea").classList.toggle("hidden", !logged);
+      document.getElementById("loginNeeded").classList.toggle("hidden", logged);
+    }
+
+    document.getElementById("btnCreateKey").addEventListener("click", async () => {
+      const msg = document.getElementById("keyMsg");
+      const name = document.getElementById("keyName").value.trim();
+      const plan = document.getElementById("keyPlan").value;
+      msg.className = "msg"; msg.textContent = "Criando...";
+      try {
+        const res = await Auth.authenticatedFetch("/api/b2b/self-serve/keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: name, plan }),
+        });
+        const data = await res.json();
+        if (!res.ok) { msg.className = "msg err"; msg.textContent = data.error || "Erro ao criar chave."; return; }
+        msg.className = "msg ok"; msg.textContent = "Chave criada com sucesso!";
+        document.getElementById("keyValue").textContent = data.api_key;
+        document.getElementById("keyResult").classList.remove("hidden");
+      } catch (e) {
+        msg.className = "msg err"; msg.textContent = "Falha na requisição.";
+      }
+    });
+
+    document.getElementById("btnLead").addEventListener("click", async () => {
+      const msg = document.getElementById("leadMsg");
+      const payload = {
+        nome: document.getElementById("leadNome").value.trim(),
+        email: document.getElementById("leadEmail").value.trim(),
+        empresa: document.getElementById("leadEmpresa").value.trim(),
+        telefone: document.getElementById("leadTelefone").value.trim(),
+        mensagem: document.getElementById("leadMsg").value.trim(),
+        origem: "site_b2b",
+      };
+      if (!payload.nome || !payload.email) { msg.className = "msg err"; msg.textContent = "Nome e e-mail são obrigatórios."; return; }
+      msg.className = "msg"; msg.textContent = "Enviando...";
+      try {
+        const res = await fetch("/api/b2b/leads", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) { msg.className = "msg err"; msg.textContent = data.error || "Erro ao enviar."; return; }
+        msg.className = "msg ok"; msg.textContent = "Recebemos seu contato! Nossa equipe B2B entrará em contato.";
+      } catch (e) {
+        msg.className = "msg err"; msg.textContent = "Falha na requisição.";
+      }
+    });
+
+    renderPlans();
+    renderKeyArea();
+    window.addEventListener("auth:changed", renderKeyArea);
+  </script>
+</body>
+</html>

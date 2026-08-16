@@ -149,7 +149,7 @@ def _build_vehicle_dashboard(row, health_score, pred):
         "quilometragem": row["quilometragem"],
     }
 
-    # FIPE — usa cache se <24h, dispara refresh em background se stale
+    # FIPE - usa cache se <24h, dispara refresh em background se stale
     fipe_updated = row.get("fipe_updated_at")
     fipe_stale = (
         fipe_updated is None

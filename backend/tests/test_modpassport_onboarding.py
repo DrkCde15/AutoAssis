@@ -45,24 +45,24 @@ class ModPassportTest(unittest.TestCase):
 
     def test_calcular_fipe_ajustada_turbo(self):
         val, pct, extra = pages.calcular_fipe_ajustada("R$ 100.000,00", [{"categoria": "turbo"}])
-        self.assertEqual(pct, 0.08)
+        self.assertEqual(pct, 0.05)
         self.assertEqual(extra, 0.0)
-        self.assertEqual(val, "R$ 108.000,00")
+        self.assertEqual(val, "R$ 105.000,00")
 
     def test_calcular_fipe_ajustada_with_absolute_value(self):
         val, pct, extra = pages.calcular_fipe_ajustada(
             "R$ 50.000,00", [{"categoria": "motor", "valor": 5000}]
         )
         self.assertAlmostEqual(extra, 5000.0)
-        self.assertEqual(val, "R$ 58.000,00")
+        self.assertEqual(val, "R$ 57.000,00")
 
     def test_calcular_fipe_ajustada_multiple(self):
         val, pct, extra = pages.calcular_fipe_ajustada(
             "R$ 100.000,00",
             [{"categoria": "turbo"}, {"categoria": "suspensao"}, {"categoria": "desconhecido"}],
         )
-        self.assertAlmostEqual(pct, 0.13)
-        self.assertEqual(val, "R$ 113.000,00")
+        self.assertAlmostEqual(pct, 0.08)
+        self.assertEqual(val, "R$ 108.000,00")
 
     def test_calcular_fipe_ajustada_none_base(self):
         val, pct, extra = pages.calcular_fipe_ajustada(None, [{"categoria": "turbo"}])
@@ -71,8 +71,8 @@ class ModPassportTest(unittest.TestCase):
     def test_calcular_fipe_ajustada_capped(self):
         mods = [{"categoria": "turbo"}] * 10
         val, pct, extra = pages.calcular_fipe_ajustada("R$ 100.000,00", mods)
-        self.assertEqual(pct, 0.25)
-        self.assertEqual(val, "R$ 125.000,00")
+        self.assertEqual(pct, 0.12)
+        self.assertEqual(val, "R$ 112.000,00")
 
 
 class ModPassportRouteTest(unittest.TestCase):
@@ -98,7 +98,7 @@ class ModPassportRouteTest(unittest.TestCase):
         data = resp.get_json()
         self.assertTrue(data["success"])
         self.assertEqual(data["fipe_base"], "R$ 100.000,00")
-        self.assertEqual(data["fipe_ajustada"], "R$ 108.000,00")
+        self.assertEqual(data["fipe_ajustada"], "R$ 105.000,00")
         inv.assert_called_once_with("7")
         self.assertTrue(
             any("UPDATE veiculos SET modificacoes" in str(c) for c in self.cur.execute.call_args_list)

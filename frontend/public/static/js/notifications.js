@@ -315,7 +315,7 @@ const Notifications = (() => {
     } catch {}
 
     // Se ainda não coletou (ex.: usuário só acessou páginas sem mapa),
-    // pede a localização uma vez — é o "permitir localização" do navegador.
+    // pede a localização uma vez - é o "permitir localização" do navegador.
     if (!loc) {
       try {
         loc = await new Promise((resolve) => {

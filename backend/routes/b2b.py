@@ -15,6 +15,7 @@ import secrets
 import time
 
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from fpdf import FPDF
 
 from routes.database import get_db
@@ -29,6 +30,16 @@ API_KEY_HEADER = "X-API-Key"
 FALLBACK_LIMIT = 30  # requests/min por cliente (sem Redis / sem valor configurado)
 _local_rate = {}  # client_id -> (janela, contagem) para fallback sem Redis
 MAX_IMAGE_B64 = 15 * 1024 * 1024  # 15 MB base64 (~11 MB binário)
+
+# P1-2: tiers de autoatendimento B2B (quota de requisições por chave).
+# requests_limit == 0 significa ilimitado (chaves criadas via admin).
+B2B_PLANS = {
+    "trial": {"requests_limit": 100, "rate_limit_per_min": 10, "label": "Trial gratuito"},
+    "pro_1k": {"requests_limit": 1000, "rate_limit_per_min": 30, "label": "Pro 1k"},
+    "pro_5k": {"requests_limit": 5000, "rate_limit_per_min": 60, "label": "Pro 5k"},
+    "pro_20k": {"requests_limit": 20000, "rate_limit_per_min": 120, "label": "Pro 20k"},
+}
+DEFAULT_B2B_PLAN = "trial"
 
 
 def _hash_api_key(raw_key: str) -> str:
@@ -161,6 +172,13 @@ def b2b_diagnosis():
         log_usage(client["id"], "/api/b2b/diagnosis", 429)
         return jsonify(error="Limite de requisicoes excedido."), 429
 
+    # P1-2: quota de volume por chave (requests_limit == 0 = ilimitado).
+    req_limit = client.get("requests_limit") or 0
+    if req_limit and (client.get("requests_used") or 0) >= req_limit:
+        log_usage(client["id"], "/api/b2b/diagnosis", 429)
+        return jsonify(error="Cota de requisicoes esgotada. Faca upgrade do plano B2B.", code="quota_exhausted"), 429
+
+
     data = request.get_json(silent=True) or {}
     image_b64 = (data.get("image") or data.get("image_b64") or "").strip()
     if not image_b64:
@@ -185,6 +203,15 @@ def b2b_diagnosis():
         return jsonify(error=laudo), 502
 
     log_usage(client["id"], "/api/b2b/diagnosis", 200)
+    # P1-2: contabiliza uso contra a cota do plano.
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "UPDATE api_clients SET requests_used = requests_used + 1 WHERE id = %s",
+                (client["id"],),
+            )
+    except Exception:
+        pass
 
     if formato == "pdf":
         try:
@@ -250,6 +277,42 @@ def create_api_key():
         "api_key": raw_key,   # exibida UMA vez
         "api_key_prefix": _api_key_prefix(raw_key),
         "rate_limit_per_min": rate_limit,
+        "aviso": "Guarde esta chave agora: ela nao podera ser recuperada depois.",
+    }), 201
+
+
+@b2b_bp.route("/api/b2b/self-serve/keys", methods=["POST"])
+@jwt_required()
+def create_self_serve_key():
+    """P1-2: usuário logado cria sua própria chave B2B (autoatendimento)."""
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    plan = (data.get("plan") or DEFAULT_B2B_PLAN)
+    if plan not in B2B_PLANS:
+        plan = DEFAULT_B2B_PLAN
+    cfg = B2B_PLANS[plan]
+    nome = (data.get("nome") or "").strip()[:120]
+    if not nome:
+        nome = f"Cliente B2B #{user_id}"
+    raw_key = f"aa_{secrets.token_urlsafe(32)}"
+    key_hash = _hash_api_key(raw_key)
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "INSERT INTO api_clients (user_id, nome, api_key_hash, api_key_prefix, rate_limit_per_min, plan, requests_limit) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (user_id, nome, key_hash, _api_key_prefix(raw_key), cfg["rate_limit_per_min"], plan, cfg["requests_limit"]),
+            )
+    except Exception as exc:
+        logger.error("Erro ao criar API key self-serve: %s", exc, exc_info=True)
+        return jsonify(error="Erro interno ao criar a chave."), 500
+    return jsonify({
+        "success": True,
+        "client_nome": nome,
+        "plan": plan,
+        "api_key": raw_key,
+        "requests_limit": cfg["requests_limit"],
+        "rate_limit_per_min": cfg["rate_limit_per_min"],
         "aviso": "Guarde esta chave agora: ela nao podera ser recuperada depois.",
     }), 201
 

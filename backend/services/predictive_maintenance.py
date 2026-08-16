@@ -73,7 +73,7 @@ class MaintenancePredictor:
             logger.error(f"Erro ao buscar dados para treinamento: {e}")
             return []
 
-    # ── treino (usa sklearn — só é chamado explicitamente) ─────────────────
+    # ── treino (usa sklearn - só é chamado explicitamente) ─────────────────
 
     def train(self, history_data=None):
         # Import sklearn SOMENTE dentro deste método
@@ -127,7 +127,7 @@ class MaintenancePredictor:
         km_mae = mean_absolute_error(y_km_test, model_km.predict(X_test_scaled))
         days_mae = mean_absolute_error(y_days_test, model_date.predict(X_test_scaled))
         logger.info(
-            "Test MAE — km: %.1f, days: %.1f (on %d records)",
+            "Test MAE - km: %.1f, days: %.1f (on %d records)",
             km_mae, days_mae, len(X_test),
         )
 
@@ -142,7 +142,7 @@ class MaintenancePredictor:
         joblib.dump(le, PREDICTIVE_MODEL_DIR / "label_encoder.pkl")
         joblib.dump(scaler, PREDICTIVE_MODEL_DIR / "scaler.pkl")
 
-        # Salva parâmetros leves (numpy/json — carregados sem sklearn)
+        # Salva parâmetros leves (numpy/json - carregados sem sklearn)
         self._save_lightweight_params(df, le, scaler)
 
         return True

@@ -329,6 +329,8 @@
         .modp-line .label { color: var(--text-secondary); font-size: 0.85rem; }
         .modp-line .value { font-weight: 700; font-size: 1.05rem; }
         .modp-value-ajustada { color: var(--success); }
+        .modp-fonte .value { font-weight: 500; font-size: 0.82rem; color: var(--muted); }
+        .modp-aviso { font-size: 0.72rem; color: var(--muted); line-height: 1.3; margin: 6px 0 0; }
         .modp-badge {
             display: inline-block;
             margin-left: 0.4rem;
@@ -587,9 +589,9 @@
         }
 
         function brl(v) {
-            if (v == null) return '—';
+            if (v == null) return '';
             const n = Number(v);
-            if (isNaN(n)) return '—';
+            if (isNaN(n)) return '';
             return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
         function parseMods(m) {
@@ -625,10 +627,18 @@
             const countText = mods.length
                 ? `<p class="modp-empty">${mods.length} modificação(ões) registrada(s)</p>`
                 : `<p class="modp-empty">Nenhuma modificação ainda</p>`;
+            const fonte = mod && mod.fipe_ajustada_fonte
+                ? `<div class="modp-line modp-fonte"><span class="label">Base</span><span class="value">${mod.fipe_ajustada_fonte}</span></div>`
+                : '';
+            const aviso = mod && mod.fipe_ajustada_aviso
+                ? `<p class="modp-aviso">${mod.fipe_ajustada_aviso}</p>`
+                : '';
             return `
                 <div class="modp-line"><span class="label">FIPE fábrica</span><span class="value" id="modBase-${id}">${brl(base)}</span></div>
-                <div class="modp-line"><span class="label">FIPE ajustada</span><span class="value modp-value-ajustada" id="modAdj-${id}">${brl(ajustada)} ${badge}</span></div>
+                <div class="modp-line"><span class="label">Valor estimado</span><span class="value modp-value-ajustada" id="modAdj-${id}">${brl(ajustada)} ${badge}</span></div>
+                ${fonte}
                 <div id="modCount-${id}">${countText}</div>
+                ${aviso}
             `;
         }
 
@@ -649,7 +659,7 @@
                 <div class="dashboard-header"><h1>Dashboard</h1><p>Acompanhe a saúde e o valor do seu patrimônio em tempo real.</p></div>
                 <div class="garagem-toolbar">
                     <div class="garagem-stat"><span class="garagem-label">Veículos na garagem</span><span class="garagem-value">${data.length}</span></div>
-                    <div class="garagem-stat"><span class="garagem-label">Patrimônio (FIPE ajustada)</span><span class="garagem-value">${brl(totalPatrimonio)}</span></div>
+                    <div class="garagem-stat"><span class="garagem-label">Patrimônio (valor estimado)</span><span class="garagem-value">${brl(totalPatrimonio)}</span></div>
                     <a href="perfil.html" class="btn-action garagem-add"><i class="fas fa-plus"></i> Adicionar veículo</a>
                 </div>
             `;
@@ -1039,14 +1049,14 @@ ${pred.predicted_next_km ? `
                     </div>
                     <div class="vm-stats">
                         <div class="vm-stat"><div class="v">${health}</div><div class="l">Health</div></div>
-                        <div class="vm-stat"><div class="v">${brl(ajustada)}</div><div class="l">FIPE ajustada</div></div>
+                        <div class="vm-stat"><div class="v">${brl(ajustada)}</div><div class="l">Valor estimado</div></div>
                         <div class="vm-stat"><div class="v">${extras.manutencoes_realizadas || 0}</div><div class="l">Manutenções</div></div>
                         <div class="vm-stat"><div class="v">${extras.chats_realizados || 0}</div><div class="l">Chats NOG</div></div>
                     </div>
                     <div class="vm-section">
                         <h4>Mod Passport</h4>
                         <div class="modp-line"><span class="label">FIPE fábrica</span><span class="value">${brl(base)}</span></div>
-                        <div class="modp-line"><span class="label">FIPE ajustada</span><span class="value modp-value-ajustada">${brl(ajustada)}${badge}</span></div>
+                        <div class="modp-line"><span class="label">Valor estimado</span><span class="value modp-value-ajustada">${brl(ajustada)}${badge}</span></div>
                         <div style="margin:0.6rem 0;">${modItems}</div>
                         <button class="btn-action" style="width:100%;justify-content:center;" onclick="openModPassport(${vehicleId})"><i class="fas fa-edit"></i> Gerenciar Mod Passport</button>
                     </div>

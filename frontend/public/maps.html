@@ -1312,7 +1312,7 @@ function switchTab(tab) {
         
         // Leaflet só pinta tiles quando o contêiner tem tamanho válido, então o
         // tamanho é reavaliado ao carregar, redimensionar, rolar (qualquer
-        // container) e sempre que o mapa entra de novo na viewport — em
+        // container) e sempre que o mapa entra de novo na viewport  em
         // telas menores o mapa fica abaixo da dobra e só recebe tiles com
         // invalidateSize() depois de visível.
         function setupMapResizeWatch() {
@@ -1370,7 +1370,7 @@ function switchTab(tab) {
                     if (!fresh) requestUserLocation();
                     return;
                 }
-            } catch (e) { /* cache corrompido — segue para geolocalização */ }
+            } catch (e) { /* cache corrompido  segue para geolocalização */ }
             requestUserLocation();
         }
         

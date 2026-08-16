@@ -134,7 +134,7 @@ test.describe("Fluxo de Autenticacao", () => {
     await page.click('button:has-text("Sair"), a:has-text("Sair")');
 
     // clearSession() roda de forma sincrona antes do redirect (auth.js
-    // linha 516). Verificamos a limpeza diretamente — checar apos o
+    // linha 516). Verificamos a limpeza diretamente - checar apos o
     // waitForURL e flaky porque o login.html re-injeta as chaves.
     await page.waitForFunction(
       () =>

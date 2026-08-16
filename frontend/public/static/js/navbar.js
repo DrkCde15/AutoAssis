@@ -1,8 +1,8 @@
 /**
- * AutoAssist — Navbar unificada (elimina o flash de login)
+ * AutoAssist - Navbar unificada (elimina o flash de login)
  *
  * Renderiza o header correto (logado / deslogado) de forma SÍNCRONA,
- * usando apenas o token local (localStorage / cookie) — sem esperar rede.
+ * usando apenas o token local (localStorage / cookie) - sem esperar rede.
  * A validação com o servidor roda em seguida e só corrige o estado caso a
  * sessão esteja realmente inválida.
  *

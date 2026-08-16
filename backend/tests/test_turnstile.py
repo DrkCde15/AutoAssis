@@ -1,4 +1,4 @@
-"""Testes do CAPTCHA Cloudflare Turnstile — contrato canônico (Spin).
+"""Testes do CAPTCHA Cloudflare Turnstile - contrato canônico (Spin).
 
 Valida: decorator no-op sem chave, exigência de token válido com chave,
 action esperada, hostname no allowlist e fail-closed em rede/HTTP.

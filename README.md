@@ -16,7 +16,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 - **E-commerce Automotivo Integrado:** Recomendação automática de links para compra de **veículos (WebMotors)** e **peças (Mercado Livre)** baseada na necessidade do usuário.
 - **IA de Previsão de Manutenção:** Sistema que analisa descrições (ex: "Troquei o óleo hoje") e utiliza IA para prever a data e quilometragem da próxima revisão.
 - **Raio-X Mecânico:** Análise visual avançada para identificação de ferrugem, desalinhamentos e vazamentos em fotos.
-- **Busca Inteligente de Mecânicos:** Encontre oficinas reais próximas via OpenStreetMap + Google Search, com cache Redis (1h OSM, 24h web). Integrado ao chatbot — pergunte "preciso de um mecânico" e a IA responde com opções na região.
+- **Busca Inteligente de Mecânicos:** Encontre oficinas reais próximas via OpenStreetMap + Google Search, com cache Redis (1h OSM, 24h web). Integrado ao chatbot - pergunte "preciso de um mecânico" e a IA responde com opções na região.
 
 ### **Dashboard e Gestão**
 
@@ -30,25 +30,27 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 ### **Programa de Indicação (Link de Convite)**
 
 - Cada usuário recebe um **link de convite** próprio, obtido via `GET /api/referral` (JWT), que retorna `referral_code` e `referral_link` no formato `https://<dominio>/cadastro.html?ref=CODIGO`.
-- Quem se cadastra informando um `referred_by` (o código do convite) **concede 1 mês de Premium automaticamente a quem indicou**.
+- Quem se cadastra informando um `referred_by` (o código do convite) **concede 1 mês de crédito/desconto na assinatura Premium a quem indicou** (aplicado na ativação da assinatura via `referral_credit_months` em `routes/auth.py`/`payment.py`).
 - Proteções anti-fraude no backend: teto de **20 bônus por indicador**, máximo de **5 indicações/dia**, máximo de **5 contas por IP/dia** e bloqueio quando o IP do indicado é igual ao do indicador.
 
 ### **Mod Passport (recurso Premium)**
 
 - Recurso **exclusivo para contas Premium** (validado por `_require_mod_passport` em `routes/pages.py`).
-- Permite registrar **modificações/melhorias** do veículo (ex.: som, rodas, motor, preparação) e recalcula o **valor de tabela FIPE ajustado** (`fipe_ajustada`) com base nos upgrades aplicados.
-- O painel do veículo passa a exibir o valor FIPE base versus o valor com mods (`pct_ajuste` e `valor_extra`).
+- Permite registrar **modificações/melhorias** do veículo (ex.: som, rodas, motor, preparação) e recalcula o **Valor estimado de mercado** (`fipe_ajustada`) com base nos upgrades aplicados.
+- A **base do valor** é a **Tabela FIPE** (referência oficial) ou, quando há amostra confiável, a **mediana de anúncios reais** (Mercado Livre, via `get_market_price_estimate` em `services/web_scraping.py`).
+- O ajuste por mods é **conservador e transparente**: pesos por categoria (turbo 5%, motor 4%, som 0,5%…) com teto de **12%**, mais qualquer valor em R$ informado por modificação (`_calcular_detalhe` em `routes/pages.py`).
+- O painel exibe o valor FIPE base versus o valor estimado, a **fonte** utilizada e um **aviso** de que não é avaliação oficial (não substitui perícia para venda/seguro/financiamento).
 
-### **Dashboard — Modais de Detalhes do Veículo**
+### **Dashboard - Modais de Detalhes do Veículo**
 
-- O painel (`dashboard.html`) agora abre **modais interativos** com os detalhes completos de cada veículo — marca, modelo, ano de fabricação, quilometragem, valor FIPE base/ajustado e status de manutenção — além de ações rápidas como editar dados do veículo e acessar o **Mod Passport**.
+- O painel (`dashboard.html`) agora abre **modais interativos** com os detalhes completos de cada veículo - marca, modelo, ano de fabricação, quilometragem, valor FIPE base/ajustado e status de manutenção - além de ações rápidas como editar dados do veículo e acessar o **Mod Passport**.
 
 ### **Segurança e Cloud (Hardening de Produção)**
 
 - **Proteção Avançada:** Implementação de **SRI (Subresource Integrity)**, **CSP (Content Security Policy)** e sanitização global contra XSS.
 - **Google OAuth 2.0:** Login simplificado e seguro utilizando contas Google com propagação dinâmica de tokens.
 - **Autenticação em Duas Etapas (2FA):** Camada de segurança adicional para proteção de dados sensíveis.
-- **CAPTCHA Cloudflare Turnstile:** Proteção anti-bot no cadastro e login — validação server-side de `success`, `action` e `hostname`.
+- **CAPTCHA Cloudflare Turnstile:** Proteção anti-bot no cadastro e login - validação server-side de `success`, `action` e `hostname`.
 - **Cloud Resiliency:** Conectividade reforçada com suporte a SSL e timeouts otimizados para bancos de dados em nuvem.
 
 ---
@@ -104,6 +106,10 @@ AutoAssist/
 │   ├── library.html               # Galeria de Vídeos YouTube
 │   ├── maintenance_history.html   # Gestão de Manutenções
 │   ├── profile.html               # Perfil do Usuário
+│   ├── planos.html                # Planos e preços (Premium R$ 19,90/mês)
+│   ├── b2b.html                   # Landing da API B2B (planos, lead, chave self-serve)
+│   ├── eventos.html               # Agenda de eventos automotivos
+│   ├── blog/                      # Blog de SEO (posts de exemplo + CTA NOG)
 │   └── static/
 │       ├── css/
 │       │   ├── car-scrollytelling.css   # Estilos do carrossel 3D e hero
@@ -206,8 +212,9 @@ TURNSTILE_HOSTNAMES=seu-dominio.com,localhost,127.0.0.1
 
 # API B2B (diagnóstico por foto como serviço assinável)
 # Segredo para criar API keys de clientes corporativos (POST /api/b2b/keys).
-# OBS: obrigatório — sem ele, a criação de chave retorna 500.
+# OBS: obrigatório - sem ele, a criação de chave retorna 500.
 B2B_ADMIN_SECRET=gere_um_segredo_forte
+
 ```
 
 ### 3. Instalação e Execução
@@ -242,15 +249,25 @@ Sem Redis, o cache recai sobre memória local (por processo) e as filas RQ não 
 
 ---
 
+## 💳 Planos e Monetização
+
+- **Plano Premium recorrente:** assinatura **R$ 19,90/mês** (via Cakto, `PREMIUM_PLANS` em `routes/payment.py`).
+- **Camada gratuita:** até **30 consultas/mês** com a IA NOG (`FREE_MONTHLY_CHAT_LIMIT` em `routes/pages.py`); estourar o limite retorna `403 code=free_limit_reached`. Em manutenções, o free pode registrar até **3 por veículo** (`FREE_MAINTENANCE_LIMIT`), com alertas gratuitos.
+- **Indicação:** quem se cadastra com um código de convite concede **1 mês de crédito** na assinatura de quem indicou (`referral_credit_months`).
+- **B2B:** diagnóstico por foto como serviço, com tiers e cota por API key (ver seção abaixo).
+
+---
+
 ## 🤝 API B2B (Diagnóstico por Foto como Serviço)
 
-API assinável para clientes corporativos enviarem fotos de defeitos e receberem um laudo técnico (JSON ou PDF) gerado por IA. Autenticação via header `X-API-Key` (chave criada em `POST /api/b2b/keys`, protegido por `B2B_ADMIN_SECRET`). A chave é exibida **uma vez**; no banco fica só o hash SHA-256, com comparação em tempo constante. Rate limit por cliente (Redis, com fallback local).
+API assinável para clientes corporativos enviarem fotos de defeitos e receberem um laudo técnico (JSON ou PDF) gerado por IA. Autenticação via header `X-API-Key` (chave criada em `POST /api/b2b/keys`, protegido por `B2B_ADMIN_SECRET`). A chave é exibida **uma vez**; no banco fica só o hash SHA-256, com comparação em tempo constante. Rate limit por cliente (Redis, com fallback local). Planos/tiers (`B2B_PLANS`: trial/pro_1k/pro_5k/pro_20k) definem a cota de requisições (`requests_limit`/`requests_used` na tabela `api_clients`); ultrapassar retorna `429`. Clientes podem gerar sua própria chave via `POST /api/b2b/self-serve/keys` (JWT do usuário logado).
 
 ### Endpoints
 
 | Método | Rota | Auth | Descrição |
 | :----- | :--- | :--- | :-------- |
 | `POST` | `/api/b2b/keys` | `X-Admin-Secret` = `B2B_ADMIN_SECRET` | Cria um cliente e retorna a `api_key` (uso único). Body: `{ "nome", "rate_limit_per_min"? }`. |
+| `POST` | `/api/b2b/self-serve/keys` | JWT (usuário logado) | Usuário cria sua própria API key B2B (plano/tier definido por `B2B_PLANS`). |
 | `POST` | `/api/b2b/diagnosis` | `X-API-Key` | Diagnóstico por foto. Body: `{ "image": <base64>, "pergunta"?, "formato"?: "json"\|"pdf" }`. |
 | `POST` | `/api/b2b/leads` | público | Captura lead do formulário B2B. Body: `{ "nome", "email", "empresa"?, "telefone"?, "mensagem"? }`. |
 | `GET`  | `/api/admin/b2b/leads` | JWT admin | Lista os leads capturados. |
@@ -289,7 +306,7 @@ Pipeline de coleta de eventos tratado como **dado estruturado** (não scraping g
 7. **API:** `GET /api/events/automotive` (filtros `uf`, `q`, `categoria`, `periodo`, `lat`/`lng`/`radius` para "perto de mim") e `GET /api/events/<id>`.
 8. **Frontend:** `eventos.html` renderiza cards com badge de `status` e selo de fonte; a lista mostra apenas eventos futuros.
 
-> Eventos de comunidade (Facebook/Instagram/WhatsApp) e plataformas fechadas (Sympla/Eventbrite sem token) não são cobertos — ficam como fontes futuras. Nenhuma área protegida/CAPTCHA é contornada.
+> Eventos de comunidade (Facebook/Instagram/WhatsApp) e plataformas fechadas (Sympla/Eventbrite sem token) não são cobertos - ficam como fontes futuras. Nenhuma área protegida/CAPTCHA é contornada.
 
 ### Endpoints
 
@@ -307,7 +324,7 @@ Pipeline de coleta de eventos tratado como **dado estruturado** (não scraping g
 - **CSP (Content Security Policy)**: `unsafe-eval` removido por padrão; reative com `CSP_ALLOW_UNSAFE_EVAL=1` apenas se estritamente necessário. `unsafe-inline` é mantido para o frontend estático (migração para nonce é recomendada).
 - **JWT Protection**: Endpoints protegidos garantem que apenas usuários autenticados acessem dados sensíveis.
 - **Cron Auth**: rotas agendadas devem exigir `X-Cron-Secret` (veja `utils/cron_auth.require_cron_secret` e `MAINTENANCE_EMAIL_CRON_SECRET`).
-- **Cloudflare Turnstile**: CAPTCHA anti-bot em `/api/cadastro` (action `signup`) e `/api/login` (action `login`). O siteverify é feito server-side (`utils/turnstile.turnstile_required`) validando `success`, `action` e `hostname` no allowlist `TURNSTILE_HOSTNAMES` — fail-closed em erro de rede/HTTP. Sem `TURNSTILE_SECRET_KEY` configurada, o decorator é no-op (dev/testes). Para criar o widget via API: token com escopo `Account.Turnstile:Edit` e `POST /accounts/<id>/challenges/widgets` (`{"name","domains":[...],"mode":"managed"}`). Tokens do Turnstile são single-use.
+- **Cloudflare Turnstile**: CAPTCHA anti-bot em `/api/cadastro` (action `signup`) e `/api/login` (action `login`). O siteverify é feito server-side (`utils/turnstile.turnstile_required`) validando `success`, `action` e `hostname` no allowlist `TURNSTILE_HOSTNAMES` - fail-closed em erro de rede/HTTP. Sem `TURNSTILE_SECRET_KEY` configurada, o decorator é no-op (dev/testes). Para criar o widget via API: token com escopo `Account.Turnstile:Edit` e `POST /accounts/<id>/challenges/widgets` (`{"name","domains":[...],"mode":"managed"}`). Tokens do Turnstile são single-use.
 - **Segredos**: o `.env` **não deve ser commitado**. Em produção, configure os segredos no Render via dashboard/Environment Group.
 
 ---
@@ -322,10 +339,10 @@ python -m unittest tests.test_b2b -v     # ou: python tests/test_b2b.py
 ```
 
 Cobertura de `test_b2b.py` (11 testes, todos passando):
-- `POST /api/b2b/keys` — sucesso (201, hash gravado == SHA-256 da chave), secret errado (403), `B2B_ADMIN_SECRET` ausente (500)
-- `POST /api/b2b/diagnosis` — sem key (401), sem imagem (400), JSON (200), **PDF** (200, `%PDF`)
-- `POST /api/b2b/leads` — sucesso (201), campos faltando (400)
-- `GET /api/admin/b2b/leads` — sem admin (403), com admin (200)
+- `POST /api/b2b/keys` - sucesso (201, hash gravado == SHA-256 da chave), secret errado (403), `B2B_ADMIN_SECRET` ausente (500)
+- `POST /api/b2b/diagnosis` - sem key (401), sem imagem (400), JSON (200), **PDF** (200, `%PDF`)
+- `POST /api/b2b/leads` - sucesso (201), campos faltando (400)
+- `GET /api/admin/b2b/leads` - sem admin (403), com admin (200)
 
 > O endpoint de PDF usa `fpdf2`; `_build_laudo_pdf` retorna `bytes`. A criação de chaves exige `B2B_ADMIN_SECRET` definido no `.env`.
 
@@ -336,22 +353,16 @@ Cobertura de `test_b2b.py` (11 testes, todos passando):
 Registro das mudanças feitas nesta sessão de desenvolvimento:
 
 ### Cobertura de testes da API B2B
-- **Criado `backend/tests/test_b2b.py`** (11 testes, estilo `unittest`) cobrindo todos os endpoints B2B com banco, Redis e visão por IA mockados — roda sem Groq/DB externo.
+- **Criado `backend/tests/test_b2b.py`** (11 testes, estilo `unittest`) cobrindo todos os endpoints B2B com banco, Redis e visão por IA mockados - roda sem Groq/DB externo.
   - `POST /api/b2b/keys`: sucesso (201, hash gravado == SHA-256 da chave), `X-Admin-Secret` errado (403), `B2B_ADMIN_SECRET` ausente (500).
   - `POST /api/b2b/diagnosis`: sem key (401), sem imagem (400), JSON (200), **PDF** (200, `%PDF`).
   - `POST /api/b2b/leads`: sucesso (201), campos faltando (400).
   - `GET /api/admin/b2b/leads`: sem admin (403), com admin (200).
 
-### Correção de bug de produção (encontrado pelos testes)
-- **`backend/routes/b2b.py` (`_build_laudo_pdf`):** o método retornava `pdf.output(dest="S")`, que no `fpdf2` é **`str`**. O endpoint `/api/b2b/diagnosis` com `formato:"pdf"` faz `io.BytesIO(pdf_bytes)` → `TypeError` → **500 em produção**, nunca testado antes. Corrigido para retornar `bytes` via `.encode("latin-1")`, igual ao fallback de erro. Após o fix, o teste `test_diagnosis_pdf` passa (resposta `200` com magic bytes `%PDF`).
-
-### Documentação
-- README: adicionada a variável `B2B_ADMIN_SECRET` ao bloco `.env`, a seção **"🤝 API B2B"** (endpoints + fluxo curl) e a seção **"🧪 Testes"**.
-
 ### Arquitetura de Eventos Automotivos (estruturada)
 - **Nova tabela `events`** em `backend/routes/database.py` (`TABLES_SQL`): `id` (PK estável `sha1`), `title`, `normalized_title`, `category`, `start_date`/`end_date`, `venue_name`, `address`, `city`, `state`, `latitude`/`longitude`, `organizer`, `event_url`, `source`, `status`, `confidence`, `last_verified_at`, índices por UF/cidade/data/status/fonte. Criada via `init_db()`.
 - **`backend/services/automotive_events.py`:**
-  - `_make_event` estendido com `normalized_title`, `confidence` (via `CONFIDENCE_BY_SOURCE`), `status` (via `derive_status`), `latitude`/`longitude`, `organizer`, `venue_name`, `address`, `country` e **id estável** (`sha1(fonte|titulo|data|cidade)`) — substitui o `hash()` frágil entre processos.
+  - `_make_event` estendido com `normalized_title`, `confidence` (via `CONFIDENCE_BY_SOURCE`), `status` (via `derive_status`), `latitude`/`longitude`, `organizer`, `venue_name`, `address`, `country` e **id estável** (`sha1(fonte|titulo|data|cidade)`) - substitui o `hash()` frágil entre processos.
   - `_dedupe_events` por score (título + data + cidade + venue + organizador; mantém o canônico de maior confiança), no lugar do set ingênuo `(titulo, data)`.
   - `_geocode_event` (Nominatim/OSM, reuso de cache) e `persist_events` (upsert MySQL em lote) integrados ao `scan_automotive_events`.
   - `_haversine` + filtro `lat`/`lng`/`radius` em `filter_events` ("perto de mim").

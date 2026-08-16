@@ -1,5 +1,5 @@
 /*
- * AppSelect — componente de seleção customizado, sem dependências externas.
+ * AppSelect - componente de seleção customizado, sem dependências externas.
  * Substitui <select> nativos com um combobox acessível (role=combobox/listbox/option),
  * pesquisa interna opcional (config.searchable) com filtro por texto
  * (case/acento-insensitive), navegação por teclado, fechamento por clique

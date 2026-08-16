@@ -77,6 +77,11 @@ GENERIC_CHAT_TOKENS = {
 }
 
 GUEST_CHAT_LIMIT = 5
+# P0-1: free registrado ganha quota mensal de interações no chat.
+# Premium é ilimitado. Evita burn infinito de IA em contas gratuitas.
+FREE_MONTHLY_CHAT_LIMIT = int(os.getenv("FREE_MONTHLY_CHAT_LIMIT", "30"))
+# P1-1: free pode registrar até N manutenções; premium é ilimitado.
+FREE_MAINTENANCE_LIMIT = int(os.getenv("FREE_MAINTENANCE_LIMIT", "3"))
 MAX_CHAT_HISTORY_LIMIT = 200
 DEFAULT_CHAT_HISTORY_LIMIT = 100
 MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
@@ -114,6 +119,27 @@ def ensure_premium_user(user):
     if bool(user.get("is_premium")):
         return None
     return jsonify(error=PREMIUM_ONLY_ERROR), 403
+
+
+def ensure_maintenance_access(user, cursor):
+    """P1-1: free pode registrar até FREE_MAINTENANCE_LIMIT manutenções; premium ilimitado.
+    Listagem é liberada para todos (free vê seus próprios registros)."""
+    if not user:
+        return invalid_session_response()
+    if bool(user.get("is_premium")):
+        return None
+    user_id = user.get("id")
+    cursor.execute("SELECT COUNT(*) AS cnt FROM maintenance_history WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+    count = int((row or {}).get("cnt") or 0)
+    if count >= FREE_MAINTENANCE_LIMIT:
+        return jsonify(
+            error=f"O plano gratuito permite ate {FREE_MAINTENANCE_LIMIT} registros de manutencao. Assine o Premium para historico ilimitado.",
+            code="free_maintenance_limit_reached",
+            limit=FREE_MAINTENANCE_LIMIT,
+            used=count,
+        ), 403
+    return None
 
 def _get_fx_rates():
     """Taxas de câmbio para normalização de custos em BRL (configurável via env)."""
@@ -1241,7 +1267,7 @@ def update_user():
 def update_user_location():
     """Salva a localização (UF) do usuário para notificações regionais de eventos.
 
-    Recebe {lat, lng} (geolocalização do navegador) — a UF é inferida por
+    Recebe {lat, lng} (geolocalização do navegador) - a UF é inferida por
     reverse geocoding (Nominatim) e cacheadas por ~1km. Também aceita {uf}
     diretamente e {uf: ""} para limpar a localização.
     """
@@ -1278,15 +1304,25 @@ from datetime import datetime
 
 
 _MOD_FIPE_PCT = {
-    # Valores conservadores de agregacao de valor de mercado para veiculos
-    # modificados. NAO reflete a tabela FIPE (que e de fabrica); e uma
-    # estimativa de valorizacao negociada. Calibravel conforme mercado.
-    "motor": 0.06, "turbo": 0.08, "suspensao": 0.03, "freios": 0.03,
-    "rodas": 0.02, "pneus": 0.02, "escapamento": 0.02, "eletronica": 0.03,
-    "som": 0.015, "estetica": 0.015, "interna": 0.02, "outros": 0.02,
+    # Pesos CONSERVADORES de valor RETIDO em revenda para itens documentados,
+    # baseados no comportamento tipico do mercado brasileiro: a maioria dos
+    # mods NAO repassa o custo (audio/estetica raramente agregam; performance
+    # pode ajudar comprador entusiasta mas penaliza o comprador geral). Sao
+    # estimativas de mercado, NAO refletem a Tabela FIPE (que e de fabrica).
+    # Calibrar conforme dados reais de transacao.
+    "motor": 0.04, "turbo": 0.05, "suspensao": 0.02, "freios": 0.02,
+    "rodas": 0.015, "pneus": 0.01, "escapamento": 0.015, "eletronica": 0.02,
+    "som": 0.005, "estetica": 0.005, "interna": 0.01, "outros": 0.01,
 }
 # Teto de valorizacao total para evitar inflacao irrealista do valor.
-_MOD_FIPE_PCT_MAX = 0.25
+_MOD_FIPE_PCT_MAX = 0.12
+
+# Aviso exibido junto ao valor estimado: deixa claro que NAO e avaliacao oficial.
+FIPE_AJUSTADA_DISCLAIMER = (
+    "Valor estimado de mercado com base na Tabela FIPE e/ou precos de anuncios "
+    "reais, ajustado por itens documentados. Nao e avaliacao oficial e nao "
+    "substitui pericia para venda, seguro ou financiamento."
+)
 
 
 def _parse_fipe_valor(valor):
@@ -1304,28 +1340,67 @@ def _parse_fipe_valor(valor):
     return 0.0
 
 
-def calcular_fipe_ajustada(base_valor, modificacoes):
-    """Calcula o valor FIPE ajustado por modificacoes (Mod Passport).
+def _calcular_detalhe(base_valor, modificacoes, mercado=None):
+    """Calcula o valor estimado de mercado de forma transparente e fundamentada.
 
-    modificacoes: lista de dicts {nome, categoria, valor (absoluto opcional)}.
-    Retorna (valor_ajustado_str, pct_total, valor_extra_abs).
+    - A base e a Tabela FIPE (referencia oficial de mercado) OU a mediana de
+      anuncios reais quando disponivel e coerente (ratio 0.4x-2.5x da FIPE).
+    - O ajuste por modificacoes e uma estimativa conservadora e exposta
+      (cada categoria contribui com seu peso, ate o teto).
+
+    Retorna dict com valor, base usada, fonte, pct, extra e o detalhe por mod.
     """
-    base = _parse_fipe_valor(base_valor)
+    fipe_base = _parse_fipe_valor(base_valor)
+    base = fipe_base
+    fonte = "Tabela FIPE (referencia oficial de mercado)"
+    if mercado and isinstance(mercado, (int, float)) and mercado > 0:
+        if fipe_base > 0:
+            ratio = mercado / fipe_base
+            if 0.4 <= ratio <= 2.5:
+                base = float(mercado)
+                fonte = "Preco medio de anuncios reais (Mercado Livre)"
+        else:
+            base = float(mercado)
+            fonte = "Preco medio de anuncios reais (Mercado Livre)"
+
     pct_total = 0.0
     extra_abs = 0.0
+    detalhe = []
     for m in (modificacoes or []):
         cat = (m.get("categoria") or "outros").lower()
-        pct_total += _MOD_FIPE_PCT.get(cat, _MOD_FIPE_PCT["outros"])
+        p = _MOD_FIPE_PCT.get(cat, _MOD_FIPE_PCT["outros"])
+        pct_total += p
+        contrib_abs = 0.0
         v = m.get("valor")
         if v:
             try:
-                extra_abs += float(v)
+                contrib_abs = float(v)
+                extra_abs += contrib_abs
             except (TypeError, ValueError):
                 pass
+        detalhe.append({"categoria": cat, "pct": p, "valor_informado": contrib_abs})
+
     pct_total = min(pct_total, _MOD_FIPE_PCT_MAX)
     ajustado = base * (1 + pct_total) + extra_abs
     valor_str = "R$ {:,.2f}".format(ajustado).replace(",", "X").replace(".", ",").replace("X", ".")
-    return (valor_str, round(pct_total, 4), round(extra_abs, 2))
+    return {
+        "valor": valor_str,
+        "base": base,
+        "base_fonte": fonte,
+        "pct": round(pct_total, 4),
+        "extra_abs": round(extra_abs, 2),
+        "detalhe": detalhe,
+    }
+
+
+def calcular_fipe_ajustada(base_valor, modificacoes, mercado=None):
+    """Calcula o valor estimado de mercado por modificacoes (Mod Passport).
+
+    Mantem a assinatura (valor_str, pct, extra) para retrocompatibilidade.
+    'mercado' opcional = mediana de anuncios reais para fundamentar a base.
+    """
+    d = _calcular_detalhe(base_valor, modificacoes, mercado=mercado)
+    return (d["valor"], d["pct"], d["extra_abs"])
 
 
 def _require_mod_passport(cursor, user_id):
@@ -1407,6 +1482,32 @@ def list_veiculos():
                     v["fipe_valor"] = float(v["fipe_valor"])
                 if v.get("fipe_ajustada") is not None and isinstance(v.get("fipe_ajustada"), Decimal):
                     v["fipe_ajustada"] = float(v["fipe_ajustada"])
+                # Fundamenta o valor estimado com precos de mercado reais (best-effort).
+                mods = v.get("modificacoes")
+                if isinstance(mods, str):
+                    try:
+                        mods = json.loads(mods)
+                    except (ValueError, TypeError):
+                        mods = []
+                if v.get("fipe_valor") or mods:
+                    mercado = None
+                    if mods:
+                        try:
+                            from services import web_scraping as _ws
+                            mkt = _ws.get_market_price_estimate(
+                                v.get("marca"), v.get("modelo"), v.get("ano_fabricacao")
+                            )
+                            if mkt:
+                                mercado = mkt[0]
+                        except Exception as mkt_err:
+                            logger.debug("enriquecimento de mercado falhou: %s", mkt_err)
+                    det = _calcular_detalhe(v.get("fipe_valor"), mods, mercado=mercado)
+                    v["fipe_ajustada"] = det["valor"]
+                    v["fipe_ajustada_fonte"] = det["base_fonte"]
+                    v["fipe_ajustada_metodo"] = det["detalhe"]
+                    v["fipe_ajustada_aviso"] = (
+                        FIPE_AJUSTADA_DISCLAIMER if (mods or mercado) else None
+                    )
             return jsonify(veiculos=veiculos), 200
     except Exception as e:
         logger.error(f"Erro ao listar veiculos: {e}")
@@ -1501,6 +1602,7 @@ def set_veiculo_modificacoes(v_id):
                 fipe_ajustada=valor_ajustado,
                 pct_ajuste=pct,
                 valor_extra=extra,
+                aviso=FIPE_AJUSTADA_DISCLAIMER,
             ), 200
     except Exception as e:
         logger.error("Erro ao salvar modificacoes: %s", e, exc_info=True)
@@ -1675,7 +1777,7 @@ def register_maintenance_history():
     try:
         with get_db() as (cursor, conn):
             user = get_user_by_id(cursor, user_id)
-            premium_error = ensure_premium_user(user)
+            premium_error = ensure_maintenance_access(user, cursor)
             if premium_error:
                 return premium_error
 
@@ -1772,7 +1874,7 @@ def register_maintenance_history():
                         send_push_notification(
                             user_id=user_id,
                             title="⚠️ Anotação em Atenção",
-                            body=f"{parsed.get('maintenance_label', 'Registro')} — vencida.",
+                            body=f"{parsed.get('maintenance_label', 'Registro')} vencida.",
                             data={"url": "/maintenance_history.html"},
                         )
             except Exception as email_err:
@@ -1808,9 +1910,9 @@ def list_maintenance_history():
     try:
         with get_db() as (cursor, conn):
             user = get_user_by_id(cursor, user_id)
-            premium_error = ensure_premium_user(user)
-            if premium_error:
-                return premium_error
+            # P1-1: listagem de manutenções é liberada para free e premium.
+            if not user:
+                return invalid_session_response()
 
             params = [user_id]
             vehicle_filter = ""
@@ -1965,14 +2067,14 @@ def update_maintenance_history(maintenance_id):
                         create_notification(
                             user_id=user_id,
                             title="Manutenção atualizada",
-                            body=f"{parsed.get('maintenance_label', 'Registro')} atualizado — vencido.",
+                            body=f"{parsed.get('maintenance_label', 'Registro')} atualizado e vencido.",
                             type="warning",
                             action_url="/dashboard.html",
                         )
                         send_push_notification(
                             user_id=user_id,
                             title="⚠️ Manutenção em Atenção",
-                            body=f"{parsed.get('maintenance_label', 'Registro')} — vencida.",
+                            body=f"{parsed.get('maintenance_label', 'Registro')} vencida.",
                             data={"url": "/maintenance_history.html"},
                         )
             except Exception as email_err:
@@ -2357,6 +2459,58 @@ def get_video_library():
 
 from extensions import limiter
 
+def _is_effective_premium(user):
+    """Premium válido considerando premium_expires_at (None = permanente)."""
+    if not user or not user.get("is_premium"):
+        return False
+    expira = user.get("premium_expires_at")
+    if expira is None:
+        return True
+    try:
+        if isinstance(expira, str):
+            expira = datetime.fromisoformat(expira.replace("Z", "+00:00"))
+        return expira > datetime.now()
+    except Exception:
+        return True
+
+
+def get_free_chat_usage_month(cursor, user_id):
+    """Conta interações do usuário free no mês corrente (tabela chats)."""
+    cursor.execute(
+        """SELECT COUNT(*) AS cnt FROM chats
+           WHERE user_id = %s AND created_at >= DATE_FORMAT(NOW(), '%%Y-%%m-01')""",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    return int((row or {}).get("cnt") or 0)
+
+
+@pages_bp.route("/api/admin/analytics/burn", methods=["GET"])
+@jwt_required()
+def admin_burn_analytics():
+    """§5: burn de IA por usuário no mês corrente (via tabela chats). Apenas admin."""
+    admin_id = get_jwt_identity()
+    with get_db() as (cursor, conn):
+        cursor.execute("SELECT is_admin FROM users WHERE id = %s", (admin_id,))
+        row = cursor.fetchone()
+        if not row or not row.get("is_admin"):
+            return jsonify(error="Acesso restrito."), 403
+        cursor.execute(
+            """
+            SELECT u.id, u.nome, u.email, u.is_premium,
+                   COUNT(c.id) AS msgs_mes,
+                   MAX(c.created_at) AS ultima_interacao
+            FROM users u
+            LEFT JOIN chats c ON c.user_id = u.id AND c.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')
+            GROUP BY u.id
+            ORDER BY msgs_mes DESC
+            LIMIT 100
+            """
+        )
+        rows = cursor.fetchall()
+    return jsonify(users=rows, mes=datetime.now().strftime("%Y-%m")), 200
+
+
 @pages_bp.route("/api/chat", methods=["POST"])
 @limiter.limit("20 per hour")
 def chat():
@@ -2392,6 +2546,16 @@ def chat():
                 user = load_user_chat_context(cursor, user_id)
                 if not user:
                     return invalid_session_response()
+                # P0-1: free tem quota mensal; premium é ilimitado.
+                if not _is_effective_premium(user):
+                    used = get_free_chat_usage_month(cursor, user_id)
+                    if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        return jsonify(
+                            error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
+                            code="free_limit_reached",
+                            limit=FREE_MONTHLY_CHAT_LIMIT,
+                            used=used,
+                        ), 403
             else:
                 guest_id = normalize_guest_id(data.get("guest_id") or request.headers.get("X-AutoAssist-Guest-Id"))
                 if not guest_id:
@@ -2514,6 +2678,16 @@ def handle_voice():
                 user = load_user_chat_context(cursor, user_id)
                 if not user:
                     return invalid_session_response()
+                # P0-1: free tem quota mensal; premium é ilimitado.
+                if not _is_effective_premium(user):
+                    used = get_free_chat_usage_month(cursor, user_id)
+                    if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        return jsonify(
+                            error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
+                            code="free_limit_reached",
+                            limit=FREE_MONTHLY_CHAT_LIMIT,
+                            used=used,
+                        ), 403
             else:
                 guest_id = normalize_guest_id(request.form.get("guest_id") or request.headers.get("X-AutoAssist-Guest-Id"))
                 if not guest_id:

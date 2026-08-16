@@ -613,7 +613,7 @@ if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):
         os.environ["VAPID_PRIVATE_KEY"] = private_b64
         os.environ["VAPID_PUBLIC_KEY"] = public_b64
     except ImportError:
-        logger.warning("pywebpush nao disponivel — VAPID keys devem ser configuradas manualmente no .env")
+        logger.warning("pywebpush nao disponivel - VAPID keys devem ser configuradas manualmente no .env")
 
 # [SEGURANCA] Padronizacao de Erros (Information Disclosure)
 @app.errorhandler(Exception)

@@ -1,4 +1,4 @@
-// Helper Cloudflare Turnstile (CAPTCHA) — degradação graciosa quando as
+// Helper Cloudflare Turnstile (CAPTCHA) - degradação graciosa quando as
 // chaves não estão configuradas no backend (TURNSTILE_SITE_KEY ausente).
 (function (global) {
   "use strict";

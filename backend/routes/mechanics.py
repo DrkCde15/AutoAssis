@@ -63,7 +63,7 @@ def calculate_distance(lat1, lng1, lat2, lng2):
 
 
 def _build_overpass_queries(user_lat, user_lng, radius_m, osm_tags):
-    """Gera statements simples (sem union) — o overpass-api.de rejeita unions com 400.
+    """Gera statements simples (sem union) - o overpass-api.de rejeita unions com 400.
 
     Retorna (elemento, query) para permitir ordenar por rendimento esperado.
     """
@@ -447,7 +447,7 @@ def search_mechanics():
 
         mechanics = []
 
-        # 1. MySQL — mecânicos já salvos (favoritados, cadastrados)
+        # 1. MySQL - mecânicos já salvos (favoritados, cadastrados)
         try:
             with get_db() as (cursor, conn):
                 cursor.execute("""

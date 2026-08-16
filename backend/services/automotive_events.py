@@ -4,8 +4,8 @@
 Fontes por web scraping:
   - nfeiras.com (calendário de feiras de automobilismo no Brasil)
   - sindirepabrasil.org.br/eventos (feiras e eventos da reparação)
-  - diretriz.com.br (promotora de feiras — Autopar, Minasparts, ...)
-  - interlagos.com.br (Shopping Interlagos — apenas itens automotivos)
+  - diretriz.com.br (promotora de feiras - Autopar, Minasparts, ...)
+  - interlagos.com.br (Shopping Interlagos - apenas itens automotivos)
   - Google Search (fallback + eventos Sympla via site:sympla.com.br,
     além de busca geral por feiras/encontros/exposições automotivas)
 
@@ -67,7 +67,7 @@ _MONTH_ALT = "|".join(sorted(set(MONTHS), key=len, reverse=True))
 # Filtra conteúdos não-automotivos das fontes genéricas.
 # STRONG: termo sozinho já indica automotivo (carro, peça, marca, etc.).
 # WEAK: substantivo de evento ("encontro", "exposição", "feira"...) que só
-#   conta SE vier acompanhado de um termo veicular — evita falsos positivos
+#   conta SE vier acompanhado de um termo veicular - evita falsos positivos
 #   como "Encontro com Patrícia Poeta" ou "Exposição no MASP".
 AUTOMOTIVE_STRONG = (
     "automot", "autopar", "automecanika", "automec", "veicul", "veiculo",
@@ -149,7 +149,7 @@ def _web_queries(location="São Paulo"):
     return base + broad + local
 
 # Classificação de categoria por palavras-chave (ordem importa: a primeira
-# regra que bater define a categoria — específicas antes das genéricas).
+# regra que bater define a categoria - específicas antes das genéricas).
 CATEGORIA_RULES = [
     ("encontro", ("encontro", "encontros", "meetup", "meet up", "car meeting")),
     ("competicao", ("corrida", "rally", "rali", "drift", "competi", "campeonato",
@@ -471,7 +471,7 @@ def _make_event(*, titulo, url, fonte, fonte_nome, data_inicio=None, data_fim=No
 
 
 def _scrape_nfeiras():
-    """https://www.nfeiras.com/automobilismo/brasil — calendário de feiras."""
+    """https://www.nfeiras.com/automobilismo/brasil - calendário de feiras."""
     soup = BeautifulSoup(_fetch_html("https://www.nfeiras.com/automobilismo/brasil"), "html.parser")
     events = []
     for card in soup.select("article.card-tradeShow"):
@@ -518,7 +518,7 @@ def _scrape_nfeiras():
 
 
 def _scrape_sindirepa():
-    """https://sindirepabrasil.org.br/eventos — feiras da reparação automotiva."""
+    """https://sindirepabrasil.org.br/eventos - feiras da reparação automotiva."""
     soup = BeautifulSoup(_fetch_html("https://sindirepabrasil.org.br/eventos/"), "html.parser")
     events = []
     for card in soup.select(".se-card"):
@@ -564,7 +564,7 @@ def _scrape_sindirepa():
 
 
 def _scrape_diretriz():
-    """Feiras da Diretriz — mantendo apenas o segmento automotivo.
+    """Feiras da Diretriz - mantendo apenas o segmento automotivo.
 
     A página é Elementor: cada card tem um h2.elementor-heading-title
     (título), um widget-text-editor com "Cidade / UF" e "data | ano" e um
@@ -618,7 +618,7 @@ def _scrape_diretriz():
 
 
 def _scrape_interlagos():
-    """Shopping Interlagos — seção ACONTECE (só itens automotivos)."""
+    """Shopping Interlagos - seção ACONTECE (só itens automotivos)."""
     soup = BeautifulSoup(_fetch_html("https://www.interlagos.com.br/"), "html.parser")
     events = []
     for thumb in soup.select("#carousel-noticias .thumbnail"):
@@ -659,14 +659,14 @@ def _is_bot_page(html: str) -> bool:
     return any(m in low for m in markers)
 
 
-# Domínios de plataformas de evento — isentos da exigência de data (já são
+# Domínios de plataformas de evento - isentos da exigência de data (já são
 # eventos por definição) e priorizados na busca web.
 EVENT_DOMAINS = (
     "sympla", "eventbrite", "feverup", "fever", "facebook.com/events",
     "meetup.com", "ingresso", "bileto", "guiaeventos", "eventos.com.br",
     "wikievents", "loominee", "even3", "tickets", "lewear", "vamos",
 )
-# Domínios que nunca são eventos — descartados da busca web.
+# Domínios que nunca são eventos - descartados da busca web.
 NON_EVENT_DOMAINS = (
     "wikipedia", "wikimedia", "youtube.com", "youtu.be", "gov.br", "gov",
     "nyc.gov", "microsoft", "bing.com", "googleusercontent", "amazon",
@@ -766,7 +766,7 @@ def _scrape_bing_events():
 
     O Google exige JS (interstitial "enablejs"); o Bing ainda serve o HTML dos
     resultados sem JS. O Scrapling aplica fingerprint TLS de navegador (curl_cffi),
-    lendo a SERP sem cair em captcha e sem abrir um browser — é a fonte primária
+    lendo a SERP sem cair em captcha e sem abrir um browser - é a fonte primária
     da busca web, com Brave API e Playwright como fallbacks.
     """
     queries = _web_queries()
@@ -926,7 +926,7 @@ def _scrape_web_playwright():
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
-        logger.debug("[Events] Playwright indisponível — busca web via browser pulada.")
+        logger.debug("[Events] Playwright indisponível - busca web via browser pulada.")
         return []
 
     queries = _web_queries()
@@ -979,7 +979,7 @@ def _scrape_web_events():
     """Canal de busca web: Scrapling/Bing (HTTP stealth) -> Brave API -> Playwright.
 
     O Scrapling lê a SERP do Bing com fingerprint TLS de navegador, sem captcha e
-    sem abrir browser — é a fonte primária. A Brave Search API entra se BRAVE_API_KEY
+    sem abrir browser - é a fonte primária. A Brave Search API entra se BRAVE_API_KEY
     existir; o Playwright (Chromium headless) é o fallback final contra bloqueios.
     """
     events = _scrape_bing_events()
@@ -990,7 +990,7 @@ def _scrape_web_events():
         events = _scrape_brave_events(api_key)
         if events:
             return events
-        logger.warning("[Events] Brave Search vazio/indisponível — fallback Playwright.")
+        logger.warning("[Events] Brave Search vazio/indisponível - fallback Playwright.")
     return _scrape_web_playwright()
 
 

@@ -1,5 +1,5 @@
 /**
- * AutoAssist — Módulo de Autenticação
+ * AutoAssist - Módulo de Autenticação
  *
  * Responsabilidades:
  *  - Usar cookies HttpOnly como sessao principal e aceitar tokens legados.
@@ -381,7 +381,7 @@ const Auth = (() => {
     try {
       res = await fetch(url, { ...fetchOptions, credentials: "include", headers: baseHeaders });
     } catch (netErr) {
-      // Falha de rede (ex.: backend em cold start no Render) — NÃO desloga o usuário.
+      // Falha de rede (ex.: backend em cold start no Render) - NÃO desloga o usuário.
       showBackendBanner();
       throw new AuthNetworkError(netErr && netErr.message ? netErr.message : "Erro de conexao com o servidor.");
     }
@@ -478,7 +478,7 @@ const Auth = (() => {
       await syncGuestHistory();
     }
 
-    // Fluxo com 2FA — o chamador trata o campo `two_factor_required`
+    // Fluxo com 2FA - o chamador trata o campo `two_factor_required`
     return data;
   }
 
@@ -838,6 +838,7 @@ const Auth = (() => {
     "login.html",
     "perfil.html",
     "planos.html",
+    "maintenance_history.html",
     "privacidade.html",
     "redefinir-senha.html",
     "termos.html",
