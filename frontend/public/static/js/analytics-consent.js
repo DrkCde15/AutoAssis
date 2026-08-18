@@ -247,7 +247,7 @@
       if (!action) return;
       storageSet(CONSENT_KEY, action === "accept" ? ACCEPTED : DECLINED);
       removeBanner();
-      if (action === "accept") track("page_view");
+      if (action === "accept") { track("page_view"); }
     });
 
     document.body.appendChild(banner);
@@ -258,9 +258,9 @@
     consent: {
       hasConsent,
       accept() {
-        storageSet(CONSENT_KEY, ACCEPTED);
-        removeBanner();
-        track("page_view");
+      storageSet(CONSENT_KEY, ACCEPTED);
+      removeBanner();
+      track("page_view");
       },
       decline() {
         storageSet(CONSENT_KEY, DECLINED);

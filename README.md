@@ -109,7 +109,6 @@ AutoAssist/
 │   ├── planos.html                # Planos e preços (Premium R$ 19,90/mês)
 │   ├── b2b.html                   # Landing da API B2B (planos, lead, chave self-serve)
 │   ├── eventos.html               # Agenda de eventos automotivos
-│   ├── blog/                      # Blog de SEO (posts de exemplo + CTA NOG)
 │   └── static/
 │       ├── css/
 │       │   ├── car-scrollytelling.css   # Estilos do carrossel 3D e hero
@@ -371,6 +370,19 @@ Registro das mudanças feitas nesta sessão de desenvolvimento:
 - **`frontend/public/eventos.html`:** card com badge de `status` (Agendado/Acontecendo/Cancelado/Encerrado/Data a confirmar) e selo de `fonte_nome`. Lista apenas eventos futuros.
 - **Testes** (`backend/tests/test_events.py`): +7 testes (normalize, modelo/confiança, status, dedupe por score, mapeamento DB, nearby). Suíte de eventos: **51 passam**, 1 falha pré-existente não relacionada (`test_footer_linka_eventos_html`).
 - `requirements.txt`: adicionado `scrapling[fetchers]==0.4.14`.
+
+### Marketing & Posicionamento (P0)
+- **Posicionamento "copiloto de carro de IA":** títulos, `og:title`/`twitter:title` e eyebrow de `index.html` passam a usar "Seu copiloto de carro de IA"; `og:image`/`twitter:image` agora apontam para URLs absolutas (`https://autoassist.com.br/...`).
+- **Navbar:** visitante vê botão "Criar conta" (`.nav-btn-cta`); logado vê link "Planos". `shared.css` com nova classe de CTA.
+- **Plataforma de pagamento:** cobrança exclusiva via **Cakto** (`R$ 19,90/mês`, sem anual). Removido ruído de "Mercado Pago" do copy.
+- **Alinhamento do Free:** `planos.html` e `chat.html` clarificam "5 mensagens grátis de visitante → crie conta para 30/mês"; card free "grátis ao criar conta".
+- **NOG:** `index.html` explica que "NOG é a inteligência artificial do AutoAssist" no hero e no chat.
+- **Referral via WhatsApp:** `perfil.html` com botão "Ganhar 1 mês no WhatsApp" (`wa.me`) e copy "1 mês Premium grátis".
+- **Loop de retenção → chat:** e-mail de alerta de manutenção (`pages.py`) ganhou 2º CTA "Pergunte à NOG o que fazer" → `chat.html`.
+- **Analytics consentidos:** `analytics-consent.js` carrega **GA4** + **Meta Pixel** somente após consentimento (`GA_MEASUREMENT_ID`/`FB_PIXEL_ID`), sem quebrar a navegação.
+- **SEO técnico:** `robots.txt` + `sitemap.xml` (`https://autoassist.com.br`); `index.html`/`planos.html` com `canonical` e JSON-LD (Organization + Service).
+- **B2B cobrando:** `b2b.py` com preços (R$ 99/399/999 por mês), rota `/api/b2b/self-serve/checkout` (gera pedido Cakto + chave inativa) e ativação via webhook (`payment.py` branch `b2b_`); `b2b.html` com planos/valores e checkout. `CAKTO_B2B_CHECKOUT_URL` é opcional - se ausente, reusa `CAKTO_CHECKOUT_URL` (link do Premium, R$ 19,90); defina apenas para cobrar preços B2B distintos por tier.
+- **Conteúdo descartado:** `blog/` removido (decisão do usuário); `plan.md` P1-3 marcado como NÃO IMPLEMENTADO.
 
 ---
 

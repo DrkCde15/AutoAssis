@@ -147,3 +147,33 @@ def cron_dispatch_maintenance_emails():
     except Exception as e:
         logger.error("Falha ao agendar dispatch de e-mails de manutenção: %s", e)
         return jsonify(error="Erro interno ao agendar envio."), 500
+
+
+@notifications_bp.route("/api/cron/lifecycle-emails", methods=["POST"])
+@require_cron_secret()
+def cron_dispatch_lifecycle_emails():
+    """Endpoint agendado (cron externo) para disparar e-mails de lifecycle.
+
+    Protegido por MAINTENANCE_EMAIL_CRON_SECRET via header X-Cron-Secret.
+    O processamento real roda em background (RQ ou thread).
+    """
+    try:
+        from tasks import dispatch_lifecycle_emails
+        try:
+            from rq import Queue
+            from redis import Redis
+            redis_url = os.getenv("REDIS_URL") or os.getenv("RATELIMIT_STORAGE_URI")
+            if redis_url and redis_url != "memory://":
+                conn = Redis.from_url(redis_url)
+                Queue("default", connection=conn).enqueue(
+                    dispatch_lifecycle_emails, timeout=600
+                )
+                return jsonify(scheduled=True, via="rq"), 202
+        except Exception:
+            pass
+        import threading
+        threading.Thread(target=dispatch_lifecycle_emails, daemon=True).start()
+        return jsonify(scheduled=True, via="thread"), 202
+    except Exception as e:
+        logger.error("Falha ao agendar lifecycle emails: %s", e)
+        return jsonify(error="Erro interno ao agendar envio."), 500

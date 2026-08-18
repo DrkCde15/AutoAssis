@@ -36,6 +36,7 @@
 
   function guestHtml() {
     return (
+      '<a href="cadastro.html" class="nav-btn nav-btn-cta">Criar conta</a>' +
       '<a href="login.html" class="nav-btn nav-btn-outline">Entrar</a>'
     );
   }
@@ -46,6 +47,7 @@
     return (
       '<a href="dashboard.html" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>' +
       '<a href="chat.html" class="nav-link"><i class="fas fa-comments"></i> Chat</a>' +
+      '<a href="planos.html" class="nav-link"><i class="fas fa-star"></i> Planos</a>' +
       '<a href="maintenance_history.html" class="nav-link"><i class="fas fa-history"></i> Anotações</a>' +
       '<a href="perfil.html" class="nav-link"><i class="fas fa-user"></i> ' + firstName + "</a>" +
       '<div class="nav-dropdown" id="navMore">' +

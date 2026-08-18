@@ -930,6 +930,8 @@ def render_maintenance_email_html(user_name, alerts):
 
         <div style="text-align: center; margin-top: 35px;">
             <a href="{html.escape(get_dashboard_url())}" style="display: inline-block; padding: 14px 28px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Ver Painel Completo</a>
+            <p style="margin: 18px 0 0; font-size: 15px; color: #374151;">Quer saber o que fazer e quanto vai custar?</p>
+            <a href="chat.html" style="display: inline-block; padding: 14px 28px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Pergunte à NOG o que fazer</a>
         </div>
     """
 

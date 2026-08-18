@@ -407,7 +407,7 @@ class PaymentRoutesTest(unittest.TestCase):
         insert_params = insert_calls[0].args[1]
         # (id, user_id, plan, amount, currency, provider)
         self.assertEqual(insert_params[2], "completo")
-        self.assertEqual(float(insert_params[3]), 29.90)
+        self.assertEqual(float(insert_params[3]), 19.90)
         self.assertEqual(insert_params[4], "BRL")
 
     def test_create_preference_rejects_unknown_plan(self):
@@ -428,10 +428,14 @@ class PaymentRoutesTest(unittest.TestCase):
         self.assertEqual(resp[1], 200)
         self.assertTrue(resp[0].json["success"])
         self.assertTrue(resp[0].json["premium"])
-        # Deve ter atualizado o usuario para premium (3o execute: SELECT order,
-        # UPDATE payments_orders, UPDATE users).
-        update_sql = self.mock_cursor.execute.call_args_list[2].args[0]
-        self.assertIn("UPDATE users SET is_premium", update_sql)
+        # Deve ter atualizado o usuario para premium (o SELECT de pedido, o
+        # UPDATE de payments_orders e o UPDATE de users, mais o SELECT de
+        # credito de indicacao inserido na ativacao).
+        update_user_calls = [
+            c for c in self.mock_cursor.execute.call_args_list
+            if "UPDATE users SET is_premium" in (c.args[0] or "")
+        ]
+        self.assertTrue(update_user_calls)
 
     def test_webhook_rejects_amount_mismatch(self):
         self.mock_service.verify_transaction_status.return_value = (True, 9.90)

@@ -184,6 +184,15 @@ def after_request(response):
     # Log resposta para /api/dashboard
     if request.path == '/api/dashboard':
         logger.info(f"<<< RESPONSE: {response.status_code} | Content-Type: {response.headers.get('Content-Type')}")
+    # Remove a diretiva 'browsing-topics' (recurso nao reconhecido pelos navegadores)
+    # do Permissions-Policy, que o Flask-Talisman adiciona por padrao e gera warning no console.
+    pp = response.headers.get('Permissions-Policy')
+    if pp and 'browsing-topics' in pp:
+        new_pp = ', '.join(p for p in pp.split(',') if 'browsing-topics' not in p)
+        if new_pp.strip():
+            response.headers['Permissions-Policy'] = new_pp
+        else:
+            del response.headers['Permissions-Policy']
     return response
 
 # [SEGURANCA] Verificacao estrita da Secret Key

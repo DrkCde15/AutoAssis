@@ -431,58 +431,45 @@
         .mod-status { margin-top: 0.75rem; font-size: 0.85rem; min-height: 1.1rem; }
         .mod-status.error { color: var(--danger); }
         .mod-status.ok { color: var(--success); }
-        </style>
+                .nav-logo-icon { width:auto; height:auto; background:transparent; border-radius:0; display:flex; align-items:center; justify-content:center; }
+        .nav-logo-text { font-size:20px; font-weight:700; letter-spacing:-0.5px; }
+        .nav-toggle { display: none; }
+        @media (max-width: 768px) {
+            .nav-container { position: relative; }
+            .nav-toggle {
+                display: inline-flex; align-items: center; justify-content: center;
+                margin-left: auto; width: 44px; height: 44px;
+                border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+                background: transparent; color: var(--text-primary); font-size: 18px; cursor: pointer;
+            }
+            .nav-links { display: none; position: absolute; top: calc(100% + 10px); right: 0;
+                flex-direction: column; align-items: stretch; gap: 8px; min-width: 210px;
+                padding: 14px; border-radius: 14px; background: rgba(17,17,20,0.97);
+                border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 18px 40px rgba(0,0,0,0.45); z-index: 50; }
+            .nav-links.nav-open { display: flex; }
+        }
+</style>
     <link rel="stylesheet" href="static/css/responsive.css">
   <link rel="stylesheet" href="static/css/shared.css">
   <link rel="stylesheet" href="static/css/notifications.css">
+    <link rel="stylesheet" href="static/css/animations.css">
 </head>
 <body>
-    <nav class="navbar">
+            <nav class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="logo">
-                <img src="logo.png?v=20260511" alt="AutoAssist">
-                AutoAssist
+            <a href="index.html" class="nav-logo">
+                <div class="nav-logo-icon">
+                    <img src="logo.png?v=20260608" alt="AutoAssist IA" style="height:84px;width:auto;">
+                </div>
+                <span class="nav-logo-text">AutoAssist</span>
             </a>
-            <div class="nav-links">
-                <a href="dashboard.html" class="nav-link active">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="maintenance_history.html" class="nav-link">
-                    <i class="fas fa-history"></i>
-                    <span>Anotações</span>
-                </a>
-                <a href="chat.html" class="nav-link">
-                    <i class="fas fa-comments"></i>
-                    <span>Chat</span>
-                </a>
-                
-                <a href="perfil.html" class="nav-link">
-                    <i class="fas fa-user-circle"></i>
-                    <span>Perfil</span>
-                </a>
-          <div class="nav-dropdown" id="navMore">
-            <button type="button" class="nav-link nav-dropdown-toggle" id="btnNavMore">Mais <i class="fas fa-chevron-down"></i></button>
-            <div class="nav-dropdown-menu">
-              <a href="eventos.html" class="nav-dropdown-item"><i class="fas fa-calendar-alt"></i> Eventos</a>
-              <a href="library.html" id="premiumVideosLink" class="nav-dropdown-item" style="display: none;">
-                    <i class="fas fa-book"></i>
-                    <span>Biblioteca</span>
-                </a>
-              <a href="maps.html" class="nav-dropdown-item">
-                    <i class="fas fa-map-marked-alt"></i>
-                    <span>Mapa</span>
-                </a>
-            </div>
-          </div>
-          <div id="notif-bell-container"></div>
-                <button onclick="Auth.logout()" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sair</span>
-                </button>
-            </div>
+
+            <div class="nav-links" id="authLinks"></div>
+            
         </div>
     </nav>
+
+
 
     <div class="dashboard-content" id="dashboardContent">
         <div id="loadingDash" class="loading">
@@ -493,6 +480,7 @@
 
     <script src="static/js/config.js"></script>
     <script src="static/js/auth.js"></script>
+    <script src="static/js/navbar.js"></script>
     <script src="static/js/security-utils.js"></script>
     <script src="static/js/notifications.js" defer></script>
     <script src="static/js/responsive.js" defer></script>
@@ -1102,5 +1090,23 @@ ${pred.predicted_next_km ? `
             vmOverlay.addEventListener('click', (e) => { if (e.target.id === 'vehicleModal') vmOverlay.classList.remove('open'); });
         })();
     </script>
-    </body>
+        <script>
+        if (typeof Navbar !== 'undefined') { Navbar.init({ validate: true }); }
+        (function () {
+            var toggle = document.getElementById('navToggle');
+            var links = document.getElementById('authLinks');
+            if (toggle && links) {
+                toggle.addEventListener('click', function () {
+                    var open = links.classList.toggle('nav-open');
+                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                });
+                links.addEventListener('click', function (e) {
+                    if (e.target.closest('a')) { links.classList.remove('nav-open'); toggle.setAttribute('aria-expanded', 'false'); }
+                });
+            }
+        })();
+    </script>
+
+  <script src="static/js/analytics-consent.js"></script>
+</body>
 </html>

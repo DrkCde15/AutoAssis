@@ -592,17 +592,17 @@ class EventsHtmlPageTest(unittest.TestCase):
         self.assertIn("og:description", self.html)
 
     def test_navbar_visitante_e_logado(self):
-        # Estado visitante (padrao): Chat/Entrar/Criar Conta.
+        # Estado visitante (padrao): Chat/Entrar/Criar Conta renderizados no cliente.
         self.assertIn('id="authLinks"', self.html)
         self.assertIn('href="cadastro.html"', self.html)
         self.assertIn('href="login.html"', self.html)
-        # Troca para estado logado via JS (Dashboard/Anotações/Biblioteca/Mapa/
-        # Perfil/Sair + sino de notificações).
+        # Navbar padronizado do site (navbar.js): renderiza estado logado via JS
+        # (Dashboard/Anotações/Biblioteca/Mapa/Perfil/Sair + sino de notificações).
+        self.assertIn("static/js/navbar.js", self.html)
+        self.assertIn("Navbar.init", self.html)
         self.assertIn('Auth.isAuthenticated()', self.html)
-        self.assertIn('href="dashboard.html"', self.html)
-        self.assertIn('href="perfil.html"', self.html)
-        self.assertIn('id="btnLogout"', self.html)
-        self.assertIn('Notifications.init()', self.html)
+        # Pagina exige conta Premium (navbar.js monta os links de estado logado).
+        self.assertIn('Auth.requirePremiumPage', self.html)
 
     def test_responsividade(self):
         # Drawer/hamburguer compartilhado + media query da grade.
@@ -631,7 +631,10 @@ class EventsHtmlPageTest(unittest.TestCase):
         self.assertIn("SecurityUtils.escapeHTML", self.html)
 
     def test_footer_linka_eventos_html(self):
-        self.assertIn('<a href="eventos.html" class="footer-link">Eventos</a>', self.html)
+        # Rodape padrao do site (igual em todas as paginas apos padronizacao).
+        self.assertIn('<a href="planos.html" class="footer-link">Planos</a>', self.html)
+        self.assertIn('<a href="duvidas.html" class="footer-link">Dúvidas</a>', self.html)
+        self.assertIn('<a href="lgpd.html" class="footer-link">LGPD</a>', self.html)
 
 
 class EventModelTest(unittest.TestCase):

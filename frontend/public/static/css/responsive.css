@@ -51,6 +51,12 @@ header {
   z-index: 130;
 }
 
+/* Toggle estatico do padrao index (#navToggle) e substituido pelo .aa-menu-toggle
+   injetado pelo responsive.js, que e o unico hamburguer (evita dois menus). */
+.nav-toggle {
+  display: none !important;
+}
+
 .aa-menu-toggle:hover,
 .aa-menu-toggle:focus-visible {
   border-color: rgba(59, 130, 246, 0.6);

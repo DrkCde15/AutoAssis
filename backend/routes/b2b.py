@@ -11,6 +11,7 @@ import hmac
 import io
 import logging
 import os
+import uuid
 import secrets
 import time
 
@@ -20,6 +21,7 @@ from fpdf import FPDF
 
 from routes.database import get_db
 from services.vision_ai import analisar_imagem
+from services.cakto import CaktoService
 from utils.cache import get_redis_client
 from extensions import limiter
 
@@ -34,10 +36,10 @@ MAX_IMAGE_B64 = 15 * 1024 * 1024  # 15 MB base64 (~11 MB binário)
 # P1-2: tiers de autoatendimento B2B (quota de requisições por chave).
 # requests_limit == 0 significa ilimitado (chaves criadas via admin).
 B2B_PLANS = {
-    "trial": {"requests_limit": 100, "rate_limit_per_min": 10, "label": "Trial gratuito"},
-    "pro_1k": {"requests_limit": 1000, "rate_limit_per_min": 30, "label": "Pro 1k"},
-    "pro_5k": {"requests_limit": 5000, "rate_limit_per_min": 60, "label": "Pro 5k"},
-    "pro_20k": {"requests_limit": 20000, "rate_limit_per_min": 120, "label": "Pro 20k"},
+    "trial":   {"requests_limit": 100,   "rate_limit_per_min": 10,  "label": "Trial gratuito", "amount": 0,     "currency": "BRL", "interval": "month"},
+    "pro_1k":  {"requests_limit": 1000,  "rate_limit_per_min": 30,  "label": "Pro 1k",         "amount": 19.90, "currency": "BRL", "interval": "month"},
+    "pro_5k":  {"requests_limit": 5000,  "rate_limit_per_min": 60,  "label": "Pro 5k",         "amount": 19.90, "currency": "BRL", "interval": "month"},
+    "pro_20k": {"requests_limit": 20000, "rate_limit_per_min": 120, "label": "Pro 20k",        "amount": 19.90, "currency": "BRL", "interval": "month"},
 }
 DEFAULT_B2B_PLAN = "trial"
 
@@ -314,6 +316,116 @@ def create_self_serve_key():
         "requests_limit": cfg["requests_limit"],
         "rate_limit_per_min": cfg["rate_limit_per_min"],
         "aviso": "Guarde esta chave agora: ela nao podera ser recuperada depois.",
+    }), 201
+
+
+def _create_pending_b2b_key(user_id, plan, nome, cfg):
+    """Cria a API key B2B inativa; so passa a funcionar apos o pagamento (webhook)."""
+    raw_key = f"aa_{secrets.token_urlsafe(32)}"
+    key_hash = _hash_api_key(raw_key)
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                """INSERT INTO api_clients
+                   (user_id, nome, api_key_hash, api_key_prefix, rate_limit_per_min, plan, requests_limit, is_active)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, FALSE)""",
+                (user_id, nome, key_hash, _api_key_prefix(raw_key),
+                 cfg["rate_limit_per_min"], plan, cfg["requests_limit"]),
+            )
+            client_id = cursor.lastrowid
+        return raw_key, client_id
+    except Exception as exc:
+        logger.error("Erro ao criar chave B2B pendente: %s", exc, exc_info=True)
+        return None, None
+
+
+def _b2b_user_email(user_id):
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+            row = cursor.fetchone()
+        email = row.get("email") if row else None
+        return str(email).strip().lower() if isinstance(email, str) and email.strip() else None
+    except Exception:
+        return None
+
+
+def activate_b2b_client(user_id, plan):
+    """Ativa a API key B2B pendente do usuario apos confirmacao de pagamento."""
+    cfg = B2B_PLANS.get(plan)
+    if not cfg:
+        return 0
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                """UPDATE api_clients
+                   SET is_active = TRUE, plan = %s, requests_limit = %s
+                   WHERE user_id = %s AND plan = %s AND is_active = FALSE
+                   LIMIT 1""",
+                (plan, cfg["requests_limit"], user_id, plan),
+            )
+            return int(cursor.rowcount or 0)
+    except Exception as exc:
+        logger.error("Erro ao ativar cliente B2B: %s", exc, exc_info=True)
+        return 0
+
+
+@b2b_bp.route("/api/b2b/self-serve/checkout", methods=["POST"])
+@jwt_required()
+def create_self_serve_checkout():
+    """P1-2 + monetizacao B2B: plano pago gera pedido Cakto + API key inativa ate o pagamento."""
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    plan = (data.get("plan") or DEFAULT_B2B_PLAN)
+    if plan not in B2B_PLANS:
+        plan = DEFAULT_B2B_PLAN
+    cfg = B2B_PLANS[plan]
+
+    # Trial continua gratis e imediato (sem cobranca).
+    if not cfg.get("amount"):
+        return create_self_serve_key()
+
+    nome = (data.get("nome") or "").strip()[:120]
+    if not nome:
+        nome = f"Cliente B2B #{user_id}"
+
+    raw_key, client_id = _create_pending_b2b_key(user_id, plan, nome, cfg)
+    if raw_key is None:
+        return jsonify(error="Erro interno ao criar a chave B2B."), 500
+
+    order_id = str(uuid.uuid4())
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                """INSERT INTO payments_orders
+                   (id, user_id, status, plan, amount, currency, provider)
+                   VALUES (%s, %s, 'pending', %s, %s, %s, 'cakto')""",
+                (order_id, user_id, f"b2b_{plan}", cfg["amount"], cfg["currency"]),
+            )
+            conn.commit()
+    except Exception as exc:
+        logger.error("Erro ao criar pedido B2B: %s", exc, exc_info=True)
+        return jsonify(error="Erro interno ao criar o pedido."), 500
+
+    try:
+        svc = CaktoService()
+        checkout_url = svc.build_checkout_url(
+            user_id=user_id,
+            user_email=_b2b_user_email(user_id),
+            provided_url=os.getenv("CAKTO_B2B_CHECKOUT_URL") or None,
+            internal_order_id=order_id,
+        )
+    except Exception as exc:
+        logger.error("Erro ao gerar checkout B2B: %s", exc)
+        return jsonify(error="Checkout Cakto indisponivel. Configure CAKTO_B2B_CHECKOUT_URL."), 500
+
+    return jsonify({
+        "success": True,
+        "plan": plan,
+        "api_key": raw_key,
+        "checkout_url": checkout_url,
+        "order_id": order_id,
+        "aviso": "Chave criada. Conclua o pagamento para ativa-la.",
     }), 201
 
 

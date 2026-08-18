@@ -158,6 +158,123 @@ def _build_reset_password_email_html(reset_link: str) -> str:
         </p>
     """
 
+def _build_welcome_email_html(nome: str, frontend_base: str) -> str:
+    first = ""
+    if nome:
+        first = nome.split()[0].capitalize()
+    title_suffix = f", {first}" if first else ""
+    chat_link = f"{frontend_base}chat.html"
+    return f"""
+        <h2 style="margin-top: 0; color: #111827; font-size: 20px;">Bem-vindo(a) ao AutoAssist{title_suffix}!</h2>
+        <p style="color: #4b5563; font-size: 16px; margin-bottom: 20px;">
+            Agora você tem a <strong>NOG</strong>, seu copiloto de carro com IA, na palma da mão.
+            Tire dúvidas, mande foto do barulho ou da luz no painel e receba um diagnóstico claro em segundos.
+        </p>
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="{chat_link}" style="display: inline-block; padding: 14px 28px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Conversar com a NOG</a>
+        </div>
+        <p style="color: #4b5563; font-size: 15px; margin-bottom: 8px;"><strong>Para aproveitar ainda mais:</strong></p>
+        <ul style="color: #4b5563; font-size: 15px; line-height: 1.7; padding-left: 20px; margin-top: 0;">
+            <li>Cadastre seu veículo no perfil para diagnósticos personalizados;</li>
+            <li>Ative os alertas de manutenção e receba lembretes antes do susto na oficina.</li>
+        </ul>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+            Você tem <strong>30 consultas gratuitas por mês</strong>. Se quiser relatórios em PDF e alertas, o plano Premium custa só R$ 19,90/mês.
+        </p>
+    """
+
+
+def _build_nudge_email_html(nome: str, day: int, frontend_base: str) -> str:
+    first = ""
+    if nome:
+        first = nome.split()[0].capitalize()
+    title_suffix = f", {first}" if first else ""
+    chat_link = f"{frontend_base}chat.html"
+    planos_link = f"{frontend_base}planos.html"
+    if day == 3:
+        headline = "Você começou há 3 dias — vamos acelerar?"
+        body = (
+            "Já usou a NOG para tirar dúvidas do seu carro? Se ainda não, é só mandar "
+            "uma foto do barulho estranho ou da luz no painel. Diagnóstico claro em segundos."
+        )
+        cta_link = chat_link
+        cta = "Conversar com a NOG"
+    else:
+        headline = "Faltam poucos dias das suas consultas gratuitas"
+        body = (
+            "Você já evitou sustos na oficina? Quem vai no Premium (R$ 19,90/mês) recebe "
+            "relatórios em PDF e alertas de manutenção antes do problema aparecer."
+        )
+        cta_link = planos_link
+        cta = "Ver o plano Premium"
+    return f"""
+        <h2 style="margin-top:0;color:#111827;font-size:20px;">{headline}{title_suffix}</h2>
+        <p style="color:#4b5563;font-size:16px;margin-bottom:20px;">{body}</p>
+        <div style="text-align:center;margin:25px 0;">
+            <a href="{cta_link}" style="display:inline-block;padding:14px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">{cta}</a>
+        </div>
+    """
+
+
+def _build_winback_email_html(nome: str, frontend_base: str) -> str:
+    first = ""
+    if nome:
+        first = nome.split()[0].capitalize()
+    title_suffix = f", {first}" if first else ""
+    planos_link = f"{frontend_base}planos.html"
+    return f"""
+        <h2 style="margin-top:0;color:#111827;font-size:20px;">Seu Premium acabou{title_suffix} — quer continuar?</h2>
+        <p style="color:#4b5563;font-size:16px;margin-bottom:20px;">
+            O AutoAssist Premium parou hoje. Sem ele, você perde os relatórios em PDF e os
+            alertas de manutenção que avisam antes do susto na oficina.
+            Voltar custa só R$ 19,90/mês e leva 1 minuto.
+        </p>
+        <div style="text-align:center;margin:25px 0;">
+            <a href="{planos_link}" style="display:inline-block;padding:14px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">Reativar Premium</a>
+        </div>
+    """
+
+
+def send_due_lifecycle_emails():
+    """Dispara e-mails de lifecycle por janela de data (idempotente a cada dia).
+
+    - Nudge dia 3 e dia 7 para usuários ainda não Premium.
+    - Win-back para quem teve o Premium expirado há ~2 dias.
+    Protegido por janela de data exata, então cada usuário recebe cada e-mail uma vez.
+    """
+    frontend_base = _get_frontend_base_url_for_email()
+    sent = 0
+    with get_db() as (cursor, conn):
+        for day in (3, 7):
+            cursor.execute(
+                "SELECT id, nome, email FROM users "
+                "WHERE DATE(created_at) = CURDATE() - INTERVAL %s DAY "
+                "AND (is_premium = 0 OR is_premium IS NULL)",
+                (day,),
+            )
+            for row in cursor.fetchall() or []:
+                try:
+                    html = _build_nudge_email_html(row.get("nome") or "", day, frontend_base)
+                    enviar_email(row["email"], "AutoAssist: aproveite melhor seu carro", html)
+                    sent += 1
+                except Exception as exc:
+                    logger.warning("Falha lifecycle nudge (dia %s) p/ %s: %s", day, row.get("email"), exc)
+        cursor.execute(
+            "SELECT id, nome, email FROM users "
+            "WHERE premium_expires_at IS NOT NULL "
+            "AND DATE(premium_expires_at) = CURDATE() - INTERVAL 2 DAY "
+            "AND (is_premium = 0 OR is_premium IS NULL)"
+        )
+        for row in cursor.fetchall() or []:
+            try:
+                html = _build_winback_email_html(row.get("nome") or "", frontend_base)
+                enviar_email(row["email"], "AutoAssist: seu Premium acabou", html)
+                sent += 1
+            except Exception as exc:
+                logger.warning("Falha lifecycle win-back p/ %s: %s", row.get("email"), exc)
+    return {"sent": sent}
+
+
 def _send_password_reset_email(dest_email: str, token: str) -> bool:
     frontend_base = _get_frontend_base_url_for_email()
     reset_link = f"{frontend_base}redefinir-senha.html?token={token}"
@@ -565,6 +682,14 @@ def cadastro():
                     user_id, v.get("tipo"), v.get("marca"), v.get("modelo"),
                     ano_fab, ano_compra, v.get("quilometragem")
                 ))
+        # Lifecycle: e-mail de boas-vindas (best-effort, nao bloqueia o cadastro)
+        try:
+            frontend_base = _get_frontend_base_url_for_email()
+            welcome_msg = _build_welcome_email_html(nome, frontend_base)
+            enviar_email(email, "Bem-vindo ao AutoAssist", welcome_msg)
+        except Exception as exc:
+            logger.warning("Falha ao enviar e-mail de boas-vindas: %s", exc)
+
         return jsonify(success=True), 201
     except Exception as e:
         logger.error(f"Erro no cadastro: {e}")
