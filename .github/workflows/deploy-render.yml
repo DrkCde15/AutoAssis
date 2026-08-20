@@ -25,7 +25,7 @@ jobs:
 
       - name: Disparar deploy no Render
         run: |
-          curl -fsS "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
+          curl -sS -w "\nHTTP %{http_code}\n" "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
             -X POST \
             -H "Content-Type: application/json" \
             -d '{}'
