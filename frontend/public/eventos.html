@@ -16,8 +16,8 @@
     <link rel="icon" type="image/png" href="static/logo2.png?v=20260506">
     <link rel="shortcut icon" type="image/png" href="static/logo2.png?v=20260506">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="static/fonts/fonts.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="static/css/responsive.css">
     <link rel="stylesheet" href="static/css/shared.css">
     <link rel="stylesheet" href="static/css/notifications.css">
@@ -267,14 +267,14 @@
         </div>
       </nav>
 
-      <header class="events-header">
+      <header class="events-header" data-aa-reveal>
         <span class="events-eyebrow">Eventos Automotivos</span>
         <h1>Eventos Automotivos no Brasil</h1>
         <p>Feiras, encontros, competições e exposições do setor atualizado automaticamente.</p>
       </header>
 
       <main class="events-main" aria-label="Lista de eventos automotivos">
-        <div class="events-toolbar">
+        <div class="events-toolbar" data-aa-reveal>
           <div class="results-count" id="eventsCount"></div>
           <div class="events-tools">
             <div id="eventsUfSelect" class="app-select small-select" data-placeholder="Todos os locais" aria-label="Local (UF)"></div>
@@ -477,6 +477,9 @@
             list.innerHTML = events.map((e) => renderEventCard(e)).join('');
             if (window.AAAnim && window.AAAnim.reveal) {
               window.AAAnim.reveal.staggerIn(list, '.event-card', { stagger: 45 });
+            }
+            if (window.AAAnim && window.AAAnim.cards) {
+              window.AAAnim.cards.init('.event-card');
             }
           }
 
