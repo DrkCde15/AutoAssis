@@ -130,19 +130,19 @@
 }
 
 .feature-tile--amber {
-    --tile-accent: #f59e0b;
-}
-
-.feature-tile--blue {
     --tile-accent: #60a5fa;
 }
 
+.feature-tile--blue {
+    --tile-accent: #3b82f6;
+}
+
 .feature-tile--green {
-    --tile-accent: #34d399;
+    --tile-accent: #7dd3fc;
 }
 
 .feature-tile--violet {
-    --tile-accent: #a78bfa;
+    --tile-accent: #93c5fd;
 }
 
 .car-scroll__progress {
