@@ -9,37 +9,16 @@
     <link rel="shortcut icon" type="image/png" href="static/logo2.png?v=20260506">
     <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" referrerpolicy="no-referrer">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
     <style>
 
         body {
             background-color: var(--bg-primary);
             color: var(--text-primary);
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font-sans);
             margin: 0;
             padding: 0;
             overflow-x: hidden;
-        }
-        /* Navbar */
-        .navbar {
-            background: rgba(28, 28, 30, 0.8);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1000;
-            height: 96px;
-        }
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 100%;
-            padding: 0 2rem;
         }
         .logo {
             font-weight: 800;
@@ -55,14 +34,6 @@
         .logo img {
             height: 72px !important;
             width: auto;
-        }
-        .nav-links {
-            display: flex;
-            gap: 24px;
-            align-items: center;
-        }
-        .nav-link.active {
-            color: var(--accent);
         }
         /* Content Area */
         .dashboard-content {
@@ -200,7 +171,7 @@
         }
         .percentage {
             fill: var(--text-primary);
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font-sans);
             font-weight: 700;
             font-size: 28px;
             text-anchor: middle;
@@ -294,7 +265,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
         @media (max-width: 860px) {
-            .nav-container { padding: 0 1rem; }
             .vehicle-card { flex-direction: column; text-align: center; gap: 1rem; }
             .vehicle-meta { justify-content: center; flex-wrap: wrap; }
             .dashboard-header h1 { font-size: 2rem; }
@@ -435,17 +405,12 @@
         .nav-logo-text { font-size:20px; font-weight:700; letter-spacing:-0.5px; }
         .nav-toggle { display: none; }
         @media (max-width: 768px) {
-            .nav-container { position: relative; }
             .nav-toggle {
                 display: inline-flex; align-items: center; justify-content: center;
                 margin-left: auto; width: 44px; height: 44px;
                 border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
                 background: transparent; color: var(--text-primary); font-size: 18px; cursor: pointer;
             }
-            .nav-links { display: none; position: absolute; top: calc(100% + 10px); right: 0;
-                flex-direction: column; align-items: stretch; gap: 8px; min-width: 210px;
-                padding: 14px; border-radius: 14px; background: rgba(17,17,20,0.97);
-                border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 18px 40px rgba(0,0,0,0.45); z-index: 50; }
             .nav-links.nav-open { display: flex; }
         }
 </style>
@@ -455,7 +420,7 @@
     <link rel="stylesheet" href="static/css/animations.css">
 </head>
 <body>
-            <nav class="navbar">
+            <nav class="navbar" style="position:fixed;top:0;left:0;right:0;z-index:1000;">
         <div class="nav-container">
             <a href="index.html" class="nav-logo">
                 <div class="nav-logo-icon">
@@ -502,7 +467,8 @@
                 return;
             }
 
-            document.getElementById('premiumVideosLink').style.display = 'flex';
+            const premiumVideosLink = document.getElementById('premiumVideosLink');
+            if (premiumVideosLink) premiumVideosLink.style.display = 'flex';
 
             const content = document.getElementById('dashboardContent');
             
