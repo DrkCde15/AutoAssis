@@ -650,7 +650,7 @@ def handle_404(e):
                  ".svg", ".ico", ".woff2", ".woff", ".ttf", ".json",
                  ".xml", ".txt", ".map")
     is_asset = "." in last and last.endswith(asset_ext)
-    if path.startswith("/api/") or not request.accept_mimetypes.accepts_html or is_asset:
+    if path.startswith("/api/") or is_asset or 'text/html' not in request.accept_mimetypes:
         return jsonify(error="Recurso nao encontrado."), 404
     try:
         resp = current_app.send_static_file("404.html")
@@ -662,6 +662,17 @@ def handle_404(e):
 @app.errorhandler(413)
 def handle_413(e):
     return jsonify(error="Arquivo muito grande. O limite e de 16MB."), 413
+
+
+# [404] Telas sensiveis (robots.txt / sitemap.xml) recebem a pagina 404
+# estilizada em vez do arquivo bruto. Rotas explicitas têm prioridade
+# sobre a rota estatica catch-all do Flask.
+@app.route("/robots.txt")
+@app.route("/sitemap.xml")
+def sensitive_404():
+    resp = current_app.send_static_file("404.html")
+    resp.status_code = 404
+    return resp
 
 
 @app.route("/api/<path:_>", methods=["OPTIONS"])

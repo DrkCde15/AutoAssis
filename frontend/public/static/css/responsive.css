@@ -9,6 +9,12 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Compensa a navbar fixa do Dashboard em todas as larguras
+   (antes soh havia offset dentro de @media max-width:680px) */
+.dashboard-content {
+  margin-top: 88px;
+}
+
 body {
   max-width: 100%;
   overflow-x: hidden;
@@ -343,7 +349,7 @@ body.aa-menu-lock {
   }
 
   .dashboard-content {
-    margin-top: 112px;
+    margin-top: 88px;
     padding-inline: 14px;
   }
 

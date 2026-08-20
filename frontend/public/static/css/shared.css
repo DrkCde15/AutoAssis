@@ -20,7 +20,7 @@ header:not([class]) {
 }
 
 .navbar {
-  min-height: 84px;
+  min-height: 60px;
 }
 
 .nav-container {
@@ -30,8 +30,8 @@ header:not([class]) {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  min-height: 84px;
-  padding: 12px 24px;
+  min-height: 60px;
+  padding: 6px 16px;
 }
 
 .nav-logo,
@@ -48,9 +48,10 @@ header:not([class]) {
 }
 
 .nav-logo img,
+.nav-logo-icon img,
 .logo img,
 .logo-link img {
-  height: 72px;
+  height: 56px !important;
   width: auto;
   display: block;
 }
