@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from routes.training import training_bp
 from dotenv import load_dotenv
 load_dotenv()
-from flask import Flask, jsonify, make_response, request
+from flask import Flask, jsonify, make_response, request, current_app
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_talisman import Talisman
@@ -642,7 +642,22 @@ def handle_exception(e):
 
 @app.errorhandler(404)
 def handle_404(e):
-    return jsonify(error="Recurso nao encontrado."), 404
+    # Mantem resposta JSON para a API e para assets ausentes; paginas
+    # (navegacao HTML) recebem a pagina 404 estilizada com status 404.
+    path = request.path
+    last = path.rsplit("/", 1)[-1].lower()
+    asset_ext = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".css", ".js",
+                 ".svg", ".ico", ".woff2", ".woff", ".ttf", ".json",
+                 ".xml", ".txt", ".map")
+    is_asset = "." in last and last.endswith(asset_ext)
+    if path.startswith("/api/") or not request.accept_mimetypes.accepts_html or is_asset:
+        return jsonify(error="Recurso nao encontrado."), 404
+    try:
+        resp = current_app.send_static_file("404.html")
+        resp.status_code = 404
+        return resp
+    except Exception:
+        return jsonify(error="Recurso nao encontrado."), 404
 
 @app.errorhandler(413)
 def handle_413(e):
