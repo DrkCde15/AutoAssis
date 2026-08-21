@@ -21,11 +21,113 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import monotonic
 from oauthlib.oauth2 import WebApplicationClient
+from utils.turnstile import turnstile_required
 from .database import get_db, is_valid_email_domain, is_trial_expired, get_trial_days_remaining
 from utils.email import enviar_email
 
 auth_bp = Blueprint('auth', __name__)
 logger = logging.getLogger(__name__)
+
+def _clean_referral(code):
+    if not code:
+        return None
+    code = str(code).strip().upper()
+    return code or None
+
+
+def _generate_referral_code(cursor):
+    for _ in range(8):
+        code = secrets.token_hex(4).upper()
+        cursor.execute("SELECT 1 FROM users WHERE referral_code = %s", (code,))
+        if not cursor.fetchone():
+            return code
+    return secrets.token_hex(6).upper()
+
+
+def _grant_referral_credit(cursor, user_id, months=1):
+    """P2-1: recompensa de indicacao = crédito de desconto (meses grátis na
+    assinatura), nao premium grátis. O crédito é aplicado no momento da ativacao
+    do premium (veja _apply_referral_credit em payment.py)."""
+    cursor.execute(
+        "UPDATE users SET referral_credit_months = referral_credit_months + %s WHERE id = %s",
+        (months, user_id),
+    )
+
+
+# Limites anti-fraude do programa de indicacao
+MAX_REFERRAL_BONUSES_PER_REFERRER = 20
+MAX_REFERRALS_PER_DAY = 5
+MAX_ACCOUNTS_PER_IP_PER_DAY = 5
+
+
+def get_client_ip():
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return (request.remote_addr or "").strip()
+
+
+def _try_grant_referral_bonus(cursor, referred_by, new_user_id, client_ip):
+    """Concede crédito de desconto a quem indicou (P2-1), aplicando heurísticas anti-fraude.
+    Retorna (concedido, motivo)."""
+    cursor.execute(
+        "SELECT id, signup_ip FROM users WHERE referral_code = %s LIMIT 1",
+        (referred_by,),
+    )
+    ref = cursor.fetchone()
+    if not ref or ref["id"] == new_user_id:
+        return False, "indicador invalido"
+
+    ref_ip = (ref.get("signup_ip") or "").strip()
+    if ref_ip and client_ip and ref_ip == client_ip:
+        return False, "ip igual ao do indicador"
+
+    cursor.execute("SELECT COUNT(*) AS cnt FROM users WHERE referred_by = %s", (referred_by,))
+    if (cursor.fetchone() or {}).get("cnt", 0) >= MAX_REFERRAL_BONUSES_PER_REFERRER:
+        return False, "teto absoluto de indicacoes atingido"
+
+    cursor.execute(
+        "SELECT COUNT(*) AS cnt FROM users WHERE referred_by = %s AND created_at >= NOW() - INTERVAL 1 DAY",
+        (referred_by,),
+    )
+    if (cursor.fetchone() or {}).get("cnt", 0) >= MAX_REFERRALS_PER_DAY:
+        return False, "rajada de indicacoes no dia"
+
+    if client_ip:
+        cursor.execute(
+            "SELECT COUNT(*) AS cnt FROM users WHERE signup_ip = %s AND created_at >= NOW() - INTERVAL 1 DAY",
+            (client_ip,),
+        )
+        if (cursor.fetchone() or {}).get("cnt", 0) >= MAX_ACCOUNTS_PER_IP_PER_DAY:
+            return False, "muitas contas no mesmo IP"
+
+    _grant_referral_credit(cursor, ref["id"], months=1)
+    return True, "ok"
+
+
+def _effective_premium(user):
+    """Premium valido considerando premium_expires_at (None = permanente)."""
+    if not user.get("is_premium"):
+        return False
+    expira = user.get("premium_expires_at")
+    if expira is None:
+        return True
+    if isinstance(expira, str):
+        try:
+            expira = datetime.fromisoformat(expira.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+    return expira > datetime.now()
+
+
+def _iso(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return value.isoformat()
+
+
 RESET_DISPATCH_LOCK_NAME = "autoassist_reset_email_dispatcher"
 
 def _get_frontend_base_url_for_email() -> str:
@@ -36,8 +138,10 @@ def _get_frontend_base_url_for_email() -> str:
         frontend_env = (
             os.getenv("URL_PROD")
             or os.getenv("URL_DEV")
-            or "https://autoassist-l9lr.onrender.com/"
+            or ""
         ).strip()
+    if not frontend_env:
+        return "/"
     return frontend_env if frontend_env.endswith("/") else f"{frontend_env}/"
 
 def _build_reset_password_email_html(reset_link: str) -> str:
@@ -53,6 +157,123 @@ def _build_reset_password_email_html(reset_link: str) -> str:
             Este link é válido por <strong>15 minutos</strong>. Se você não solicitou esta alteração, pode ignorar este e-mail com segurança.
         </p>
     """
+
+def _build_welcome_email_html(nome: str, frontend_base: str) -> str:
+    first = ""
+    if nome:
+        first = nome.split()[0].capitalize()
+    title_suffix = f", {first}" if first else ""
+    chat_link = f"{frontend_base}chat.html"
+    return f"""
+        <h2 style="margin-top: 0; color: #111827; font-size: 20px;">Bem-vindo(a) ao AutoAssist{title_suffix}!</h2>
+        <p style="color: #4b5563; font-size: 16px; margin-bottom: 20px;">
+            Agora você tem a <strong>NOG</strong>, seu copiloto de carro com IA, na palma da mão.
+            Tire dúvidas, mande foto do barulho ou da luz no painel e receba um diagnóstico claro em segundos.
+        </p>
+        <div style="text-align: center; margin: 25px 0;">
+            <a href="{chat_link}" style="display: inline-block; padding: 14px 28px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Conversar com a NOG</a>
+        </div>
+        <p style="color: #4b5563; font-size: 15px; margin-bottom: 8px;"><strong>Para aproveitar ainda mais:</strong></p>
+        <ul style="color: #4b5563; font-size: 15px; line-height: 1.7; padding-left: 20px; margin-top: 0;">
+            <li>Cadastre seu veículo no perfil para diagnósticos personalizados;</li>
+            <li>Ative os alertas de manutenção e receba lembretes antes do susto na oficina.</li>
+        </ul>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+            Você tem <strong>30 consultas gratuitas por mês</strong>. Se quiser relatórios em PDF e alertas, o plano Premium custa só R$ 19,90/mês.
+        </p>
+    """
+
+
+def _build_nudge_email_html(nome: str, day: int, frontend_base: str) -> str:
+    first = ""
+    if nome:
+        first = nome.split()[0].capitalize()
+    title_suffix = f", {first}" if first else ""
+    chat_link = f"{frontend_base}chat.html"
+    planos_link = f"{frontend_base}planos.html"
+    if day == 3:
+        headline = "Você começou há 3 dias — vamos acelerar?"
+        body = (
+            "Já usou a NOG para tirar dúvidas do seu carro? Se ainda não, é só mandar "
+            "uma foto do barulho estranho ou da luz no painel. Diagnóstico claro em segundos."
+        )
+        cta_link = chat_link
+        cta = "Conversar com a NOG"
+    else:
+        headline = "Faltam poucos dias das suas consultas gratuitas"
+        body = (
+            "Você já evitou sustos na oficina? Quem vai no Premium (R$ 19,90/mês) recebe "
+            "relatórios em PDF e alertas de manutenção antes do problema aparecer."
+        )
+        cta_link = planos_link
+        cta = "Ver o plano Premium"
+    return f"""
+        <h2 style="margin-top:0;color:#111827;font-size:20px;">{headline}{title_suffix}</h2>
+        <p style="color:#4b5563;font-size:16px;margin-bottom:20px;">{body}</p>
+        <div style="text-align:center;margin:25px 0;">
+            <a href="{cta_link}" style="display:inline-block;padding:14px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">{cta}</a>
+        </div>
+    """
+
+
+def _build_winback_email_html(nome: str, frontend_base: str) -> str:
+    first = ""
+    if nome:
+        first = nome.split()[0].capitalize()
+    title_suffix = f", {first}" if first else ""
+    planos_link = f"{frontend_base}planos.html"
+    return f"""
+        <h2 style="margin-top:0;color:#111827;font-size:20px;">Seu Premium acabou{title_suffix} — quer continuar?</h2>
+        <p style="color:#4b5563;font-size:16px;margin-bottom:20px;">
+            O AutoAssist Premium parou hoje. Sem ele, você perde os relatórios em PDF e os
+            alertas de manutenção que avisam antes do susto na oficina.
+            Voltar custa só R$ 19,90/mês e leva 1 minuto.
+        </p>
+        <div style="text-align:center;margin:25px 0;">
+            <a href="{planos_link}" style="display:inline-block;padding:14px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">Reativar Premium</a>
+        </div>
+    """
+
+
+def send_due_lifecycle_emails():
+    """Dispara e-mails de lifecycle por janela de data (idempotente a cada dia).
+
+    - Nudge dia 3 e dia 7 para usuários ainda não Premium.
+    - Win-back para quem teve o Premium expirado há ~2 dias.
+    Protegido por janela de data exata, então cada usuário recebe cada e-mail uma vez.
+    """
+    frontend_base = _get_frontend_base_url_for_email()
+    sent = 0
+    with get_db() as (cursor, conn):
+        for day in (3, 7):
+            cursor.execute(
+                "SELECT id, nome, email FROM users "
+                "WHERE DATE(created_at) = CURDATE() - INTERVAL %s DAY "
+                "AND (is_premium = 0 OR is_premium IS NULL)",
+                (day,),
+            )
+            for row in cursor.fetchall() or []:
+                try:
+                    html = _build_nudge_email_html(row.get("nome") or "", day, frontend_base)
+                    enviar_email(row["email"], "AutoAssist: aproveite melhor seu carro", html)
+                    sent += 1
+                except Exception as exc:
+                    logger.warning("Falha lifecycle nudge (dia %s) p/ %s: %s", day, row.get("email"), exc)
+        cursor.execute(
+            "SELECT id, nome, email FROM users "
+            "WHERE premium_expires_at IS NOT NULL "
+            "AND DATE(premium_expires_at) = CURDATE() - INTERVAL 2 DAY "
+            "AND (is_premium = 0 OR is_premium IS NULL)"
+        )
+        for row in cursor.fetchall() or []:
+            try:
+                html = _build_winback_email_html(row.get("nome") or "", frontend_base)
+                enviar_email(row["email"], "AutoAssist: seu Premium acabou", html)
+                sent += 1
+            except Exception as exc:
+                logger.warning("Falha lifecycle win-back p/ %s: %s", row.get("email"), exc)
+    return {"sent": sent}
+
 
 def _send_password_reset_email(dest_email: str, token: str) -> bool:
     frontend_base = _get_frontend_base_url_for_email()
@@ -359,6 +580,7 @@ def google_callback():
 
 @auth_bp.route("/api/cadastro", methods=["POST"])
 @limiter.limit("5 per hour")
+@turnstile_required(action="signup")
 def cadastro():
     data = request.get_json(silent=True) or {}
     nome = (data.get("nome") or "").strip()
@@ -374,7 +596,17 @@ def cadastro():
 
     if veiculo and veiculo.get("possui"):
         veiculos.append(veiculo)
-    
+
+    # P0-5: cadastro leve - veículo é opcional. Remove entradas vazias
+    # para não obrigar o usuário a informar o carro no momento do signup.
+    veiculos = [
+        v for v in veiculos
+        if (v.get("marca") or "").strip()
+        or (v.get("modelo") or "").strip()
+        or (v.get("tipo") or "").strip()
+        or v.get("ano_fabricacao")
+        or v.get("quilometragem")
+    ]
     possui_veiculo = len(veiculos) > 0
     
     if not nome:
@@ -404,11 +636,8 @@ def cadastro():
     if password != confirm_password:
         return jsonify(error="As senhas informadas não conferem."), 400
 
-    for index, veiculo_data in enumerate(veiculos, start=1):
-        marca = (veiculo_data.get("marca") or "").strip()
-        modelo = (veiculo_data.get("modelo") or "").strip()
-        if not marca or not modelo:
-            return jsonify(error=f"Informe marca e modelo do veículo {index}."), 400
+    # P0-5: cadastro leve - veículo é opcional; nada obrigatório aqui.
+    # As entradas vazias já foram filtradas antes do insert.
 
     try:
         with get_db() as (cursor, conn):
@@ -416,14 +645,29 @@ def cadastro():
             if cursor.fetchone():
                 return jsonify(error="Este e-mail já está cadastrado."), 409
 
+            referred_by = _clean_referral(data.get("referred_by"))
+            client_ip = get_client_ip()
+            referral_code = _generate_referral_code(cursor)
+
             cursor.execute("""
                 INSERT INTO users (
-                    nome, email, password, possui_veiculo, maintenance_email_enabled
-                ) VALUES (%s, %s, %s, %s, TRUE)
+                    nome, email, password, possui_veiculo, maintenance_email_enabled,
+                    referral_code, referred_by, signup_ip
+                ) VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s)
             """, (
-                nome, email, bcrypt.hash(password), possui_veiculo
+                nome, email, bcrypt.hash(password), possui_veiculo,
+                referral_code, referred_by, client_ip,
             ))
             user_id = cursor.lastrowid
+
+            # Indique e ganhe: quem indicou ganha 1 mes de premium (com anti-fraude)
+            if referred_by:
+                try:
+                    concedido, motivo = _try_grant_referral_bonus(cursor, referred_by, user_id, client_ip)
+                    if not concedido:
+                        logger.info("Bonus de indicacao nao concedido para %s: %s", referred_by, motivo)
+                except Exception as e:
+                    logger.warning("Falha ao conceder bonus de indicacao: %s", e)
             
             for v in veiculos:
                 ano_fab = v.get("ano_fabricacao")
@@ -438,6 +682,14 @@ def cadastro():
                     user_id, v.get("tipo"), v.get("marca"), v.get("modelo"),
                     ano_fab, ano_compra, v.get("quilometragem")
                 ))
+        # Lifecycle: e-mail de boas-vindas (best-effort, nao bloqueia o cadastro)
+        try:
+            frontend_base = _get_frontend_base_url_for_email()
+            welcome_msg = _build_welcome_email_html(nome, frontend_base)
+            enviar_email(email, "Bem-vindo ao AutoAssist", welcome_msg)
+        except Exception as exc:
+            logger.warning("Falha ao enviar e-mail de boas-vindas: %s", exc)
+
         return jsonify(success=True), 201
     except Exception as e:
         logger.error(f"Erro no cadastro: {e}")
@@ -445,8 +697,12 @@ def cadastro():
 
 @auth_bp.route("/api/login", methods=["POST"])
 @limiter.limit("10 per minute")
+@turnstile_required(action="login")
 def login():
     if request.args.get("demo") == "1":
+        _demo_enabled = os.getenv("DEMO_LOGIN_ENABLED", "0")
+        if _demo_enabled.strip().lower() not in {"1", "true", "yes", "on"}:
+            return jsonify(error="Modo demo desativado"), 403
         from services.demo_mode import demo_user, demo_vehicle
         user_data = demo_user()
         vehicle_data = demo_vehicle()
@@ -457,10 +713,7 @@ def login():
             user={
                 "id": user_data["id"],
                 "nome": user_data["nome"],
-<<<<<<< HEAD
-=======
                 "email": user_data.get("email", ""),
->>>>>>> main
                 "is_premium": user_data["is_premium"],
                 "trial_expired": user_data["trial_expired"],
                 "trial_days_remaining": user_data["trial_days_remaining"],
@@ -517,7 +770,8 @@ def login():
                     "id": user["id"],
                     "nome": user["nome"],
                     "email": user.get("email", ""),
-                    "is_premium": bool(user.get("is_premium")),
+                    "is_premium": _effective_premium(user),
+                    "premium_expires_at": _iso(user.get("premium_expires_at")),
                     "trial_expired": is_trial_expired(user),
                     "trial_days_remaining": get_trial_days_remaining(user),
                     "possui_veiculo": len(veiculos) > 0,
@@ -824,3 +1078,25 @@ def reset_password():
     except Exception as e:
         logger.error(f"Erro ao redefinir senha: {e}")
         return jsonify(error="Erro ao redefinir senha"), 500
+
+
+@auth_bp.route("/api/referral", methods=["GET"])
+@jwt_required()
+def get_referral():
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT referral_code FROM users WHERE id = %s", (user_id,))
+            row = cursor.fetchone()
+            code = row.get("referral_code") if row else None
+            if not code:
+                # Garante um codigo de indicacao mesmo para contas antigas (referral_code NULL)
+                code = _generate_referral_code(cursor)
+                cursor.execute("UPDATE users SET referral_code = %s WHERE id = %s", (code, user_id))
+                conn.commit()
+        base = (os.getenv("URL_PROD") or os.getenv("URL_DEV") or "").rstrip("/")
+        link = f"{base}/cadastro.html?ref={code}" if code else ""
+        return jsonify(referral_code=code, referral_link=link), 200
+    except Exception as e:
+        logger.error("Erro ao obter referral: %s", e)
+        return jsonify(error="Erro interno."), 500

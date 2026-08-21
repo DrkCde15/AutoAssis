@@ -4,13 +4,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Palette, Spacing } from '@/constants/theme';
 import { ChatScreen } from '@/screens/ChatScreen';
+import { EventsScreen } from '@/screens/EventsScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { MaintenanceScreen } from '@/screens/MaintenanceScreen';
+import { MoreScreen } from '@/screens/MoreScreen';
+import { PlansScreen } from '@/screens/PlansScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { VehiclesScreen } from '@/screens/VehiclesScreen';
+import { VideosScreen } from '@/screens/VideosScreen';
 import { useAuth } from '@/context/auth';
 
-export type AppTab = 'home' | 'chat' | 'vehicles' | 'maintenance' | 'profile';
+export type AppTab =
+  | 'home'
+  | 'chat'
+  | 'vehicles'
+  | 'maintenance'
+  | 'profile'
+  | 'more'
+  | 'videos'
+  | 'events'
+  | 'plans';
 
 const tabs: { key: AppTab; label: string; symbol: string }[] = [
   { key: 'home', label: 'Inicio', symbol: '⌂' },
@@ -18,6 +31,7 @@ const tabs: { key: AppTab; label: string; symbol: string }[] = [
   { key: 'vehicles', label: 'Veiculos', symbol: '◇' },
   { key: 'maintenance', label: 'Notas', symbol: '□' },
   { key: 'profile', label: 'Perfil', symbol: '◎' },
+  { key: 'more', label: 'Mais', symbol: '☰' },
 ];
 
 export function AppShell() {
@@ -34,6 +48,14 @@ export function AppShell() {
         return <MaintenanceScreen goTo={setTab} />;
       case 'profile':
         return <ProfileScreen goTo={setTab} />;
+      case 'more':
+        return <MoreScreen goTo={setTab} />;
+      case 'videos':
+        return <VideosScreen goTo={setTab} />;
+      case 'events':
+        return <EventsScreen goTo={setTab} />;
+      case 'plans':
+        return <PlansScreen goTo={setTab} />;
       default:
         return <HomeScreen goTo={setTab} />;
     }
@@ -57,7 +79,9 @@ export function AppShell() {
 
       <View style={styles.tabBar}>
         {tabs.map((item) => {
-          const active = item.key === tab;
+          const active =
+            item.key === tab ||
+            (item.key === 'more' && ['videos', 'events', 'plans'].includes(tab));
           return (
             <Pressable
               key={item.key}

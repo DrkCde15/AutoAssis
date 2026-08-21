@@ -1,5 +1,5 @@
 /**
- * AutoAssist — Módulo de Autenticação
+ * AutoAssist - Módulo de Autenticação
  *
  * Responsabilidades:
  *  - Usar cookies HttpOnly como sessao principal e aceitar tokens legados.
@@ -13,7 +13,6 @@ const Auth = (() => {
     ACCESS: "autoassist_access_token",
     REFRESH: "autoassist_refresh_token",
     USER: "autoassist_user",
-    COOKIE_SESSION: "autoassist_cookie_session",
     VEHICLES: "autoassist_veiculos_cache",
     USER_SYNC: "autoassist_user_sync_cache",
   };
@@ -34,11 +33,76 @@ const Auth = (() => {
   let refreshPromise = null;
   let invalidSessionHandled = false;
 
+  // ─── Erro de rede / backend indisponível ──────────────────────────────────
+  class AuthNetworkError extends Error {
+    constructor(message) {
+      super(message || "Erro de conexao com o servidor.");
+      this.name = "AuthNetworkError";
+      this.isNetworkError = true;
+    }
+  }
+
+  function isNetworkError(err) {
+    return !!(err && (err.isNetworkError || err.name === "AuthNetworkError"));
+  }
+
+  // ─── Banner de "serviço inicializando" ────────────────────────────────────
+  function showBackendBanner(message) {
+    if (typeof document === "undefined") return;
+    const root = document.body || document.documentElement;
+    if (!root) return;
+    let el = document.getElementById("autoassist-backend-banner");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "autoassist-backend-banner";
+      el.setAttribute("role", "status");
+      el.style.cssText =
+        "position:fixed;top:0;left:0;right:0;z-index:10001;" +
+        "background:linear-gradient(135deg,#f59e0b,#b45309);color:#1a1206;" +
+        "font:600 13px/1.4 Inter,system-ui,sans-serif;text-align:center;" +
+        "padding:10px 16px;box-shadow:0 4px 18px rgba(0,0,0,.35);";
+      root.appendChild(el);
+    }
+    el.textContent = message || "Servico inicializando, aguarde alguns instantes...";
+    el.style.display = "block";
+    ensureRecovery();
+  }
+
+  let _recoveryTimer = null;
+
+  function hideBackendBanner() {
+    const el = document.getElementById("autoassist-backend-banner");
+    if (el) el.style.display = "none";
+    if (_recoveryTimer) {
+      clearInterval(_recoveryTimer);
+      _recoveryTimer = null;
+    }
+  }
+
+  // Quando o backend está em cold start, sonda /health e recarrega a página
+  // automaticamente assim que o serviço voltar, evitando que o usuário fique
+  // preso em uma tela que "não funciona".
+  function ensureRecovery() {
+    if (_recoveryTimer) return;
+    _recoveryTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${CONFIG.API_URL}/health`, { credentials: "include" });
+        if (res) {
+          clearInterval(_recoveryTimer);
+          _recoveryTimer = null;
+          hideBackendBanner();
+          window.location.reload();
+        }
+      } catch {
+        // Ainda indisponível: continua sondando.
+      }
+    }, 5000);
+  }
+
   // ─── Persistência ─────────────────────────────────────────────────────────
 
-  function saveSession(accessToken, refreshToken, user, options = {}) {
+  function saveSession(accessToken, refreshToken, user) {
     invalidSessionHandled = false;
-    localStorage.setItem(KEYS.COOKIE_SESSION, "1");
     if (accessToken) localStorage.setItem(KEYS.ACCESS, accessToken);
     if (refreshToken) localStorage.setItem(KEYS.REFRESH, refreshToken);
     if (user) {
@@ -96,7 +160,8 @@ const Auth = (() => {
     if (typeof window === "undefined") return;
     const currentPage = (window.location.pathname.split("/").pop() || "").toLowerCase();
     if (currentPage !== "login.html") {
-      window.location.href = "login.html";
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = "login.html?redirect=" + returnTo;
     }
   }
 
@@ -118,10 +183,6 @@ const Auth = (() => {
 
   function getRefreshToken() {
     return localStorage.getItem(KEYS.REFRESH);
-  }
-
-  function hasCookieSession() {
-    return localStorage.getItem(KEYS.COOKIE_SESSION) === "1";
   }
 
   function getCookie(name) {
@@ -146,10 +207,16 @@ const Auth = (() => {
   }
 
   function isAuthenticated() {
-    return !!getAccessToken() || hasCookieSession() || !!getCookie("csrf_access_token") || !!getCookie("csrf_refresh_token");
+    // Apenas o token JWT (localStorage) ou o cookie CSRF definido pelo backend
+    // (HttpOnly + SameSite) sao fontes de verdade. A flag COOKIE_SESSION em
+    // localStorage e totalmente controlavel pelo cliente e nao prova autenticacao.
+    return !!getAccessToken() || !!getCookie("csrf_access_token") || !!getCookie("csrf_refresh_token");
   }
 
   function escapeHTML(value) {
+    if (typeof SecurityUtils !== "undefined" && SecurityUtils.escapeHTML) {
+      return SecurityUtils.escapeHTML(value);
+    }
     return String(value || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -198,13 +265,17 @@ const Auth = (() => {
       if (res.ok) {
         const data = await res.json();
         // Atualiza o localStorage com os dados frescos do banco
-        localStorage.setItem(KEYS.COOKIE_SESSION, "1");
         localStorage.setItem(KEYS.USER, JSON.stringify(data));
         Cache.set(KEYS.USER_SYNC, { ts: Date.now(), data });
+        hideBackendBanner();
         await syncGuestHistory();
         return data;
       }
     } catch (e) {
+      if (isNetworkError(e)) {
+        showBackendBanner();
+        throw e;
+      }
       console.warn("Falha ao sincronizar usuário:", e);
     }
     return getUser();
@@ -214,7 +285,7 @@ const Auth = (() => {
 
   async function refreshAccessToken({ redirectOnFailure = true } = {}) {
     const refreshToken = getRefreshToken();
-    if (!refreshToken && !hasCookieSession()) {
+    if (!refreshToken && !getCookie("csrf_refresh_token")) {
       handleInvalidSession({ redirect: redirectOnFailure });
       throw new Error("Sem refresh token.");
     }
@@ -238,7 +309,7 @@ const Auth = (() => {
           await new Promise((r) => setTimeout(r, delay));
           return doRefresh(attempt + 1);
         }
-        throw netErr;
+        throw new AuthNetworkError(netErr && netErr.message ? netErr.message : "Erro de conexao com o servidor.");
       }
 
       if (!res.ok) {
@@ -254,7 +325,6 @@ const Auth = (() => {
       if (refreshToken && data.access_token) {
         localStorage.setItem(KEYS.ACCESS, data.access_token);
       }
-      localStorage.setItem(KEYS.COOKIE_SESSION, "1");
       invalidSessionHandled = false;
       return data.access_token;
     };
@@ -267,7 +337,8 @@ const Auth = (() => {
 
     try {
       return await refreshPromise;
-    } catch {
+    } catch (err) {
+      if (isNetworkError(err)) throw err;
       handleInvalidSession({ redirect: redirectOnFailure });
       throw new Error("Sessao expirada. Faca login novamente.");
     }
@@ -286,7 +357,7 @@ const Auth = (() => {
    */
   async function authenticatedFetch(endpoint, options = {}) {
     const { redirectOnInvalid = true, ...fetchOptions } = options;
-    const url = `${CONFIG.API_URL}${endpoint}`;
+    const url = /^https?:\/\//i.test(endpoint) ? endpoint : `${CONFIG.API_URL}${endpoint}`;
     const method = (fetchOptions.method || "GET").toUpperCase();
     let token = getAccessToken();
 
@@ -309,10 +380,12 @@ const Auth = (() => {
     let res;
     try {
       res = await fetch(url, { ...fetchOptions, credentials: "include", headers: baseHeaders });
-    } catch {
-      handleInvalidSession({ redirect: redirectOnInvalid });
-      throw new Error("Erro de conexao. Verifique sua internet.");
+    } catch (netErr) {
+      // Falha de rede (ex.: backend em cold start no Render) - NÃO desloga o usuário.
+      showBackendBanner();
+      throw new AuthNetworkError(netErr && netErr.message ? netErr.message : "Erro de conexao com o servidor.");
     }
+    hideBackendBanner();
 
     // Tenta renovar o token se expirado
     if (res.status === 401) {
@@ -342,6 +415,7 @@ const Auth = (() => {
       Cache.remove(KEYS.USER_SYNC);
     }
 
+    hideBackendBanner();
     return res;
   }
 
@@ -384,12 +458,12 @@ const Auth = (() => {
    * Salva a sessão e retorna os dados do backend.
    * Lança um Error com a mensagem de erro do servidor em caso de falha.
    */
-  async function login(email, password) {
+  async function login(email, password, turnstileToken = null) {
     const res = await fetch(`${CONFIG.API_URL}/api/login`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
     });
 
     const data = await res.json();
@@ -404,7 +478,7 @@ const Auth = (() => {
       await syncGuestHistory();
     }
 
-    // Fluxo com 2FA — o chamador trata o campo `two_factor_required`
+    // Fluxo com 2FA - o chamador trata o campo `two_factor_required`
     return data;
   }
 
@@ -458,7 +532,6 @@ const Auth = (() => {
     const userRaw = params.get("user");
 
     if (oauthSuccess) {
-      localStorage.setItem(KEYS.COOKIE_SESSION, "1");
       window.history.replaceState({}, document.title, window.location.pathname);
       const userData = await syncUser({ redirectOnInvalid: false, force: true });
       if (userData) {
@@ -498,19 +571,21 @@ const Auth = (() => {
    * @param {string} confirmPassword
    * @param {Array}  veiculos - lista de objetos de veículo (opcional)
    */
-  async function register(nome, email, confirmEmail, password, confirmPassword, veiculos = []) {
+  async function register(nome, email, confirmEmail, password, confirmPassword, veiculos = [], turnstileToken = null, referredBy = null) {
     const res = await fetch(`${CONFIG.API_URL}/api/cadastro`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nome,
-        email,
-        confirm_email: confirmEmail,
-        password,
-        confirm_password: confirmPassword,
-        veiculos,
-      }),
+        body: JSON.stringify({
+          nome,
+          email,
+          confirm_email: confirmEmail,
+          password,
+          confirm_password: confirmPassword,
+          veiculos,
+          turnstile_token: turnstileToken,
+          referred_by: referredBy || null,
+        }),
     });
 
     const data = await res.json();
@@ -610,7 +685,6 @@ const Auth = (() => {
       options.message ||
       "Este recurso esta disponivel apenas para usuarios Premium.";
     const showBackButton = options.showBackButton !== false;
-    const backHref = options.backHref || "index.html";
 
     const styleId = "autoassist-premium-style";
     if (!document.getElementById(styleId)) {
@@ -752,16 +826,36 @@ const Auth = (() => {
     return false;
   }
 
+  // Telas liberadas para usuarios GRATUITOS. Qualquer outra pagina exige Premium.
+  const FREE_PAGES = new Set([
+    "analytics.html",
+    "cadastro.html",
+    "chat.html",
+    "esqueci-senha.html",
+    "feedback.html",
+    "index.html",
+    "lgpd.html",
+    "login.html",
+    "perfil.html",
+    "planos.html",
+    "maintenance_history.html",
+    "privacidade.html",
+    "redefinir-senha.html",
+    "termos.html",
+  ]);
+
+  // Paginas que NAO estao na lista free sao consideradas Premium.
+  function isPremiumPath(path) {
+    if (!path) return false;
+    const name = (path.split("/").pop() || "").toLowerCase();
+    if (!name) return false;
+    return !FREE_PAGES.has(name);
+  }
+
   function bindPremiumLinkGuards() {
     if (typeof document === "undefined") return;
     if (document.body?.dataset?.premiumGuardBound === "1") return;
     document.body.dataset.premiumGuardBound = "1";
-
-    const premiumPaths = new Set([
-      "dashboard.html",
-      "library.html",
-      "maintenance_history.html",
-    ]);
 
     document.addEventListener("click", (event) => {
       const anchor = event.target.closest("a");
@@ -773,12 +867,13 @@ const Auth = (() => {
       let targetPath = "";
       try {
         const hrefUrl = new URL(hrefRaw, window.location.href);
+        if (hrefUrl.origin !== window.location.origin) return;
         targetPath = (hrefUrl.pathname.split("/").pop() || "").toLowerCase();
       } catch {
         return;
       }
 
-      if (!premiumPaths.has(targetPath)) return;
+      if (!targetPath || FREE_PAGES.has(targetPath)) return;
       if (!isAuthenticated()) return;
 
       const user = getUser();
@@ -793,6 +888,32 @@ const Auth = (() => {
     });
   }
 
+  // Bloqueia controles marcados com [data-premium] para usuarios gratuitos,
+  // abrindo o paywall em vez de executar a acao.
+  function bindPremiumControls() {
+    if (typeof document === "undefined") return;
+    if (document.body?.dataset?.premiumControlsBound === "1") return;
+    document.body.dataset.premiumControlsBound = "1";
+
+    document.addEventListener("click", (event) => {
+      const el = event.target.closest("[data-premium]");
+      if (!el) return;
+      if (!isAuthenticated()) {
+        window.location.href = "cadastro.html";
+        return;
+      }
+      const user = getUser();
+      if (user && user.is_premium) return;
+      event.preventDefault();
+      event.stopPropagation();
+      showPremiumPaywall({
+        title: el.getAttribute("data-premium-title") || "Recurso Premium",
+        message: el.getAttribute("data-premium-msg") || "Este recurso esta disponivel apenas para usuarios Premium.",
+        backHref: "index.html",
+      });
+    });
+  }
+
   function ensurePremiumModal() {
     // Mantido para compatibilidade com paginas que chamam este metodo.
     // O CTA flutuante foi removido; agora usamos apenas modal contextual.
@@ -802,6 +923,7 @@ const Auth = (() => {
 
   // Ativa o guard global para cliques em links premium.
   bindPremiumLinkGuards();
+  bindPremiumControls();
 
   return {
     isAuthenticated,
@@ -822,12 +944,32 @@ const Auth = (() => {
     closePremiumPaywall,
     requirePremiumPage,
     bindPremiumLinkGuards,
+    bindPremiumControls,
+    isPremiumPath,
     ensurePremiumModal,
     openPremiumCheckout,
+    showBackendBanner,
+    hideBackendBanner,
+    isNetworkError,
     Cache,
     KEYS
   };
 })();
+
+// Atualiza o rótulo "Perfil" do header com o primeiro nome do usuário.
+function setNavUserName(name) {
+  const label = (name && String(name).trim()) ? String(name).trim().split(" ")[0] : "Perfil";
+  const links = document.querySelectorAll('a#navProfile, a[href$="perfil.html"], a[href$="/perfil.html"]');
+  links.forEach((a) => {
+    const span = a.querySelector("span");
+    if (span) { span.textContent = label; return; }
+    const icon = a.querySelector("i");
+    Array.from(a.childNodes).forEach((n) => { if (n.nodeType === Node.TEXT_NODE) a.removeChild(n); });
+    if (icon) icon.insertAdjacentText("afterend", " " + label);
+    else a.appendChild(document.createTextNode(" " + label));
+  });
+}
+window.setNavUserName = setNavUserName;
 
 // Sincronização automática ao carregar o script (se autenticado)
 const autoassistCurrentPage = (window.location.pathname.split("/").pop() || "").toLowerCase();
@@ -839,6 +981,12 @@ const autoassistPublicPages = new Set([
   "esqueci-senha.html",
   "redefinir-senha.html",
 ]);
-if (Auth.isAuthenticated() && !autoassistPublicPages.has(autoassistCurrentPage)) {
-  Auth.syncUser();
+if (Auth.isAuthenticated()) {
+  const cached = Auth.getUser();
+  if (cached && cached.nome) setNavUserName(cached.nome);
+  if (!autoassistPublicPages.has(autoassistCurrentPage)) {
+    Auth.syncUser({ redirectOnInvalid: false, force: true })
+      .then((user) => { if (user && user.nome) setNavUserName(user.nome); })
+      .catch(() => {});
+  }
 }

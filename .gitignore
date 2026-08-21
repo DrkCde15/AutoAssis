@@ -57,11 +57,7 @@ frontend/test-results/
 
 # --- Misc ---
 *.mod
-<<<<<<< HEAD
-*.pem
-.openclaude-profile.json
-=======
 
 .openclaude-profile.json
 *.pem
->>>>>>> main
+secure_reports/

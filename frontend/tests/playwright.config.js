@@ -11,10 +11,18 @@ module.exports = defineConfig({
   workers: 1,
   reporter: [["html", { outputFolder: "../test-results" }], ["list"]],
   use: {
-    baseURL: "http://localhost:5000",
+    baseURL: "http://127.0.0.1:5000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+  },
+  webServer: {
+    command: "cd ../backend && python app.py",
+    port: 5000,
+    timeout: 30000,
+    reuseExistingServer: !process.env.CI,
+    stdout: "pipe",
+    stderr: "pipe",
   },
   projects: [
     {

@@ -150,9 +150,11 @@
  */
 
 /** @type {Config} */
+// eslint-disable-next-line no-unused-vars
 var CONFIG;
 
-/** @type {typeof import('./auth.js')} */
+/** @type {unknown} */
+// eslint-disable-next-line no-unused-vars
 var Auth;
 
 export {};

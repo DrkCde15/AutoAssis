@@ -7,9 +7,22 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from services.cakto import CaktoService
 from .database import get_db
 from .push import send_push_notification
+from .b2b import activate_b2b_client
 
 payment_bp = Blueprint("payment", __name__)
 logger = logging.getLogger(__name__)
+
+# Planos esperados (fonte unica de verdade para valor/plano no backend).
+# Evita fraudes de valor/plano: o upgrade so e confirmado se o pedido interno
+# confere com o que foi efetivamente pago.
+# Plano Premium = ASSINATURA MENSAL (R$ 19,99/mês), conforme produto na Cakto.
+# O valor deve bater EXATAMENTE com o cobrado na Cakto, senão o webhook
+# de ativação rejeita por divergência ("Valor pago diverge do pedido").
+# Não incluir planos que não existem na Cakto (ex.: anual) - causaria falso positivo.
+PREMIUM_PLANS = {
+    "completo": {"amount": 19.90, "currency": "BRL", "interval": "month"},
+}
+DEFAULT_PLAN = "completo"
 
 _svc = None
 
@@ -19,6 +32,13 @@ def get_service() -> CaktoService:
     if _svc is None:
         _svc = CaktoService()
     return _svc
+
+
+def _normalize_decimal(value):
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
 
 
 def _get_service_or_error():
@@ -48,6 +68,24 @@ def _get_user_email(user_id: str) -> str | None:
 def _set_premium_by_user_id(user_id: str, is_premium: bool) -> int:
     target_state = bool(is_premium)
     with get_db() as (cursor, conn):
+        if target_state:
+            # P2-1: aplica crédito de indicação (meses grátis) ao ativar premium.
+            cursor.execute(
+                "SELECT referral_credit_months FROM users WHERE id = %s",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            credit = int((row or {}).get("referral_credit_months") or 0)
+            if credit > 0:
+                cursor.execute(
+                    """UPDATE users
+                       SET is_premium = TRUE,
+                           premium_expires_at = DATE_ADD(COALESCE(premium_expires_at, NOW()), INTERVAL %s MONTH),
+                           referral_credit_months = 0
+                       WHERE id = %s""",
+                    (credit, user_id),
+                )
+                return 1
         cursor.execute(
             "UPDATE users SET is_premium = %s WHERE id = %s",
             (target_state, user_id),
@@ -89,6 +127,12 @@ def create_preference():
     if error_response:
         return error_response
 
+    # Plano/valor esperados: validados contra o catalogo interno (PREMIUM_PLANS).
+    requested_plan = (body.get("plan") or DEFAULT_PLAN)
+    plan_cfg = PREMIUM_PLANS.get(requested_plan)
+    if not plan_cfg:
+        return jsonify(success=False, error="Plano invalido."), 400
+
     user_email = _get_user_email(user_id)
     order_id = str(uuid.uuid4())
 
@@ -96,8 +140,10 @@ def create_preference():
         # Criar pedido pendente no banco antes de gerar o checkout
         with get_db() as (cursor, conn):
             cursor.execute(
-                "INSERT INTO payments_orders (id, user_id, status, provider) VALUES (%s, %s, 'pending', 'cakto')",
-                (order_id, user_id)
+                """INSERT INTO payments_orders
+                   (id, user_id, status, plan, amount, currency, provider)
+                   VALUES (%s, %s, 'pending', %s, %s, %s, 'cakto')""",
+                (order_id, user_id, requested_plan, plan_cfg["amount"], plan_cfg["currency"]),
             )
             conn.commit()
 
@@ -116,7 +162,13 @@ def create_preference():
         success=True,
         message="Checkout Cakto gerado com sucesso.",
         checkout_url=checkout_url,
-        data={"checkout_url": checkout_url, "order_id": order_id},
+        data={
+            "checkout_url": checkout_url,
+            "order_id": order_id,
+            "plan": requested_plan,
+            "amount": plan_cfg["amount"],
+            "currency": plan_cfg["currency"],
+        },
     ), 201
 
 
@@ -185,17 +237,40 @@ def cakto_webhook():
     if not should_activate and not should_deactivate:
         return jsonify(success=True, message="Evento recebido sem acao de premium."), 200
 
+    # Carrega o pedido interno antes da validacao ativa para conferir valor/plano.
+    order = None
+    if internal_order_id:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "SELECT user_id, status, plan, amount, currency FROM payments_orders WHERE id = %s",
+                (internal_order_id,),
+            )
+            order = cursor.fetchone()
+
+    is_b2b = bool(order and str(order.get("plan") or "").startswith("b2b_"))
+
     if should_activate:
         transaction_id = data.get("id")
         if not transaction_id:
             logger.warning("Hardening Cakto: Nenhum ID de transacao no webhook para validacao ativa.")
             return jsonify(success=False, error="ID de transacao ausente no payload."), 400
-            
+
         try:
-            is_really_paid = service.verify_transaction_status(transaction_id)
+            is_really_paid, paid_amount = service.verify_transaction_status(transaction_id)
             if not is_really_paid:
                 logger.warning("Hardening Cakto: Transacao %s divergente (nao paga na API).", transaction_id)
                 return jsonify(success=False, error="Pagamento nao confirmado na consulta a API."), 400
+
+            # Confere o valor pago contra o pedido interno (defesa contra fraude de valor).
+            expected_amount = _normalize_decimal(order.get("amount")) if order else None
+            if expected_amount is not None and paid_amount is not None:
+                if abs(round(float(paid_amount), 2) - expected_amount) > 0.01:
+                    logger.warning(
+                        "Hardening Cakto: valor divergente pedido=%s pago=%s",
+                        expected_amount,
+                        paid_amount,
+                    )
+                    return jsonify(success=False, error="Valor pago diverge do pedido."), 400
         except ValueError as e:
             logger.error("Credenciais invalidas/ausentes na verificacao Cakto: %s", e)
             return jsonify(success=False, error="Erro de configuracao na API de pagamentos."), 500
@@ -205,38 +280,47 @@ def cakto_webhook():
 
     target_state = True if should_activate else False
     user_id = None
-    
-    if internal_order_id:
+    api_amount = _normalize_decimal(data.get("amount"))
+
+    if order:
+        user_id = order["user_id"]
+        new_status = "approved" if should_activate else "revoked"
         with get_db() as (cursor, conn):
-            cursor.execute("SELECT user_id, status FROM payments_orders WHERE id = %s", (internal_order_id,))
-            order = cursor.fetchone()
-            
-            if order:
-                user_id = order["user_id"]
-                # Atualizar status do pedido interno
-                new_status = "approved" if should_activate else "revoked"
+            if api_amount is not None and should_activate:
+                cursor.execute(
+                    """UPDATE payments_orders
+                       SET status = %s, provider_order_id = %s, amount = %s
+                       WHERE id = %s""",
+                    (new_status, data.get("id"), api_amount, internal_order_id),
+                )
+            else:
                 cursor.execute(
                     "UPDATE payments_orders SET status = %s, provider_order_id = %s WHERE id = %s",
-                    (new_status, data.get("id"), internal_order_id)
+                    (new_status, data.get("id"), internal_order_id),
                 )
-                conn.commit()
-            else:
-                logger.warning(f"Webhook Cakto: Pedido interno {internal_order_id} nao encontrado.")
+            conn.commit()
+    elif internal_order_id:
+        logger.warning(f"Webhook Cakto: Pedido interno {internal_order_id} nao encontrado.")
 
     updated = 0
     if user_id:
-        updated = _set_premium_by_user_id(user_id, target_state)
+        if is_b2b:
+            b2b_plan = str(order.get("plan")).replace("b2b_", "", 1)
+            updated = activate_b2b_client(user_id, b2b_plan)
+        else:
+            updated = _set_premium_by_user_id(user_id, target_state)
     else:
-        # Fallback por email se falhar o ID do pedido
-        email = service.extract_customer_email(payload)
-        if email:
-            updated = _set_premium_by_email(email, target_state)
-            if updated and target_state:
-                with get_db() as (cursor, conn):
-                    cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
-                    row = cursor.fetchone()
-                    if row:
-                        user_id = row["id"]
+        # Fallback por email se falhar o ID do pedido (somente premium)
+        if not is_b2b:
+            email = service.extract_customer_email(payload)
+            if email:
+                updated = _set_premium_by_email(email, target_state)
+                if updated and target_state:
+                    with get_db() as (cursor, conn):
+                        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+                        row = cursor.fetchone()
+                        if row:
+                            user_id = row["id"]
 
     if updated == 0:
         logger.warning(
@@ -246,17 +330,25 @@ def cakto_webhook():
         )
         return jsonify(success=False, error="Usuario nao encontrado para este evento."), 404
 
-    # Envia push notification ao ativar premium
+    # Envia push notification ao ativar
     if target_state and user_id:
         try:
-            send_push_notification(
-                user_id=user_id,
-                title="🌟 Bem-vindo ao Premium!",
-                body="Sua assinatura AutoAssist Premium foi ativada com sucesso.",
-                data={"url": "/dashboard.html"},
-            )
+            if is_b2b:
+                send_push_notification(
+                    user_id=user_id,
+                    title="🔑 API B2B ativada!",
+                    body="Sua chave de API AutoAssist esta ativa e pronta para usar.",
+                    data={"url": "/b2b.html"},
+                )
+            else:
+                send_push_notification(
+                    user_id=user_id,
+                    title="🌟 Bem-vindo ao AutoAssist Premium!",
+                    body="Sua assinatura AutoAssist Premium foi ativada com sucesso.",
+                    data={"url": "/dashboard.html"},
+                )
         except Exception:
-            logger.warning("Falha ao enviar push premium", exc_info=True)
+            logger.warning("Falha ao enviar push", exc_info=True)
 
     logger.info(
         "Webhook Cakto processado | event=%s status=%s premium=%s order=%s",

@@ -7,7 +7,8 @@ test.describe("Responsividade da landing page", () => {
   test("CT-013: o hero nao deve vazar horizontalmente em telas pequenas", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 });
     await page.goto(`${BASE_URL}/index.html`);
-    await page.waitForSelector(".brand-hero h1");
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForSelector("#brandHeroTitle");
 
     const result = await page.evaluate(() => {
       const title = document.querySelector(".brand-hero h1");

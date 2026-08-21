@@ -9,6 +9,12 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Compensa a navbar fixa do Dashboard em todas as larguras
+   (antes soh havia offset dentro de @media max-width:680px) */
+.dashboard-content {
+  margin-top: 88px;
+}
+
 body {
   max-width: 100%;
   overflow-x: hidden;
@@ -51,6 +57,12 @@ header {
   z-index: 130;
 }
 
+/* Toggle estatico do padrao index (#navToggle) e substituido pelo .aa-menu-toggle
+   injetado pelo responsive.js, que e o unico hamburguer (evita dois menus). */
+.nav-toggle {
+  display: none !important;
+}
+
 .aa-menu-toggle:hover,
 .aa-menu-toggle:focus-visible {
   border-color: rgba(59, 130, 246, 0.6);
@@ -81,77 +93,6 @@ header {
 
 body.aa-menu-lock {
   overflow: hidden;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .nav-link[data-nav-tooltip],
-  .nav-btn[data-nav-tooltip],
-  .nav-bell-btn[data-nav-tooltip] {
-    position: relative;
-  }
-
-  .nav-link[data-nav-tooltip]::before,
-  .nav-btn[data-nav-tooltip]::before,
-  .nav-bell-btn[data-nav-tooltip]::before {
-    content: "";
-    position: absolute;
-    top: calc(100% + 5px);
-    left: 50%;
-    border-right: 6px solid transparent;
-    border-bottom: 6px solid rgba(15, 23, 42, 0.96);
-    border-left: 6px solid transparent;
-    opacity: 0;
-    visibility: hidden;
-    transform: translate(-50%, -4px);
-    transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
-    pointer-events: none;
-    z-index: 260;
-  }
-
-  .nav-link[data-nav-tooltip]::after,
-  .nav-btn[data-nav-tooltip]::after,
-  .nav-bell-btn[data-nav-tooltip]::after {
-    content: attr(data-nav-tooltip);
-    position: absolute;
-    top: calc(100% + 11px);
-    left: 50%;
-    width: max-content;
-    max-width: min(240px, calc(100vw - 32px));
-    padding: 9px 11px;
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    border-radius: 8px;
-    background: rgba(15, 23, 42, 0.96);
-    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
-    color: #f8fafc;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.35;
-    text-align: center;
-    white-space: normal;
-    opacity: 0;
-    visibility: hidden;
-    transform: translate(-50%, -4px);
-    transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
-    pointer-events: none;
-    z-index: 260;
-  }
-
-  .nav-link[data-nav-tooltip]:hover::before,
-  .nav-link[data-nav-tooltip]:focus-visible::before,
-  .nav-btn[data-nav-tooltip]:hover::before,
-  .nav-btn[data-nav-tooltip]:focus-visible::before,
-  .nav-bell-btn[data-nav-tooltip]:hover::before,
-  .nav-bell-btn[data-nav-tooltip]:focus-visible::before,
-  .nav-link[data-nav-tooltip]:hover::after,
-  .nav-link[data-nav-tooltip]:focus-visible::after,
-  .nav-btn[data-nav-tooltip]:hover::after,
-  .nav-btn[data-nav-tooltip]:focus-visible::after,
-  .nav-bell-btn[data-nav-tooltip]:hover::after,
-  .nav-bell-btn[data-nav-tooltip]:focus-visible::after {
-    opacity: 1;
-    visibility: visible;
-    transform: translate(-50%, 0);
-  }
 }
 
 /* Telas de login/cadastro/recuperacao: foco em centralizacao e toque confortavel. */
@@ -275,19 +216,40 @@ body.aa-menu-lock {
     justify-content: center;
   }
 
-  .aa-mobile-menu-ready .notification-panel {
-    position: static !important;
-    width: 100% !important;
-    max-width: none;
-    max-height: 45vh;
-    margin-top: 8px;
-  }
+  /* O .notif-panel é movido para o <body> e posicionado via JS (fixed),
+     então NÃO é mais forçado a position:static dentro do drawer. */
 
   .aa-mobile-menu-ready .nav-bell-btn {
     width: 100%;
     justify-content: flex-start;
     gap: 10px;
     padding: 0 12px;
+  }
+
+  /* "Mais" no drawer mobile: achata os itens direto no menu (sem popup) */
+  .aa-mobile-menu-ready .nav-dropdown {
+    display: block;
+    width: 100%;
+    position: static;
+  }
+  .aa-mobile-menu-ready .nav-dropdown-toggle {
+    display: none;
+  }
+  .aa-mobile-menu-ready .nav-dropdown-menu {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .aa-mobile-menu-ready .nav-dropdown-item {
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 10px;
   }
 
   body.aa-chat-layout header {
@@ -387,7 +349,7 @@ body.aa-menu-lock {
   }
 
   .dashboard-content {
-    margin-top: 112px;
+    margin-top: 88px;
     padding-inline: 14px;
   }
 
@@ -460,6 +422,10 @@ body.aa-menu-lock {
     right: 14px !important;
     bottom: 14px !important;
   }
+
+  /* .notif-panel é posicionado via JS (position: fixed + getBoundingClientRect)
+     em TODOS os tamanhos de tela; nenhuma geometria fixa aqui para não
+     conflitar com o posicionamento dinâmico. */
 }
 
 @media (max-width: 420px) {

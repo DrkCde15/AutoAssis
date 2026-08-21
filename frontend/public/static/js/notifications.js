@@ -1,8 +1,12 @@
+// eslint-disable-next-line no-unused-vars
 const Notifications = (() => {
   let unreadCount = 0;
-  let pollInterval = null;
+
 
   function escapeHTML(str) {
+    if (typeof SecurityUtils !== "undefined" && SecurityUtils.escapeHTML) {
+      return SecurityUtils.escapeHTML(str);
+    }
     if (!str) return "";
     return str.toString()
       .replace(/&/g, "&amp;")
@@ -59,6 +63,43 @@ const Notifications = (() => {
     const list = document.getElementById("notifList");
     const markAllBtn = document.getElementById("notifMarkAllRead");
 
+    // The panel is rendered inside a dedicated global overlay root
+    // (#navbar-overlay-root) appended to <body> on first use. This isolates the
+    // popover from every stacking context created by page content (navbar with
+    // backdrop-filter + z-index:1000, cards, transforms, etc.) and guarantees it
+    // is always painted above the page header and navbar. Its position is
+    // computed in JS from the bell button via getBoundingClientRect() and
+    // clamped to the viewport.
+    let overlayRoot = document.getElementById("navbar-overlay-root");
+    if (!overlayRoot) {
+      overlayRoot = document.createElement("div");
+      overlayRoot.id = "navbar-overlay-root";
+      document.body.appendChild(overlayRoot);
+    }
+    overlayRoot.appendChild(panel);
+
+    function positionPanel() {
+      if (!panel.classList.contains("is-open")) return;
+      const rect = btn.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 8;
+      const gap = 8;
+      panel.style.maxWidth = (vw - margin * 2) + "px";
+      panel.style.maxHeight = (vh - margin * 2) + "px";
+      const pw = panel.offsetWidth;
+      const ph = panel.offsetHeight;
+      let left = rect.right - pw;
+      left = Math.max(margin, Math.min(left, vw - pw - margin));
+      let top = rect.bottom + gap;
+      if (top + ph > vh - margin) {
+        const above = rect.top - gap - ph;
+        top = above >= margin ? above : Math.max(margin, vh - ph - margin);
+      }
+      panel.style.left = Math.round(left) + "px";
+      panel.style.top = Math.round(top) + "px";
+    }
+
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const shouldOpen = !panel.classList.contains("is-open");
@@ -66,15 +107,19 @@ const Notifications = (() => {
       panel.classList.toggle("open", shouldOpen);
       if (shouldOpen) {
         fetchNotifications();
+        requestAnimationFrame(positionPanel);
       }
     });
 
     document.addEventListener("click", (e) => {
-      if (!container.contains(e.target)) {
+      if (!container.contains(e.target) && !panel.contains(e.target)) {
         panel.classList.remove("is-open");
         panel.classList.remove("open");
       }
     });
+
+    window.addEventListener("scroll", positionPanel, true);
+    window.addEventListener("resize", positionPanel);
 
     markAllBtn.addEventListener("click", async () => {
       try {
@@ -257,6 +302,56 @@ const Notifications = (() => {
     }
   }
 
+  /* ── Sincronização de localização (notificações regionais de eventos) ── */
+
+  async function syncUserLocation() {
+    if (typeof Auth === "undefined" || !Auth.isAuthenticated()) return;
+    if (!("geolocation" in navigator)) return;
+
+    let loc = null;
+    try {
+      const stored = JSON.parse(localStorage.getItem("autoassist_location") || "null");
+      if (stored && isFinite(stored.lat) && isFinite(stored.lng)) loc = stored;
+    } catch {}
+
+    // Se ainda não coletou (ex.: usuário só acessou páginas sem mapa),
+    // pede a localização uma vez - é o "permitir localização" do navegador.
+    if (!loc) {
+      try {
+        loc = await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (p) => {
+              const fresh = { lat: p.coords.latitude, lng: p.coords.longitude };
+              localStorage.setItem("autoassist_location", JSON.stringify({
+                lat: fresh.lat, lng: fresh.lng, ts: Date.now()
+              }));
+              resolve(fresh);
+            },
+            () => resolve(null),
+            { timeout: 5000, maximumAge: 600000 }
+          );
+        });
+      } catch {}
+    }
+    if (!loc) return;
+
+    // No máximo 1 envio por dia para o backend
+    const lastSync = parseInt(localStorage.getItem("autoassist_location_synced") || "0", 10);
+    if (Date.now() - lastSync < 24 * 3600 * 1000) return;
+
+    try {
+      const res = await Auth.authenticatedFetch("/api/user/location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: loc.lat, lng: loc.lng }),
+        redirectOnInvalid: false,
+      });
+      if (res.ok) {
+        localStorage.setItem("autoassist_location_synced", String(Date.now()));
+      }
+    } catch {}
+  }
+
   /* ── Init ── */
 
   function init() {
@@ -264,8 +359,9 @@ const Notifications = (() => {
     if (document.getElementById("notif-bell-container")) {
       createBell();
       fetchUnreadCount();
-      pollInterval = setInterval(fetchUnreadCount, 30000);
+      setInterval(fetchUnreadCount, 30000);
       requestPushPermission();
+      syncUserLocation();
     }
   }
 
@@ -275,5 +371,5 @@ const Notifications = (() => {
     init();
   }
 
-  return { init, fetchUnreadCount, requestPushPermission, subscribeToPush, unsubscribeFromPush };
+  return { init, fetchUnreadCount, requestPushPermission, subscribeToPush, unsubscribeFromPush, syncUserLocation };
 })();

@@ -6,8 +6,9 @@
   "scripts": {
     "test": "npx playwright test",
     "test:auth": "npx playwright test --grep \"auth\"",
-    "lint": "npx eslint static/js/",
-    "typecheck": "npx tsc --noEmit --allowJs --checkJs static/js/*.js",
+    "test:unit": "node tests/unit/security-utils.test.js",
+    "lint": "eslint public/static/js/",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "echo \"No build step needed - vanilla HTML/JS/CSS\""
   },
   "devDependencies": {

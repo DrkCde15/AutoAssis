@@ -142,3 +142,104 @@ def delete_feedback(feedback_id):
     except Exception as e:
         logger.error("Erro ao excluir feedback: %s", e, exc_info=True)
         return jsonify(error="Erro interno ao excluir feedback."), 500
+
+
+@feedback_bp.route("/api/chat/feedback", methods=["POST"])
+@limiter.limit("30 per minute")
+def post_chat_feedback():
+    data = request.get_json(silent=True) or {}
+    avaliacao = data.get("avaliacao")
+    if str(avaliacao) not in ("1", "-1"):
+        return jsonify(error="avaliacao deve ser 1 (util) ou -1 (inutil)."), 400
+    avaliacao_int = 1 if str(avaliacao) == "1" else -1
+    motivo = _clean_text(data.get("motivo"), 60)
+    comentario = _clean_text(data.get("comentario"), 2000)
+    chat_id = data.get("chat_id")
+    message_id = _clean_text(data.get("message_id"), 80)
+    user_id = _get_optional_user_id()
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                """
+                INSERT INTO chat_feedback (user_id, chat_id, message_id, avaliacao, motivo, comentario)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (user_id, chat_id, message_id, avaliacao_int, motivo, comentario),
+            )
+        return jsonify(message="Obrigado pelo feedback!"), 201
+    except Exception as e:
+        logger.error("Erro ao salvar chat_feedback: %s", e, exc_info=True)
+        return jsonify(error="Erro interno ao salvar feedback."), 500
+
+
+def _admin_user_id():
+    """Retorna o id do usuario se ele for admin, ou None."""
+    try:
+        verify_jwt_in_request()
+        uid = get_jwt_identity()
+    except Exception:
+        return None
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_admin FROM users WHERE id = %s", (uid,))
+            row = cursor.fetchone()
+        if row and row.get("is_admin"):
+            return uid
+    except Exception:
+        return None
+    return None
+
+
+@feedback_bp.route("/api/admin/chat-feedback-summary", methods=["GET"])
+@limiter.limit("20 per minute")
+def chat_feedback_summary():
+    if _admin_user_id() is None:
+        return jsonify(error="Acesso restrito."), 403
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "SELECT COUNT(*) AS total, SUM(avaliacao=1) AS positivos, "
+                "SUM(avaliacao=-1) AS negativos FROM chat_feedback"
+            )
+            totals = cursor.fetchone() or {}
+            cursor.execute(
+                "SELECT motivo, COUNT(*) AS n FROM chat_feedback "
+                "WHERE motivo IS NOT NULL AND CHAR_LENGTH(motivo) > 0 GROUP BY motivo ORDER BY n DESC"
+            )
+            por_motivo = cursor.fetchall()
+            cursor.execute(
+                "SELECT DATE(created_at) AS dia, SUM(avaliacao=1) AS positivos, "
+                "SUM(avaliacao=-1) AS negativos FROM chat_feedback "
+                "GROUP BY dia ORDER BY dia DESC LIMIT 30"
+            )
+            por_dia = cursor.fetchall()
+        return jsonify(
+            total=totals.get("total") or 0,
+            positivos=totals.get("positivos") or 0,
+            negativos=totals.get("negativos") or 0,
+            por_motivo=por_motivo,
+            por_dia=por_dia,
+        ), 200
+    except Exception as e:
+        logger.error("Erro ao resumir chat_feedback: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@feedback_bp.route("/api/chat/feedback/stats", methods=["GET"])
+@limiter.limit("30 per minute")
+def chat_feedback_stats():
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "SELECT COUNT(*) AS total, SUM(avaliacao=1) AS positivos, "
+                "SUM(avaliacao=-1) AS negativos FROM chat_feedback"
+            )
+            totals = cursor.fetchone() or {}
+        return jsonify(
+            total=totals.get("total") or 0,
+            positivos=totals.get("positivos") or 0,
+            negativos=totals.get("negativos") or 0,
+        ), 200
+    except Exception as e:
+        logger.error("Erro ao calcular stats chat_feedback: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500

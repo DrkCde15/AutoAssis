@@ -24,15 +24,25 @@ MYSQL_CONFIG = {
     'cursorclass': DictCursor,
     'autocommit': True,
     'connect_timeout': 10,
-    'ssl': {'ssl_disabled': False}
 }
+
+# SSL: suporta Aiven (certificado obrigatorio) e MySQL local (sem ssl).
+_ssl_ca = os.getenv('DB_SSL_CA', '').strip()
+_ssl_verify = os.getenv('DB_SSL_VERIFY', 'true').strip().lower() == 'true'
+if _ssl_ca:
+    MYSQL_CONFIG['ssl'] = {'ca': _ssl_ca, 'ssl_verify_cert': _ssl_verify}
+elif os.getenv('DB_SSL', 'false').strip().lower() == 'true' or \
+        os.getenv('DB_HOST', '').strip().endswith('aivencloud.com'):
+    MYSQL_CONFIG['ssl'] = {'ssl_verify_cert': _ssl_verify}
+else:
+    MYSQL_CONFIG['ssl'] = {'ssl_disabled': True}
 
 # Inicializa o Pool de Conexões
 pool = PooledDB(
     creator=pymysql,
-    mincached=2,
-    maxcached=10,
-    maxconnections=20,
+    mincached=int(os.getenv("DB_MIN_CACHED", "5")),
+    maxcached=int(os.getenv("DB_MAX_CACHED", "20")),
+    maxconnections=int(os.getenv("DB_MAX_CONNECTIONS", "50")),
     blocking=True,
     **MYSQL_CONFIG
 )
@@ -140,7 +150,9 @@ TABLES_SQL = {
         id VARCHAR(100) PRIMARY KEY,
         user_id INT NOT NULL,
         status VARCHAR(50) DEFAULT 'pending',
+        plan VARCHAR(50),
         amount DECIMAL(10,2),
+        currency VARCHAR(10) DEFAULT 'BRL',
         provider VARCHAR(50) DEFAULT 'cakto',
         provider_order_id VARCHAR(100),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -210,6 +222,140 @@ TABLES_SQL = {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_push_user (user_id)
     )""",
+    "mechanics": """CREATE TABLE IF NOT EXISTS mechanics (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(100) NOT NULL,
+        cnpj VARCHAR(18),
+        endereco TEXT NOT NULL,
+        cidade VARCHAR(50) NOT NULL,
+        estado VARCHAR(2) NOT NULL,
+        cep VARCHAR(9),
+        latitude DECIMAL(10, 8),
+        longitude DECIMAL(11, 8),
+        telefone VARCHAR(20),
+        email VARCHAR(100),
+        website VARCHAR(200),
+        descricao TEXT,
+        especialidades JSON,  -- ["troca_oleo", "freios", "suspensao"]
+        servicos JSON,  -- [{"nome": "Troca de óleo", "preco": 150.00}]
+        horario_funcionamento JSON,  -- {"seg": "08:00-18:00", "dom": "fechado"}
+        avaliacao_media DECIMAL(3, 2) DEFAULT 0.00,
+        total_avaliacoes INT DEFAULT 0,
+        foto_url VARCHAR(500),
+        is_verified BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_mechanics_location (cidade, estado),
+        INDEX idx_mechanics_rating (avaliacao_media DESC),
+        INDEX idx_mechanics_active (is_active, is_verified)
+    )""",
+    "mechanic_reviews": """CREATE TABLE IF NOT EXISTS mechanic_reviews (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        mechanic_id INT NOT NULL,
+        user_id INT NOT NULL,
+        avaliacao INT NOT NULL CHECK (avaliacao BETWEEN 1 AND 5),
+        comentario TEXT,
+        service_type VARCHAR(50),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_reviews_mechanic (mechanic_id, created_at DESC),
+        INDEX idx_reviews_user (user_id),
+        FOREIGN KEY (mechanic_id) REFERENCES mechanics(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""",
+    "mechanic_favorites": """CREATE TABLE IF NOT EXISTS mechanic_favorites (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        mechanic_id INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_favorite (user_id, mechanic_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (mechanic_id) REFERENCES mechanics(id) ON DELETE CASCADE
+    )""",
+    "api_clients": """CREATE TABLE IF NOT EXISTS api_clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        nome VARCHAR(120) NOT NULL,
+        api_key_hash VARCHAR(128) NOT NULL UNIQUE,
+        api_key_prefix VARCHAR(12) NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        rate_limit_per_min INT DEFAULT 30,
+        plan VARCHAR(40) NULL,
+        requests_used INT DEFAULT 0,
+        requests_limit INT DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_used_at DATETIME NULL
+    )""",
+    "api_usage_logs": """CREATE TABLE IF NOT EXISTS api_usage_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        client_id INT NOT NULL,
+        endpoint VARCHAR(120) NOT NULL,
+        status_code INT,
+        request_id VARCHAR(40) DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_usage_client_time (client_id, created_at DESC),
+        FOREIGN KEY (client_id) REFERENCES api_clients(id) ON DELETE CASCADE
+    )""",
+    "chat_feedback": """CREATE TABLE IF NOT EXISTS chat_feedback (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        chat_id INT NULL,
+        message_id VARCHAR(80) NULL,
+        avaliacao TINYINT NOT NULL CHECK (avaliacao IN (1, -1)),
+        motivo VARCHAR(60) NULL,
+        comentario TEXT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_chat_feedback_user (user_id, created_at DESC),
+        INDEX idx_chat_feedback_chat (chat_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    )""",
+    "b2b_leads": """CREATE TABLE IF NOT EXISTS b2b_leads (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(120) NOT NULL,
+        email VARCHAR(120) NOT NULL,
+        empresa VARCHAR(120) NULL,
+        telefone VARCHAR(30) NULL,
+        mensagem TEXT NULL,
+        origem VARCHAR(60) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_b2b_leads_created (created_at DESC)
+    )""",
+    "events": """CREATE TABLE IF NOT EXISTS events (
+        id VARCHAR(40) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        original_title VARCHAR(200),
+        normalized_title VARCHAR(200),
+        description TEXT,
+        category VARCHAR(30),
+        categoria_label VARCHAR(40),
+        start_date DATE,
+        end_date DATE,
+        start_time TIME,
+        end_time TIME,
+        venue_name VARCHAR(160),
+        address VARCHAR(200),
+        city VARCHAR(80),
+        state VARCHAR(2),
+        country VARCHAR(2) DEFAULT 'BR',
+        latitude DECIMAL(10,8),
+        longitude DECIMAL(11,8),
+        organizer VARCHAR(160),
+        organizer_url VARCHAR(500),
+        event_url VARCHAR(500),
+        image_url VARCHAR(500),
+        source VARCHAR(30) NOT NULL,
+        source_url VARCHAR(500),
+        status VARCHAR(20) DEFAULT 'unknown',
+        confidence DECIMAL(3,2) DEFAULT 0.50,
+        last_verified_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        INDEX idx_events_state (state),
+        INDEX idx_events_city (city),
+        INDEX idx_events_start (start_date),
+        INDEX idx_events_status (status),
+        INDEX idx_events_source (source)
+    )""",
 }
 
 
@@ -241,7 +387,14 @@ def init_db():
             ("profile_pic", "VARCHAR(500)"),
             ("maintenance_email_enabled", "BOOLEAN DEFAULT TRUE"),
             ("maintenance_email_last_sent", "DATETIME NULL"),
-            ("is_admin", "BOOLEAN DEFAULT FALSE")
+            ("is_admin", "BOOLEAN DEFAULT FALSE"),
+            ("uf", "VARCHAR(2) NULL"),
+            ("referral_code", "VARCHAR(20) NULL"),
+            ("referred_by", "VARCHAR(20) NULL"),
+            ("premium_expires_at", "DATETIME NULL"),
+            ("mod_passport", "BOOLEAN DEFAULT FALSE"),
+            ("signup_ip", "VARCHAR(45) NULL"),
+            ("referral_credit_months", "INT DEFAULT 0")
         ]
         for col, dtype in columns:
             if col not in existing_columns:
@@ -258,6 +411,8 @@ def init_db():
             ("fipe_valor", "VARCHAR(50) NULL"),
             ("fipe_mes_referencia", "VARCHAR(50) NULL"),
             ("fipe_updated_at", "DATETIME NULL"),
+            ("modificacoes", "TEXT NULL"),
+            ("fipe_ajustada", "VARCHAR(50) NULL")
         ]
         for col, dtype in veiculos_columns:
             if col not in existing_veiculos_columns:
@@ -327,6 +482,26 @@ def init_db():
             cursor.execute("ALTER TABLE maintenance_notes ADD COLUMN user_id INT NULL")
         except Exception:
             pass
+        payments_columns = [
+            ("plan", "VARCHAR(50)"),
+            ("currency", "VARCHAR(10) DEFAULT 'BRL'"),
+        ]
+        for col, dtype in payments_columns:
+            try:
+                cursor.execute(f"ALTER TABLE payments_orders ADD COLUMN {col} {dtype}")
+            except Exception:
+                pass
+        api_clients_columns = [
+            ("user_id", "INT NULL"),
+            ("plan", "VARCHAR(40) NULL"),
+            ("requests_used", "INT DEFAULT 0"),
+            ("requests_limit", "INT DEFAULT 0"),
+        ]
+        for col, dtype in api_clients_columns:
+            try:
+                cursor.execute(f"ALTER TABLE api_clients ADD COLUMN {col} {dtype}")
+            except Exception:
+                pass
         # Otimizações de Banco de Dados: Adicionando Índices para consultas frequentes
         indexes = [
             "CREATE INDEX idx_chats_user_created ON chats (user_id, created_at DESC)",

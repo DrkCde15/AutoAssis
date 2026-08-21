@@ -11,17 +11,21 @@ import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 from time import monotonic
-from urllib.parse import quote, quote_plus
+from services.web_scraping import WebScraper
 from flask import Blueprint, request, jsonify, current_app, send_from_directory, has_request_context, redirect, url_for
 from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 import uuid
+from services.maintenance_service import _status_from_remaining, apply_manual_overrides, parse_maintenance_entry, serialize_maintenance_row
+from services.nogai import prever_intervalo_manutencao, _invalidate_maintenance_context, _invalidate_user_ai_cache
 from utils.async_task import _predictor, train_in_background
 import json
+from decimal import Decimal
 from .database import get_db, is_trial_expired, get_trial_days_remaining, get_mysql_history
 from utils.email import enviar_email
 from .notifications import create_notification
 from .push import send_push_notification
-
+from pydub import AudioSegment
+import speech_recognition as sr
 
 @lru_cache(maxsize=1)
 def _load_maintenance_helpers():
@@ -73,6 +77,11 @@ GENERIC_CHAT_TOKENS = {
 }
 
 GUEST_CHAT_LIMIT = 5
+# P0-1: free registrado ganha quota mensal de interações no chat.
+# Premium é ilimitado. Evita burn infinito de IA em contas gratuitas.
+FREE_MONTHLY_CHAT_LIMIT = int(os.getenv("FREE_MONTHLY_CHAT_LIMIT", "30"))
+# P1-1: free pode registrar até N manutenções; premium é ilimitado.
+FREE_MAINTENANCE_LIMIT = int(os.getenv("FREE_MAINTENANCE_LIMIT", "3"))
 MAX_CHAT_HISTORY_LIMIT = 200
 DEFAULT_CHAT_HISTORY_LIMIT = 100
 MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
@@ -111,19 +120,59 @@ def ensure_premium_user(user):
         return None
     return jsonify(error=PREMIUM_ONLY_ERROR), 403
 
+
+def ensure_maintenance_access(user, cursor):
+    """P1-1: free pode registrar até FREE_MAINTENANCE_LIMIT manutenções; premium ilimitado.
+    Listagem é liberada para todos (free vê seus próprios registros)."""
+    if not user:
+        return invalid_session_response()
+    if bool(user.get("is_premium")):
+        return None
+    user_id = user.get("id")
+    cursor.execute("SELECT COUNT(*) AS cnt FROM maintenance_history WHERE user_id = %s", (user_id,))
+    row = cursor.fetchone()
+    count = int((row or {}).get("cnt") or 0)
+    if count >= FREE_MAINTENANCE_LIMIT:
+        return jsonify(
+            error=f"O plano gratuito permite ate {FREE_MAINTENANCE_LIMIT} registros de manutencao. Assine o Premium para historico ilimitado.",
+            code="free_maintenance_limit_reached",
+            limit=FREE_MAINTENANCE_LIMIT,
+            used=count,
+        ), 403
+    return None
+
+def _get_fx_rates():
+    """Taxas de câmbio para normalização de custos em BRL (configurável via env)."""
+    return {
+        "BRL": 1.0,
+        "USD": float(os.getenv("USD_BRL_RATE", "5.0")),
+        "EUR": float(os.getenv("EUR_BRL_RATE", "5.5")),
+    }
+
+
+def _normalize_cost_to_brl(cost, currency):
+    if cost is None:
+        return 0.0
+    try:
+        value = float(cost)
+    except (TypeError, ValueError):
+        return 0.0
+    rate = _get_fx_rates().get((currency or "BRL").upper(), 1.0)
+    return value * rate
+
+
 def build_spending_summary(history_rows):
     total_cost = 0.0
     by_type = {}
 
     for row in history_rows:
-        cost = row.get("cost")
-        if cost is None:
+        cost_brl = _normalize_cost_to_brl(row.get("cost"), row.get("currency"))
+        if cost_brl <= 0:
             continue
 
-        value = float(cost)
-        total_cost += value
+        total_cost += cost_brl
         label = row.get("maintenance_label") or "Manutencao geral"
-        by_type[label] = by_type.get(label, 0.0) + value
+        by_type[label] = by_type.get(label, 0.0) + cost_brl
 
     gastos_por_tipo = [
         {"tipo": label, "valor": round(amount, 2)}
@@ -133,6 +182,7 @@ def build_spending_summary(history_rows):
         "total_gastos": round(total_cost, 2),
         "quantidade_registros": len(history_rows),
         "gastos_por_tipo": gastos_por_tipo,
+        "moeda": "BRL",
     }
 
 
@@ -286,15 +336,20 @@ def parse_chat_attachment(data):
     data_url_type, file_data = decode_attachment_data(raw_attachment.get("data") or "")
     mime_type = infer_attachment_mime_type(filename, raw_attachment.get("type"), data_url_type)
 
-    # Validacao MIME contra extensao
-    mime_to_ext = {
-        "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-        "image/gif": "gif", "application/pdf": "pdf",
-        "text/plain": "txt", "text/csv": "csv", "text/markdown": "md",
-        "application/json": "json",
+    # Validacao MIME contra extensao (um MIME pode ter varias extensoes validas)
+    mime_to_exts = {
+        "image/jpeg": {"jpg", "jpeg"},
+        "image/png": {"png"},
+        "image/webp": {"webp"},
+        "image/gif": {"gif"},
+        "application/pdf": {"pdf"},
+        "text/plain": {"txt"},
+        "text/csv": {"csv"},
+        "text/markdown": {"md", "markdown"},
+        "application/json": {"json"},
     }
-    expected_ext = mime_to_ext.get(mime_type)
-    if expected_ext and ext and ext != expected_ext:
+    expected_exts = mime_to_exts.get(mime_type)
+    if expected_exts and ext and ext not in expected_exts:
         logger.warning(f"MIME mismatch: {mime_type} vs extensao .{ext}")
 
     if len(file_data) > MAX_ATTACHMENT_BYTES:
@@ -381,6 +436,12 @@ def build_recommendations(message, historico_recente, default_topic="Consultoria
     if is_generic_chat_message(message):
         return [], [], default_topic
 
+    _MECH_KEYWORDS = ["mecanic", "oficina", "borracheiro", "funileiro",
+                      "reparo", "consertar", "arrumar", "trocar oleo",
+                      "alinhamento", "balanceamento", "revisao"]
+    if any(kw in message.lower() for kw in _MECH_KEYWORDS):
+        return [], [], "Busca de Mecânicos"
+
     from services.nogai import gerar_termos_busca
     from services.youtube_service import buscar_videos_youtube
 
@@ -399,20 +460,26 @@ def build_recommendations(message, historico_recente, default_topic="Consultoria
             logger.warning(f"Erro ao buscar videos: {e}")
 
     if termo_loja:
-        links.append({
-            "titulo": f"Ver ofertas de {termo_loja}",
-            "url": f"https://www.webmotors.com.br/carros/estoque?q={quote_plus(termo_loja)}",
-            "tipo": "veiculo",
-            "icon": "fas fa-car"
-        })
+        try:
+            scraper = WebScraper()
+            lojas = scraper.search_car_stores(termo_loja)
+            for loja in lojas:
+                loja.setdefault("tipo", "veiculo")
+                loja.setdefault("icon", "fas fa-car")
+            links.extend(lojas)
+        except Exception as e:
+            logger.warning(f"Erro ao buscar links de loja: {e}")
 
     if termo_pecas:
-        links.append({
-            "titulo": f"Comprar {termo_pecas} no Mercado Livre",
-            "url": f"https://lista.mercadolivre.com.br/{quote(termo_pecas.replace(' ', '-'), safe='')}",
-            "tipo": "peca",
-            "icon": "fas fa-tools"
-        })
+        try:
+            scraper = WebScraper()
+            pecas = scraper.search_car_parts(termo_pecas)
+            for peca in pecas:
+                peca.setdefault("tipo", "peca")
+                peca.setdefault("icon", "fas fa-tools")
+            links.extend(pecas)
+        except Exception as e:
+            logger.warning(f"Erro ao buscar links de peças: {e}")
 
     topic = termo_yt or termo_loja or termo_pecas or default_topic
     return videos, links, topic
@@ -863,6 +930,8 @@ def render_maintenance_email_html(user_name, alerts):
 
         <div style="text-align: center; margin-top: 35px;">
             <a href="{html.escape(get_dashboard_url())}" style="display: inline-block; padding: 14px 28px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Ver Painel Completo</a>
+            <p style="margin: 18px 0 0; font-size: 15px; color: #374151;">Quer saber o que fazer e quanto vai custar?</p>
+            <a href="chat.html" style="display: inline-block; padding: 14px 28px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Pergunte à NOG o que fazer</a>
         </div>
     """
 
@@ -1127,7 +1196,7 @@ def get_user():
             SELECT id, nome, email, is_premium, created_at, possui_veiculo,
                    veiculo_marca, veiculo_modelo, veiculo_ano_fabricacao,
                    veiculo_ano_compra, veiculo_tipo, veiculo_quilometragem, is_two_factor_enabled,
-                   maintenance_email_enabled, maintenance_email_last_sent
+                   maintenance_email_enabled, maintenance_email_last_sent, uf
             FROM users WHERE id = %s
         """, (user_id,))
         user = cursor.fetchone()
@@ -1195,6 +1264,165 @@ def update_user():
         logger.error(f"❌ Erro ao atualizar perfil: {e}")
         return jsonify(error="Erro ao atualizar perfil"), 500
 
+@pages_bp.route("/api/user/location", methods=["POST"])
+@jwt_required()
+def update_user_location():
+    """Salva a localização (UF) do usuário para notificações regionais de eventos.
+
+    Recebe {lat, lng} (geolocalização do navegador) - a UF é inferida por
+    reverse geocoding (Nominatim) e cacheadas por ~1km. Também aceita {uf}
+    diretamente e {uf: ""} para limpar a localização.
+    """
+    user_id = get_jwt_identity()
+    data = request.get_json() or {}
+    uf = (data.get("uf") or "").strip().upper()
+
+    if not uf and data.get("lat") is not None and data.get("lng") is not None:
+        try:
+            from utils.geocode import reverse_geocode_uf
+            uf = reverse_geocode_uf(data["lat"], data["lng"]) or ""
+        except Exception as e:
+            logger.warning("Falha ao inferir UF pela localização: %s", e)
+            uf = ""
+
+    if uf and (len(uf) != 2 or not uf.isalpha()):
+        return jsonify(error="UF inválida"), 400
+
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "UPDATE users SET uf = %s WHERE id = %s",
+                (uf or None, user_id),
+            )
+            conn.commit()
+        return jsonify(success=True, uf=uf or None), 200
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar localização do usuário: {e}")
+        return jsonify(error="Erro ao salvar localização"), 500
+
+import re
+import json
+from datetime import datetime
+
+
+_MOD_FIPE_PCT = {
+    # Pesos CONSERVADORES de valor RETIDO em revenda para itens documentados,
+    # baseados no comportamento tipico do mercado brasileiro: a maioria dos
+    # mods NAO repassa o custo (audio/estetica raramente agregam; performance
+    # pode ajudar comprador entusiasta mas penaliza o comprador geral). Sao
+    # estimativas de mercado, NAO refletem a Tabela FIPE (que e de fabrica).
+    # Calibrar conforme dados reais de transacao.
+    "motor": 0.04, "turbo": 0.05, "suspensao": 0.02, "freios": 0.02,
+    "rodas": 0.015, "pneus": 0.01, "escapamento": 0.015, "eletronica": 0.02,
+    "som": 0.005, "estetica": 0.005, "interna": 0.01, "outros": 0.01,
+}
+# Teto de valorizacao total para evitar inflacao irrealista do valor.
+_MOD_FIPE_PCT_MAX = 0.12
+
+# Aviso exibido junto ao valor estimado: deixa claro que NAO e avaliacao oficial.
+FIPE_AJUSTADA_DISCLAIMER = (
+    "Valor estimado de mercado com base na Tabela FIPE e/ou precos de anuncios "
+    "reais, ajustado por itens documentados. Nao e avaliacao oficial e nao "
+    "substitui pericia para venda, seguro ou financiamento."
+)
+
+
+def _parse_fipe_valor(valor):
+    """Extrai valor numerico (float) de uma string FIPE ('R$ 45.000,00')."""
+    if valor is None:
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    nums = re.findall(r"\d+[\.,]?\d*", str(valor).replace(".", "").replace(",", "."))
+    for n in nums:
+        try:
+            return float(n)
+        except ValueError:
+            continue
+    return 0.0
+
+
+def _calcular_detalhe(base_valor, modificacoes, mercado=None):
+    """Calcula o valor estimado de mercado de forma transparente e fundamentada.
+
+    - A base e a Tabela FIPE (referencia oficial de mercado) OU a mediana de
+      anuncios reais quando disponivel e coerente (ratio 0.4x-2.5x da FIPE).
+    - O ajuste por modificacoes e uma estimativa conservadora e exposta
+      (cada categoria contribui com seu peso, ate o teto).
+
+    Retorna dict com valor, base usada, fonte, pct, extra e o detalhe por mod.
+    """
+    fipe_base = _parse_fipe_valor(base_valor)
+    base = fipe_base
+    fonte = "Tabela FIPE (referencia oficial de mercado)"
+    if mercado and isinstance(mercado, (int, float)) and mercado > 0:
+        if fipe_base > 0:
+            ratio = mercado / fipe_base
+            if 0.4 <= ratio <= 2.5:
+                base = float(mercado)
+                fonte = "Preco medio de anuncios reais (Mercado Livre)"
+        else:
+            base = float(mercado)
+            fonte = "Preco medio de anuncios reais (Mercado Livre)"
+
+    pct_total = 0.0
+    extra_abs = 0.0
+    detalhe = []
+    for m in (modificacoes or []):
+        cat = (m.get("categoria") or "outros").lower()
+        p = _MOD_FIPE_PCT.get(cat, _MOD_FIPE_PCT["outros"])
+        pct_total += p
+        contrib_abs = 0.0
+        v = m.get("valor")
+        if v:
+            try:
+                contrib_abs = float(v)
+                extra_abs += contrib_abs
+            except (TypeError, ValueError):
+                pass
+        detalhe.append({"categoria": cat, "pct": p, "valor_informado": contrib_abs})
+
+    pct_total = min(pct_total, _MOD_FIPE_PCT_MAX)
+    ajustado = base * (1 + pct_total) + extra_abs
+    valor_str = "R$ {:,.2f}".format(ajustado).replace(",", "X").replace(".", ",").replace("X", ".")
+    return {
+        "valor": valor_str,
+        "base": base,
+        "base_fonte": fonte,
+        "pct": round(pct_total, 4),
+        "extra_abs": round(extra_abs, 2),
+        "detalhe": detalhe,
+    }
+
+
+def calcular_fipe_ajustada(base_valor, modificacoes, mercado=None):
+    """Calcula o valor estimado de mercado por modificacoes (Mod Passport).
+
+    Mantem a assinatura (valor_str, pct, extra) para retrocompatibilidade.
+    'mercado' opcional = mediana de anuncios reais para fundamentar a base.
+    """
+    d = _calcular_detalhe(base_valor, modificacoes, mercado=mercado)
+    return (d["valor"], d["pct"], d["extra_abs"])
+
+
+def _require_mod_passport(cursor, user_id):
+    """Exige premium ativo para o recurso Mod Passport."""
+    cursor.execute("SELECT is_premium, premium_expires_at FROM users WHERE id = %s", (user_id,))
+    row = cursor.fetchone()
+    if not row or not row.get("is_premium"):
+        return False, (jsonify(error="Recurso exclusivo Premium."), 403)
+    expira = row.get("premium_expires_at")
+    if expira is not None:
+        try:
+            if isinstance(expira, str):
+                expira = datetime.fromisoformat(expira.replace("Z", "+00:00"))
+            if expira < datetime.now():
+                return False, (jsonify(error="Premium expirado. Renove para usar o Mod Passport."), 403)
+        except Exception:
+            pass
+    return True, None
+
+
 @pages_bp.route("/api/veiculos", methods=["POST"])
 @jwt_required()
 def add_veiculo():
@@ -1228,6 +1456,7 @@ def add_veiculo():
             except Exception as email_err:
                 logger.warning(f"Falha no gatilho imediato de email: {email_err}")
 
+            _invalidate_dashboard_cache_for_user(user_id)
             return jsonify(success=True, id=v_id), 201
     except Exception as e:
         logger.error(f"Erro ao adicionar veiculo: {e}")
@@ -1241,7 +1470,8 @@ def list_veiculos():
         with get_db() as (cursor, conn):
             cursor.execute(
                 """
-                SELECT id, tipo, marca, modelo, ano_fabricacao, ano_compra, quilometragem
+                SELECT id, tipo, marca, modelo, ano_fabricacao, ano_compra, quilometragem,
+                       fipe_valor, fipe_mes_referencia, modificacoes, fipe_ajustada
                 FROM veiculos
                 WHERE user_id = %s
                 ORDER BY created_at DESC, id DESC
@@ -1249,6 +1479,37 @@ def list_veiculos():
                 (user_id,)
             )
             veiculos = cursor.fetchall()
+            for v in veiculos:
+                if isinstance(v.get("fipe_valor"), Decimal):
+                    v["fipe_valor"] = float(v["fipe_valor"])
+                if v.get("fipe_ajustada") is not None and isinstance(v.get("fipe_ajustada"), Decimal):
+                    v["fipe_ajustada"] = float(v["fipe_ajustada"])
+                # Fundamenta o valor estimado com precos de mercado reais (best-effort).
+                mods = v.get("modificacoes")
+                if isinstance(mods, str):
+                    try:
+                        mods = json.loads(mods)
+                    except (ValueError, TypeError):
+                        mods = []
+                if v.get("fipe_valor") or mods:
+                    mercado = None
+                    if mods:
+                        try:
+                            from services import web_scraping as _ws
+                            mkt = _ws.get_market_price_estimate(
+                                v.get("marca"), v.get("modelo"), v.get("ano_fabricacao")
+                            )
+                            if mkt:
+                                mercado = mkt[0]
+                        except Exception as mkt_err:
+                            logger.debug("enriquecimento de mercado falhou: %s", mkt_err)
+                    det = _calcular_detalhe(v.get("fipe_valor"), mods, mercado=mercado)
+                    v["fipe_ajustada"] = det["valor"]
+                    v["fipe_ajustada_fonte"] = det["base_fonte"]
+                    v["fipe_ajustada_metodo"] = det["detalhe"]
+                    v["fipe_ajustada_aviso"] = (
+                        FIPE_AJUSTADA_DISCLAIMER if (mods or mercado) else None
+                    )
             return jsonify(veiculos=veiculos), 200
     except Exception as e:
         logger.error(f"Erro ao listar veiculos: {e}")
@@ -1284,6 +1545,7 @@ def edit_veiculo(v_id):
             except Exception as email_err:
                 logger.warning(f"Erro ao iniciar thread de email: {email_err}")
 
+            _invalidate_dashboard_cache_for_user(user_id)
             return jsonify(success=True), 200
     except Exception as e:
         logger.error(f"Erro ao editar veiculo: {e}")
@@ -1303,10 +1565,201 @@ def delete_veiculo(v_id):
             if cursor.fetchone()["count"] == 0:
                 cursor.execute("UPDATE users SET possui_veiculo = FALSE WHERE id = %s", (user_id,))
 
+            _invalidate_dashboard_cache_for_user(user_id)
             return jsonify(success=True), 200
     except Exception as e:
         logger.error(f"Erro ao excluir veiculo: {e}")
         return jsonify(error="Erro interno"), 500
+
+
+@pages_bp.route("/api/veiculos/<int:v_id>/modificacoes", methods=["POST"])
+@jwt_required()
+def set_veiculo_modificacoes(v_id):
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    modificacoes = data.get("modificacoes")
+    if not isinstance(modificacoes, list):
+        return jsonify(error="modificacoes deve ser uma lista."), 400
+    try:
+        with get_db() as (cursor, conn):
+            ok, err = _require_mod_passport(cursor, user_id)
+            if not ok:
+                return err
+            cursor.execute(
+                "SELECT id, fipe_valor FROM veiculos WHERE id = %s AND user_id = %s",
+                (v_id, user_id),
+            )
+            veh = cursor.fetchone()
+            if not veh:
+                return jsonify(error="Veiculo nao encontrado"), 404
+            valor_ajustado, pct, extra = calcular_fipe_ajustada(veh.get("fipe_valor"), modificacoes)
+            cursor.execute(
+                "UPDATE veiculos SET modificacoes = %s, fipe_ajustada = %s WHERE id = %s AND user_id = %s",
+                (json.dumps(modificacoes, ensure_ascii=False), valor_ajustado, v_id, user_id),
+            )
+            _invalidate_dashboard_cache_for_user(user_id)
+            return jsonify(
+                success=True,
+                fipe_base=float(veh.get("fipe_valor")) if isinstance(veh.get("fipe_valor"), Decimal) else veh.get("fipe_valor"),
+                fipe_ajustada=valor_ajustado,
+                pct_ajuste=pct,
+                valor_extra=extra,
+                aviso=FIPE_AJUSTADA_DISCLAIMER,
+            ), 200
+    except Exception as e:
+        logger.error("Erro ao salvar modificacoes: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@pages_bp.route("/api/onboarding/revisao", methods=["POST"])
+@jwt_required(optional=True)
+def onboarding_sugestao_revisao():
+    data = request.get_json(silent=True) or {}
+    marca = (data.get("marca") or "").strip()
+    modelo = (data.get("modelo") or "").strip()
+    ano = data.get("ano_fabricacao")
+    km = data.get("quilometragem")
+    if not marca or not modelo:
+        return jsonify(error="Informe marca e modelo."), 400
+    try:
+        sugestao = _sugerir_revisao(marca, modelo, ano, km)
+        return jsonify(sugestao=sugestao), 200
+    except Exception as e:
+        logger.error("Erro na sugestao de revisao: %s", e, exc_info=True)
+        return jsonify(sugestao=""), 200
+
+
+_SUGESTAO_PADRAO = (
+    "Revisao preventiva sugerida: troca de oleo e filtros, inspecao de freios e "
+    "pneus, verificacao de fluidos e da bateria. Confirme em uma oficina de confianca."
+)
+_FORBIDDEN_PATTERNS = ("http://", "https://", "www.")
+_REFUSAL_PATTERNS = ("nao posso", "i cannot", "desculpe, mas", "como ia", "não posso")
+
+
+def _sanitizar_sugestao(texto):
+    """Aplica guardrails ao texto gerado pela IA (seguranca e escopo)."""
+    if not texto:
+        return _SUGESTAO_PADRAO
+    t = re.sub(r"\s+", " ", texto).strip()
+    for pat in _FORBIDDEN_PATTERNS:
+        t = t.replace(pat, "")
+    # remove citacoes de precos (R$ 1.234,56)
+    t = re.sub(r"R\$\s?[\d\.,]+", "", t)
+    t = t.strip(" \"'")
+    t = t[:600]
+    if len(t) < 10 or any(p in t.lower() for p in _REFUSAL_PATTERNS):
+        return _SUGESTAO_PADRAO
+    return t
+
+
+def _sugerir_revisao(marca, modelo, ano, km):
+    """Gera (via modelo utilitario, com cache) um plano de revisao preventiva."""
+    from services.nogai import _generate_content_with_fallback
+    from services.groq_client import utility_model, utility_fallback_models
+    from utils.cache import make_cache_key, cache_get_json, cache_set_json
+    prompt = (
+        "Voce e o NOG, consultor de manutencao automotiva da AutoAssist. "
+        "REGRA: sugira APENAS itens de revisao preventiva comuns e seguros "
+        "(ex.: troca de oleo, filtros, freios, pneus, fluidos, bateria). "
+        "NAO faca diagnostico de avarias, NAO recomende procedimentos perigosos, "
+        "NAO cite precos nem orcamentos, NAO inclua links, NAO aborde temas fora "
+        "de automoveis. Responda somente em portugues, com 3 a 5 bullet points "
+        "curtos e linguagem simples. Se faltarem dados, baseie-se no padrao geral."
+        + chr(10) + chr(10) +
+        "Veiculo: " + marca + " " + modelo + " " + str(ano or "") + " - " + str(km or "km nao informado") + " km"
+    )
+    cache_key = make_cache_key("onboarding:revisao", marca, modelo, str(ano), str(km))
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return cached
+    obj = _generate_content_with_fallback(
+        contents=prompt,
+        primary_model=utility_model(),
+        fallback_models=utility_fallback_models(),
+        temperature=0.3,
+        log_context="Onboarding revisao",
+    )
+    texto = _sanitizar_sugestao(obj.text or "")
+    cache_set_json(cache_key, texto, ttl=86400)
+    return texto
+
+def _predict_interval(vehicle_id, maintenance_type, description, veiculo_str, service_km):
+    """Estima o próximo intervalo de manutenção.
+
+    Usa o preditor leve (predictive_maintenance) como fonte principal e recorre
+    à IA Groq apenas quando o preditor não consegue gerar um intervalo útil.
+    """
+    interval_days = None
+    interval_km = None
+    justificativa = None
+    enhanced = False
+
+    try:
+        pred = _predictor().predict_next(
+            vehicle_id=vehicle_id,
+            maintenance_type=maintenance_type or "troca_oleo",
+            kilometers_actual=service_km,
+        )
+        if pred:
+            pred_km = pred.get("predicted_next_km")
+            cur_km = int(service_km or 0)
+            km_diff = (pred_km - cur_km) if pred_km is not None else None
+            pred_days = None
+            try:
+                pred_days = (date.fromisoformat(pred["predicted_next_date"]) - date.today()).days
+            except Exception:
+                pred_days = None
+
+            if pred_days and pred_days > 0 and km_diff and km_diff > 0:
+                interval_days = pred_days
+                interval_km = km_diff
+                enhanced = True
+                justificativa = (
+                    f"Previsao do modelo preditivo "
+                    f"(confianca {round((pred.get('confidence') or 0) * 100)}%)."
+                )
+    except Exception as e:
+        logger.warning("Predictor indisponivel para manutencao: %s", e)
+
+    if interval_days is None and interval_km is None:
+        ai = prever_intervalo_manutencao(description, veiculo_str)
+        interval_days = ai.get("intervalo_dias")
+        interval_km = ai.get("intervalo_km")
+        justificativa = ai.get("justificativa")
+        enhanced = True
+
+    return {
+        "intervalo_dias": interval_days,
+        "intervalo_km": interval_km,
+        "justificativa": justificativa,
+        "ai_enhanced": enhanced,
+    }
+
+
+def _invalidate_maintenance_user_caches(user_id):
+    """Limpa os caches afetados por uma mudança de manutenção do usuário."""
+    try:
+        from services.nogai import _invalidate_maintenance_context, _invalidate_user_ai_cache
+        _invalidate_maintenance_context(user_id)
+        _invalidate_user_ai_cache(user_id)
+    except Exception:
+        pass
+    try:
+        from routes.dashboard import _invalidate_dashboard_cache
+        _invalidate_dashboard_cache(user_id)
+    except Exception:
+        pass
+
+
+def _invalidate_dashboard_cache_for_user(user_id):
+    """Limpa o cache de dashboard de um usuário (após mudar veículos)."""
+    try:
+        from routes.dashboard import _invalidate_dashboard_cache
+        _invalidate_dashboard_cache(user_id)
+    except Exception:
+        pass
+
 
 @pages_bp.route("/api/maintenance/history", methods=["POST"])
 @jwt_required()
@@ -1326,7 +1779,7 @@ def register_maintenance_history():
     try:
         with get_db() as (cursor, conn):
             user = get_user_by_id(cursor, user_id)
-            premium_error = ensure_premium_user(user)
+            premium_error = ensure_maintenance_access(user, cursor)
             if premium_error:
                 return premium_error
 
@@ -1358,7 +1811,7 @@ def register_maintenance_history():
 
             if parsed.get("interval_days") is None and parsed.get("interval_km") is None:
                 veiculo_str = f"{vehicle.get('marca', '')} {vehicle.get('modelo', '')}".strip() if vehicle else ""
-                ai_previsao = prever_intervalo_manutencao(description, veiculo_str)
+                ai_previsao = _predict_interval(vehicle_id, parsed["maintenance_type"], description, veiculo_str, parsed.get("service_km"))
 
                 if ai_previsao.get("intervalo_dias"):
                     parsed["interval_days"] = ai_previsao["intervalo_dias"]
@@ -1369,7 +1822,7 @@ def register_maintenance_history():
                     if parsed.get("service_km") is not None:
                         parsed["next_due_km"] = parsed["service_km"] + ai_previsao["intervalo_km"]
 
-                parsed["parser_metadata"]["ai_enhanced"] = True
+                parsed["parser_metadata"]["ai_enhanced"] = ai_previsao.get("ai_enhanced", False)
                 parsed["parser_metadata"]["ai_justificativa"] = ai_previsao.get("justificativa")
 
             parsed = apply_manual_overrides(parsed, data, fallback_service_km=fallback_vehicle_km)
@@ -1423,7 +1876,7 @@ def register_maintenance_history():
                         send_push_notification(
                             user_id=user_id,
                             title="⚠️ Anotação em Atenção",
-                            body=f"{parsed.get('maintenance_label', 'Registro')} — vencida.",
+                            body=f"{parsed.get('maintenance_label', 'Registro')} vencida.",
                             data={"url": "/maintenance_history.html"},
                         )
             except Exception as email_err:
@@ -1440,6 +1893,7 @@ def register_maintenance_history():
             )
             created_row = cursor.fetchone()
 
+            _invalidate_maintenance_user_caches(user_id)
             return jsonify(
                 success=True,
                 registro=serialize_maintenance_row(created_row),
@@ -1458,9 +1912,9 @@ def list_maintenance_history():
     try:
         with get_db() as (cursor, conn):
             user = get_user_by_id(cursor, user_id)
-            premium_error = ensure_premium_user(user)
-            if premium_error:
-                return premium_error
+            # P1-1: listagem de manutenções é liberada para free e premium.
+            if not user:
+                return invalid_session_response()
 
             params = [user_id]
             vehicle_filter = ""
@@ -1472,6 +1926,22 @@ def list_maintenance_history():
                 vehicle_filter = " AND mh.vehicle_id = %s"
                 params.append(vehicle_id)
 
+            try:
+                limit = max(1, min(int(request.args.get("limit", 50)), 200))
+                offset = max(0, int(request.args.get("offset", 0)))
+            except (TypeError, ValueError):
+                return jsonify(error="limit/offset invalidos"), 400
+
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM maintenance_history mh
+                WHERE mh.user_id = %s {vehicle_filter}
+                """,
+                tuple(params)
+            )
+            total = cursor.fetchone().get("total") or 0
+
             cursor.execute(
                 f"""
                 SELECT mh.*, v.marca AS vehicle_marca, v.modelo AS vehicle_modelo
@@ -1479,14 +1949,18 @@ def list_maintenance_history():
                 LEFT JOIN veiculos v ON v.id = mh.vehicle_id
                 WHERE mh.user_id = %s {vehicle_filter}
                 ORDER BY mh.service_date DESC, mh.created_at DESC
+                LIMIT %s OFFSET %s
                 """,
-                tuple(params)
+                tuple(params + [limit, offset])
             )
             history_rows = cursor.fetchall()
             serialized = [serialize_maintenance_row(row) for row in history_rows]
 
             return jsonify(
                 historico=serialized,
+                total=total,
+                limit=limit,
+                offset=offset,
                 resumo=build_spending_summary(serialized)
             ), 200
     except Exception as e:
@@ -1538,15 +2012,32 @@ def update_maintenance_history(maintenance_id):
 
             parsed = parse_maintenance_entry(new_description)
             if parsed.get("interval_days") is None and parsed.get("interval_km") is None:
-                veiculo_str = f"{vehicle.get('marca', '')} {vehicle.get('modelo', '')}".strip() if vehicle else ""
-                ai_previsao = prever_intervalo_manutencao(new_description, veiculo_str)
-                if ai_previsao.get("intervalo_dias"):
-                    parsed["interval_days"] = ai_previsao["intervalo_dias"]
-                    parsed["next_due_date"] = parsed["service_date"] + timedelta(days=ai_previsao["intervalo_dias"])
-                if ai_previsao.get("intervalo_km"):
-                    parsed["interval_km"] = ai_previsao["intervalo_km"]
-                    if parsed.get("service_km") is not None:
-                        parsed["next_due_km"] = parsed["service_km"] + ai_previsao["intervalo_km"]
+                description_unchanged = (new_description == current_description)
+                can_reuse = existing.get("interval_days") is not None or existing.get("interval_km") is not None
+
+                if description_unchanged and can_reuse:
+                    # Reaproveita os intervalos anteriores sem re-chamar a IA
+                    parsed["interval_days"] = existing.get("interval_days")
+                    parsed["interval_km"] = existing.get("interval_km")
+                    if existing.get("next_due_date"):
+                        parsed["next_due_date"] = existing.get("next_due_date")
+                    elif existing.get("interval_days") and parsed.get("service_date"):
+                        parsed["next_due_date"] = parsed["service_date"] + timedelta(days=existing["interval_days"])
+                    if parsed.get("service_km") is not None and existing.get("interval_km") is not None:
+                        parsed["next_due_km"] = parsed["service_km"] + existing["interval_km"]
+                    parsed.setdefault("parser_metadata", {})["reused_intervals"] = True
+                else:
+                    veiculo_str = f"{vehicle.get('marca', '')} {vehicle.get('modelo', '')}".strip() if vehicle else ""
+                    ai_previsao = _predict_interval(vehicle_id, parsed["maintenance_type"], new_description, veiculo_str, parsed.get("service_km"))
+                    if ai_previsao.get("intervalo_dias"):
+                        parsed["interval_days"] = ai_previsao["intervalo_dias"]
+                        parsed["next_due_date"] = parsed["service_date"] + timedelta(days=ai_previsao["intervalo_dias"])
+                    if ai_previsao.get("intervalo_km"):
+                        parsed["interval_km"] = ai_previsao["intervalo_km"]
+                        if parsed.get("service_km") is not None:
+                            parsed["next_due_km"] = parsed["service_km"] + ai_previsao["intervalo_km"]
+                    parsed["parser_metadata"]["ai_enhanced"] = ai_previsao.get("ai_enhanced", False)
+                    parsed["parser_metadata"]["ai_justificativa"] = ai_previsao.get("justificativa")
 
             parsed = apply_manual_overrides(parsed, data, fallback_service_km=fallback_vehicle_km)
             parser_metadata = dict(parsed.get("parser_metadata") or {})
@@ -1578,14 +2069,14 @@ def update_maintenance_history(maintenance_id):
                         create_notification(
                             user_id=user_id,
                             title="Manutenção atualizada",
-                            body=f"{parsed.get('maintenance_label', 'Registro')} atualizado — vencido.",
+                            body=f"{parsed.get('maintenance_label', 'Registro')} atualizado e vencido.",
                             type="warning",
                             action_url="/dashboard.html",
                         )
                         send_push_notification(
                             user_id=user_id,
                             title="⚠️ Manutenção em Atenção",
-                            body=f"{parsed.get('maintenance_label', 'Registro')} — vencida.",
+                            body=f"{parsed.get('maintenance_label', 'Registro')} vencida.",
                             data={"url": "/maintenance_history.html"},
                         )
             except Exception as email_err:
@@ -1598,6 +2089,7 @@ def update_maintenance_history(maintenance_id):
                 WHERE mh.id = %s AND mh.user_id = %s
             """, (maintenance_id, user_id))
             updated_row = cursor.fetchone()
+            _invalidate_maintenance_user_caches(user_id)
             return jsonify(success=True, registro=serialize_maintenance_row(updated_row)), 200
     except Exception as e:
         logger.error(f"Erro ao atualizar historico de manutencao: {e}")
@@ -1617,6 +2109,7 @@ def delete_maintenance_history(maintenance_id):
             cursor.execute("DELETE FROM maintenance_history WHERE id = %s AND user_id = %s", (maintenance_id, user_id))
             if cursor.rowcount == 0:
                 return jsonify(error="Registro de manutencao nao encontrado"), 404
+            _invalidate_maintenance_user_caches(user_id)
             return jsonify(success=True), 200
     except Exception as e:
         logger.error(f"Erro ao excluir historico de manutencao: {e}")
@@ -1968,6 +2461,58 @@ def get_video_library():
 
 from extensions import limiter
 
+def _is_effective_premium(user):
+    """Premium válido considerando premium_expires_at (None = permanente)."""
+    if not user or not user.get("is_premium"):
+        return False
+    expira = user.get("premium_expires_at")
+    if expira is None:
+        return True
+    try:
+        if isinstance(expira, str):
+            expira = datetime.fromisoformat(expira.replace("Z", "+00:00"))
+        return expira > datetime.now()
+    except Exception:
+        return True
+
+
+def get_free_chat_usage_month(cursor, user_id):
+    """Conta interações do usuário free no mês corrente (tabela chats)."""
+    cursor.execute(
+        """SELECT COUNT(*) AS cnt FROM chats
+           WHERE user_id = %s AND created_at >= DATE_FORMAT(NOW(), '%%Y-%%m-01')""",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    return int((row or {}).get("cnt") or 0)
+
+
+@pages_bp.route("/api/admin/analytics/burn", methods=["GET"])
+@jwt_required()
+def admin_burn_analytics():
+    """§5: burn de IA por usuário no mês corrente (via tabela chats). Apenas admin."""
+    admin_id = get_jwt_identity()
+    with get_db() as (cursor, conn):
+        cursor.execute("SELECT is_admin FROM users WHERE id = %s", (admin_id,))
+        row = cursor.fetchone()
+        if not row or not row.get("is_admin"):
+            return jsonify(error="Acesso restrito."), 403
+        cursor.execute(
+            """
+            SELECT u.id, u.nome, u.email, u.is_premium,
+                   COUNT(c.id) AS msgs_mes,
+                   MAX(c.created_at) AS ultima_interacao
+            FROM users u
+            LEFT JOIN chats c ON c.user_id = u.id AND c.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')
+            GROUP BY u.id
+            ORDER BY msgs_mes DESC
+            LIMIT 100
+            """
+        )
+        rows = cursor.fetchall()
+    return jsonify(users=rows, mes=datetime.now().strftime("%Y-%m")), 200
+
+
 @pages_bp.route("/api/chat", methods=["POST"])
 @limiter.limit("20 per hour")
 def chat():
@@ -1983,6 +2528,16 @@ def chat():
 
     client_history = normalize_client_history(data.get("client_history"))
     ignore_global_history = bool(data.get("ignore_global_history"))
+
+    # Localização do usuário para busca de mecânicos
+    user_lat = data.get("lat")
+    user_lng = data.get("lng")
+    if user_lat is not None:
+        try: user_lat = float(user_lat)
+        except (TypeError, ValueError): user_lat = None
+    if user_lng is not None:
+        try: user_lng = float(user_lng)
+        except (TypeError, ValueError): user_lng = None
     if not msg and not img_b64 and not attachment:
         return jsonify(error="Envie uma mensagem ou anexe um arquivo para análise."), 400
 
@@ -1993,6 +2548,16 @@ def chat():
                 user = load_user_chat_context(cursor, user_id)
                 if not user:
                     return invalid_session_response()
+                # P0-1: free tem quota mensal; premium é ilimitado.
+                if not _is_effective_premium(user):
+                    used = get_free_chat_usage_month(cursor, user_id)
+                    if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        return jsonify(
+                            error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
+                            code="free_limit_reached",
+                            limit=FREE_MONTHLY_CHAT_LIMIT,
+                            used=used,
+                        ), 403
             else:
                 guest_id = normalize_guest_id(data.get("guest_id") or request.headers.get("X-AutoAssist-Guest-Id"))
                 if not guest_id:
@@ -2014,6 +2579,10 @@ def chat():
                 client_history,
                 ignore_global_history,
             )
+
+        if user_lat is not None and user_lng is not None:
+            user["lat"] = user_lat
+            user["lng"] = user_lng
 
         resposta, videos, links, topic = generate_assistant_payload(
             msg,
@@ -2111,6 +2680,16 @@ def handle_voice():
                 user = load_user_chat_context(cursor, user_id)
                 if not user:
                     return invalid_session_response()
+                # P0-1: free tem quota mensal; premium é ilimitado.
+                if not _is_effective_premium(user):
+                    used = get_free_chat_usage_month(cursor, user_id)
+                    if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        return jsonify(
+                            error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
+                            code="free_limit_reached",
+                            limit=FREE_MONTHLY_CHAT_LIMIT,
+                            used=used,
+                        ), 403
             else:
                 guest_id = normalize_guest_id(request.form.get("guest_id") or request.headers.get("X-AutoAssist-Guest-Id"))
                 if not guest_id:
@@ -2132,6 +2711,15 @@ def handle_voice():
                 client_history,
                 ignore_global_history,
             )
+
+        voice_lat = request.form.get("lat")
+        voice_lng = request.form.get("lng")
+        if voice_lat is not None:
+            try: user["lat"] = float(voice_lat)
+            except (TypeError, ValueError): pass
+        if voice_lng is not None:
+            try: user["lng"] = float(voice_lng)
+            except (TypeError, ValueError): pass
 
         resposta, videos, links, topic = generate_assistant_payload(
             text,

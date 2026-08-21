@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './config';
+import { API_BASE_URL, MOBILE_CLIENT_TOKEN } from './config';
 
 type ApiRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -33,6 +33,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const headers: Record<string, string> = {
     ...(options.headers || {}),
   };
+
+  headers['X-Client'] = 'autoassist-mobile';
+  if (MOBILE_CLIENT_TOKEN) {
+    headers['X-Client-Token'] = MOBILE_CLIENT_TOKEN;
+  }
 
   if (options.token) {
     headers.Authorization = `Bearer ${options.token}`;

@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from routes.training import training_bp
 from dotenv import load_dotenv
 load_dotenv()
-from flask import Flask, jsonify, make_response, request
+from flask import Flask, jsonify, make_response, request, current_app
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_talisman import Talisman
@@ -51,9 +51,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 print("Importando rotas...")
-from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db
+from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db, config_bp
+from routes.mechanics import mechanics_bp
+from routes.events import events_bp
 from routes.notifications import notifications_bp
 from routes.push import push_bp
+from routes.b2b import b2b_bp
 from routes.payment import cakto_webhook as cakto_webhook_handler
 print("Rotas importadas.")
 
@@ -85,20 +88,39 @@ def is_localhost():
     except Exception:
         return False
 
+
+def _env_frontend_origin() -> str:
+    """Origem do frontend conforme ambiente (sem barra final)."""
+    raw = (os.getenv("URL_PROD") or os.getenv("URL_DEV") or "").strip().rstrip("/")
+    return raw
+
+
+def _env_ws_origin() -> str | None:
+    """Origem WebSocket derivada de URL_PROD/URL_DEV (wss:// ou ws://)."""
+    url = _env_frontend_origin()
+    if url.startswith("https://"):
+        return "wss://" + url[len("https://"):]
+    if url.startswith("http://"):
+        return "ws://" + url[len("http://"):]
+    return None
+
 csp = {
     'default-src': "'self'",
     'script-src': [
         "'self'",
         "https://cdnjs.cloudflare.com",
         "https://cdn.jsdelivr.net",
+        "https://unpkg.com",
+        "https://challenges.cloudflare.com",
         "'unsafe-inline'",
-        "'unsafe-eval'" 
     ],
     'style-src': [
         "'self'",
         "https://cdnjs.cloudflare.com",
         "https://fonts.googleapis.com",
         "https://cdn.jsdelivr.net",
+        "https://unpkg.com",
+        "https://challenges.cloudflare.com",
         "'unsafe-inline'"
     ],
     'font-src': [
@@ -114,22 +136,27 @@ csp = {
         "https://*.googleusercontent.com",
         "https://*.cakto.com.br",
         "https://images.unsplash.com",
-        "https://www.gstatic.com"
+        "https://www.gstatic.com",
+        "https://*.tile.openstreetmap.org"
     ],
     'frame-src': [
         "'self'",
         "https://www.youtube.com",
         "https://youtube.com",
-        "https://pay.cakto.com.br"
+        "https://pay.cakto.com.br",
+        "https://challenges.cloudflare.com"
     ],
     'connect-src': [
         "'self'",
         "https://api.cakto.com.br",
+        "https://photon.komoot.io",
+        "https://unpkg.com",
         "http://localhost:5000",
         "http://127.0.0.1:5000",
         "ws://localhost:5000",
-        "wss://autoassist-l9lr.onrender.com"
-    ]
+        "ws://127.0.0.1:5000",
+        "https://challenges.cloudflare.com",
+    ] + ([_env_ws_origin()] if _env_ws_origin() else [])
 }
 
 # Configuração dinâmica para não forçar HTTPS em localhost
@@ -146,7 +173,8 @@ def before_request():
     # Log todas as requisições para /api/dashboard
     if request.path == '/api/dashboard':
         logger.info(f">>> REQUEST: {request.method} {request.path}")
-        logger.info(f">>> Headers: Accept={request.headers.get('Accept')}, Auth={request.headers.get('Authorization')[:20] if request.headers.get('Authorization') else 'None'}")
+        auth_presente = bool(request.headers.get('Authorization'))
+        logger.info(f">>> Headers: Accept={request.headers.get('Accept')}, Auth={'presente' if auth_presente else 'None'}")
     # Desativa HSTS e HTTPS forçado se for localhost para não quebrar testes
     if is_localhost():
         pass
@@ -156,6 +184,15 @@ def after_request(response):
     # Log resposta para /api/dashboard
     if request.path == '/api/dashboard':
         logger.info(f"<<< RESPONSE: {response.status_code} | Content-Type: {response.headers.get('Content-Type')}")
+    # Remove a diretiva 'browsing-topics' (recurso nao reconhecido pelos navegadores)
+    # do Permissions-Policy, que o Flask-Talisman adiciona por padrao e gera warning no console.
+    pp = response.headers.get('Permissions-Policy')
+    if pp and 'browsing-topics' in pp:
+        new_pp = ', '.join(p for p in pp.split(',') if 'browsing-topics' not in p)
+        if new_pp.strip():
+            response.headers['Permissions-Policy'] = new_pp
+        else:
+            del response.headers['Permissions-Policy']
     return response
 
 # [SEGURANCA] Verificacao estrita da Secret Key
@@ -180,13 +217,15 @@ jwt = JWTManager(app)
 
 # [SEGURANCA] CORS
 base_allowed_origins = [
-    "https://autoassist-l9lr.onrender.com",
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8501",
 ]
+env_frontend = _env_frontend_origin()
+if env_frontend:
+    base_allowed_origins.append(env_frontend)
 
 extra_origins_raw = (os.getenv("CORS_ALLOW_ORIGINS") or "").strip()
 extra_allowed_origins = [item.strip() for item in extra_origins_raw.split(",") if item.strip()]
@@ -198,7 +237,6 @@ allowed_headers = [
     "Authorization",
     "X-Requested-With",
     "X-AutoAssist-Guest-Id",
-    "X-Cron-Secret",
     "X-CSRF-TOKEN",
     "X-CSRF-Token",
 ]
@@ -332,7 +370,7 @@ SWAGGER_SPEC = {
         "description": "API do AutoAssist - Ecossistema automotivo com IA. Consulte os endpoints para chat, manutenção preditiva, FIPE, pagamentos e mais.",
     },
     "servers": [
-        {"url": "https://autoassist-l9lr.onrender.com", "description": "Producao"},
+        {"url": _env_frontend_origin() or "http://localhost:5000", "description": "Producao"},
         {"url": "http://localhost:5000", "description": "Desenvolvimento"},
     ],
     "components": {
@@ -548,12 +586,16 @@ app.register_blueprint(dashboard_bp, url_prefix="/api")
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(analytics_bp)
+app.register_blueprint(events_bp)
 app.register_blueprint(pages_bp)
 app.register_blueprint(payment_bp)
 app.register_blueprint(feedback_bp)
 app.register_blueprint(gateway_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(push_bp)
+app.register_blueprint(mechanics_bp)
+app.register_blueprint(config_bp)
+app.register_blueprint(b2b_bp)
 
 # Gera VAPID keys se nao existirem
 if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):
@@ -574,13 +616,13 @@ if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):
         )
         private_b64 = base64.b64encode(private_der).decode()
         public_b64 = base64.b64encode(public_der).decode()
-        logger.info("VAPID keys geradas. Adicione ao .env:")
-        logger.info("VAPID_PRIVATE_KEY=%s", private_b64)
-        logger.info("VAPID_PUBLIC_KEY=%s", public_b64)
+        print("VAPID keys geradas. Adicione ao .env:")
+        print("VAPID_PRIVATE_KEY=%s" % private_b64)
+        print("VAPID_PUBLIC_KEY=%s" % public_b64)
         os.environ["VAPID_PRIVATE_KEY"] = private_b64
         os.environ["VAPID_PUBLIC_KEY"] = public_b64
     except ImportError:
-        logger.warning("pywebpush nao disponivel — VAPID keys devem ser configuradas manualmente no .env")
+        logger.warning("pywebpush nao disponivel - VAPID keys devem ser configuradas manualmente no .env")
 
 # [SEGURANCA] Padronizacao de Erros (Information Disclosure)
 @app.errorhandler(Exception)
@@ -600,11 +642,37 @@ def handle_exception(e):
 
 @app.errorhandler(404)
 def handle_404(e):
-    return jsonify(error="Recurso nao encontrado."), 404
+    # Mantem resposta JSON para a API e para assets ausentes; paginas
+    # (navegacao HTML) recebem a pagina 404 estilizada com status 404.
+    path = request.path
+    last = path.rsplit("/", 1)[-1].lower()
+    asset_ext = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".css", ".js",
+                 ".svg", ".ico", ".woff2", ".woff", ".ttf", ".json",
+                 ".xml", ".txt", ".map")
+    is_asset = "." in last and last.endswith(asset_ext)
+    if path.startswith("/api/") or is_asset or 'text/html' not in request.accept_mimetypes:
+        return jsonify(error="Recurso nao encontrado."), 404
+    try:
+        resp = current_app.send_static_file("404.html")
+        resp.status_code = 404
+        return resp
+    except Exception:
+        return jsonify(error="Recurso nao encontrado."), 404
 
 @app.errorhandler(413)
 def handle_413(e):
     return jsonify(error="Arquivo muito grande. O limite e de 16MB."), 413
+
+
+# [404] Telas sensiveis (robots.txt / sitemap.xml) recebem a pagina 404
+# estilizada em vez do arquivo bruto. Rotas explicitas têm prioridade
+# sobre a rota estatica catch-all do Flask.
+@app.route("/robots.txt")
+@app.route("/sitemap.xml")
+def sensitive_404():
+    resp = current_app.send_static_file("404.html")
+    resp.status_code = 404
+    return resp
 
 
 @app.route("/api/<path:_>", methods=["OPTIONS"])

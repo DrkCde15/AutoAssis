@@ -17,3 +17,5 @@ export const LOCAL_API_HINT = Platform.select({
   web: 'http://localhost:5000',
   default: 'http://localhost:5000',
 });
+
+export const MOBILE_CLIENT_TOKEN = process.env.EXPO_PUBLIC_MOBILE_CLIENT_TOKEN || '';

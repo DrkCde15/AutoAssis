@@ -40,6 +40,10 @@ def send_maintenance_alert_email(user_row, force=False, status_codes=None, trans
         transition_only=transition_only,
     )
 
+def dispatch_lifecycle_emails():
+    from routes.auth import send_due_lifecycle_emails
+    send_due_lifecycle_emails()
+
 def save_health_score(user_id, vehicle_id, health_score):
     from routes.database import get_db
     try:
@@ -51,3 +55,11 @@ def save_health_score(user_id, vehicle_id, health_score):
             conn.commit()
     except Exception as e:
         logger.warning("Erro ao salvar health score: %s", e)
+
+def dispatch_events_notifications():
+    from routes.events import notify_new_automotive_events
+    try:
+        result = notify_new_automotive_events()
+        logger.info("Notificações de eventos: %s", result)
+    except Exception as e:
+        logger.warning("Falha ao notificar eventos em background: %s", e)

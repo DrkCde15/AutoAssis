@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Página não encontrada | AutoAssist</title>
+    <link rel="icon" type="image/png" href="/static/logo2.png?v=20260506">
+    <link rel="shortcut icon" type="image/png" href="/static/logo2.png?v=20260506">
+    <link rel="stylesheet" href="/static/fonts/fonts.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" referrerpolicy="no-referrer">
+    <style>
+      :root { --bg-primary:#09090b; --bg-secondary:#18181b; --bg-card:#1c1c1f; --border-color:#27272a; --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-muted:#71717a; --accent:#3b82f6; --accent-soft:rgba(59,130,246,.12); }
+      * { box-sizing: border-box; }
+      body { margin:0; min-height:100vh; font-family: var(--font-sans); color:var(--text-primary); background:var(--bg-primary); -webkit-font-smoothing:antialiased; }
+      body::before { content:""; position:fixed; inset:0; pointer-events:none; background:radial-gradient(ellipse 70% 40% at 50% -10%, rgba(59,130,246,.16), transparent), radial-gradient(ellipse 40% 30% at 85% 10%, rgba(20,184,166,.09), transparent); }
+
+      .notfound { position:relative; min-height: calc(100vh - 220px); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:130px 24px 80px; }
+      .notfound::before { content:""; position:absolute; width:440px; height:440px; border-radius:50%; background:radial-gradient(circle, rgba(59,130,246,.18), transparent 70%); filter:blur(24px); z-index:0; }
+      .notfound > * { position:relative; z-index:1; }
+      .eyebrow { display:inline-flex; align-items:center; gap:8px; color:#93c5fd; background:var(--accent-soft); border:1px solid rgba(59,130,246,.18); border-radius:999px; padding:7px 13px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+      .notfound-code { font-family: var(--font-display); font-weight:600; font-size:clamp(7rem, 20vw, 13rem); line-height:.9; letter-spacing:-3px; color:var(--text-primary); margin:18px 0 6px; }
+      .notfound-code span { color:var(--accent); }
+      h1 { margin:0 0 12px; font-size:clamp(1.6rem, 3.4vw, 2.4rem); letter-spacing:0; line-height:1.1; }
+      .lead { max-width:520px; color:var(--text-secondary); font-size:17px; line-height:1.7; margin:0 auto; }
+      .actions { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-top:30px; }
+      .btn { display:inline-flex; align-items:center; gap:8px; padding:13px 22px; border-radius:10px; font-weight:700; font-size:15px; text-decoration:none; transition: transform .18s ease, box-shadow .18s ease, background .2s ease, border-color .2s ease; }
+      .btn:active { transform:scale(.98); }
+      .btn-primary { background:var(--accent); color:#fff; box-shadow:0 10px 30px rgba(59,130,246,.3); }
+      .btn-primary:hover { box-shadow:0 14px 38px rgba(59,130,246,.42); }
+      .btn-ghost { background:rgba(24,24,27,.72); border:1px solid var(--border-color); color:var(--text-primary); }
+      .btn-ghost:hover { border-color:rgba(59,130,246,.55); }
+      .hint { margin-top:22px; font-size:13.5px; color:var(--text-muted); }
+      .hint a { color:#93c5fd; text-decoration:none; }
+      @media (max-width:560px){ .notfound{ padding-top:110px; } }
+    </style>
+    <link rel="stylesheet" href="/static/css/shared.css">
+    <link rel="stylesheet" href="/static/css/animations.css">
+    <link rel="stylesheet" href="/static/css/responsive.css">
+    <link rel="stylesheet" href="/static/css/notifications.css">
+  </head>
+  <body class="notfound-page">
+    <nav class="navbar" style="position:fixed;top:0;left:0;right:0;z-index:1000;">
+      <div class="nav-container">
+        <a href="/index.html" class="nav-logo">
+          <div class="nav-logo-icon">
+            <img src="/logo.png?v=20260608" alt="AutoAssist IA" style="height:84px;width:auto;">
+          </div>
+          <span class="nav-logo-text">AutoAssist</span>
+        </a>
+        <div class="nav-links" id="authLinks">
+          <a href="/planos.html" class="nav-link">Planos</a>
+          <a href="/duvidas.html" class="nav-link">Dúvidas</a>
+          <a href="/eventos.html" class="nav-link">Eventos</a>
+          <a href="/login.html" class="nav-btn nav-btn-outline">Entrar</a>
+          <a href="/cadastro.html" class="nav-btn nav-btn-cta">Criar conta</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="notfound" data-aa-reveal>
+      <span class="eyebrow"><i class="fas fa-compass"></i> Erro 404</span>
+      <div class="notfound-code">4<span>0</span>4</div>
+      <h1>Página não encontrada</h1>
+      <p class="lead">O endereço que você tentou acessar não existe, foi movido ou está temporariamente indisponível.</p>
+      <div class="actions">
+        <a href="/index.html" class="btn btn-primary"><i class="fas fa-home"></i> Voltar ao início</a>
+        <a href="/planos.html" class="btn btn-ghost"><i class="fas fa-star"></i> Ver planos</a>
+      </div>
+      <p class="hint">Precisa de ajuda? Visite as <a href="/duvidas.html">dúvidas frequentes</a> ou o <a href="/feedback.html">canal de feedback</a>.</p>
+    </main>
+
+    <footer>
+      <nav class="footer-links" aria-label="Links do rodape">
+        <a href="/feedback.html" class="footer-link">Feedback</a>
+        <a href="/duvidas.html" class="footer-link">Dúvidas</a>
+        <a href="/planos.html" class="footer-link">Planos</a>
+        <a href="/termos.html" class="footer-link">Termos</a>
+        <a href="/privacidade.html" class="footer-link">Privacidade</a>
+        <a href="/lgpd.html" class="footer-link">LGPD</a>
+        <a href="/analytics.html" class="footer-link">Analytics</a>
+      </nav>
+      <p>&copy; 2026 AutoAssist IA. Todos os direitos reservados.</p>
+    </footer>
+
+    <script src="/static/vendor/anime.min.js?v=3.2.2" defer></script>
+    <script src="/static/vendor/lenis.min.js?v=1.3.26" defer></script>
+    <script src="/static/js/animations/animations.js?v=1" defer></script>
+  </body>
+</html>

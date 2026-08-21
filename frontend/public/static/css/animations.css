@@ -1,0 +1,164 @@
+/* ============================================================
+   AutoAssist - Animations (anime.js + Lenis)
+   Camada compartilhada de animações: microinterações discretas.
+   Respeita prefers-reduced-motion globalmente.
+   ============================================================ */
+
+/* --- Lenis: requisitos do scroll suave --- */
+html.lenis,
+html.lenis body {
+    height: auto;
+}
+
+.lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+    overflow: hidden;
+}
+
+/* --- Acessibilidade: reduz todo movimento quando solicitado --- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* --- Hero: evita conflito da transição do navbar com a timeline JS --- */
+html.aa-hero-anim body.home .navbar {
+    transition: none;
+}
+
+/* --- Cards: hover suave (transform via anime.js; sombra via CSS) --- */
+.aa-card {
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    will-change: transform;
+}
+
+.aa-card--hover {
+    box-shadow: 0 10px 32px rgba(59, 130, 246, 0.14);
+}
+
+/* --- Botões: feedback de pressionar/desabilitado --- */
+.btn,
+.btn-action,
+.nav-btn,
+.plan-cta,
+.home-premium__cta,
+.brand-hero__primary,
+.brand-hero__secondary {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.2s ease;
+}
+
+.btn:not(:disabled):active,
+.btn-action:not(:disabled):active,
+.nav-btn:active,
+.plan-cta:active,
+.home-premium__cta:active,
+.brand-hero__primary:active,
+.brand-hero__secondary:active {
+    transform: scale(0.98);
+}
+
+button:disabled,
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* --- Inputs: glow discreto ao focar + estado de erro --- */
+.input-wrapper input,
+.input-wrapper select,
+.input-wrapper textarea,
+input.input,
+textarea.input,
+.field input,
+.field textarea,
+.field select,
+#messageInput,
+#chatHistorySearch {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-wrapper input:focus,
+.input-wrapper select:focus,
+.input-wrapper textarea:focus,
+input.input:focus,
+textarea.input:focus,
+.field input:focus,
+.field textarea:focus,
+.field select:focus,
+#messageInput:focus,
+#chatHistorySearch:focus {
+    border-color: var(--accent, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    outline: none;
+}
+
+.aa-input-error {
+    border-color: var(--danger, #ef4444) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+/* --- Skeleton loading --- */
+.aa-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-secondary, #18181b);
+    border-radius: 14px;
+    min-height: 24px;
+}
+
+.aa-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    animation: aa-shimmer 1.4s infinite;
+}
+
+@keyframes aa-shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* --- FAQ (accordion) --- */
+.faq-trigger {
+    cursor: pointer;
+    user-select: none;
+}
+
+.faq-trigger:focus-visible {
+    outline: 2px solid var(--accent, #3b82f6);
+    outline-offset: 4px;
+    border-radius: 8px;
+}
+
+.faq-chevron {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-secondary, #a1a1aa);
+}
+
+/* --- Chat: erro destacado --- */
+.aa-msg-error .msg-bot,
+.aa-msg-error .msg-user {
+    border-color: rgba(239, 68, 68, 0.55) !important;
+}
+
+/* --- Toast: garante composição GPU --- */
+.toast {
+    will-change: transform, opacity;
+}
