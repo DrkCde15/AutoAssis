@@ -1,4 +1,4 @@
-﻿# AutoAssist Mobile
+# AutoAssist Mobile
 
 Esta branch (`feat/react-native`) concentra a conversao do AutoAssist para aplicativo mobile com Expo/React Native. O site permanece na branch `main`; nao use `git merge` desta branch para a `main`.
 
@@ -6,140 +6,140 @@ Esta branch (`feat/react-native`) concentra a conversao do AutoAssist para aplic
   <img src="frontend/public/static/logo2.png" alt="AutoAssist Logo" width="200">
 </p>
 
-# AutoAssist IA ðŸš—ðŸ’¨
+# AutoAssist IA 🚗💨
 
-O **AutoAssist IA** Ã© um ecossistema de inteligÃªncia artificial de Ãºltima geraÃ§Ã£o, desenvolvido especificamente para o mercado automotivo brasileiro. A plataforma integra Processamento de Linguagem Natural (NLP) e VisÃ£o Computacional para fornecer diagnÃ³sticos precisos, avaliaÃ§Ãµes de mercado e consultoria tÃ©cnica especializada.
+O **AutoAssist IA** é um ecossistema de inteligência artificial de última geração, desenvolvido especificamente para o mercado automotivo brasileiro. A plataforma integra Processamento de Linguagem Natural (NLP) e Visão Computacional para fornecer diagnósticos precisos, avaliações de mercado e consultoria técnica especializada.
 
 ---
 
-## âœ¨ Funcionalidades
+## ✨ Funcionalidades
 
 ### **Recursos Inteligentes (NOG IA)**
 
-- **Consultoria Contextual:** O assistente "NOG" agora utiliza o **histÃ³rico da conversa** para oferecer respostas mais profundas e evitar resultados repetitivos.
-- **E-commerce Automotivo Integrado:** RecomendaÃ§Ã£o automÃ¡tica de links para compra de **veÃ­culos (WebMotors)** e **peÃ§as (Mercado Livre)** baseada na necessidade do usuÃ¡rio.
-- **IA de PrevisÃ£o de ManutenÃ§Ã£o:** Sistema que analisa descriÃ§Ãµes (ex: "Troquei o Ã³leo hoje") e utiliza IA para prever a data e quilometragem da prÃ³xima revisÃ£o.
-- **Raio-X MecÃ¢nico:** AnÃ¡lise visual avanÃ§ada para identificaÃ§Ã£o de ferrugem, desalinhamentos e vazamentos em fotos.
-- **Busca Inteligente de MecÃ¢nicos:** Encontre oficinas reais prÃ³ximas via OpenStreetMap + Google Search, com cache Redis (1h OSM, 24h web). Integrado ao chatbot - pergunte "preciso de um mecÃ¢nico" e a IA responde com opÃ§Ãµes na regiÃ£o.
+- **Consultoria Contextual:** O assistente "NOG" agora utiliza o **histórico da conversa** para oferecer respostas mais profundas e evitar resultados repetitivos.
+- **E-commerce Automotivo Integrado:** Recomendação automática de links para compra de **veículos (WebMotors)** e **peças (Mercado Livre)** baseada na necessidade do usuário.
+- **IA de Previsão de Manutenção:** Sistema que analisa descrições (ex: "Troquei o óleo hoje") e utiliza IA para prever a data e quilometragem da próxima revisão.
+- **Raio-X Mecânico:** Análise visual avançada para identificação de ferrugem, desalinhamentos e vazamentos em fotos.
+- **Busca Inteligente de Mecânicos:** Encontre oficinas reais próximas via OpenStreetMap + Google Search, com cache Redis (1h OSM, 24h web). Integrado ao chatbot - pergunte "preciso de um mecânico" e a IA responde com opções na região.
 
-### **Dashboard e GestÃ£o**
+### **Dashboard e Gestão**
 
-- **HistÃ³rico Proativo:** Painel que monitora a saÃºde das peÃ§as e indica o status de cada manutenÃ§Ã£o (Ok, Aviso ou Atrasado).
-- **Agenda de Eventos Automotivos:** Varredura automÃ¡tica de feiras, encontros, competiÃ§Ãµes e exposiÃ§Ãµes do setor, exibidas em cards na pÃ¡gina de eventos (`eventos.html`) com filtros por UF, categoria e perÃ­odo, mais **selo de status** (Agendado / Acontecendo / Cancelado / Encerrado / Data a confirmar) e a **fonte** de cada evento. As fontes de **alta confianÃ§a** sÃ£o sites especializados estruturados (NFeiras, Sindirepa, Diretriz, Shopping Interlagos); a **busca web** (Bing via Scrapling, sem browser) entra como fallback de baixa confianÃ§a.
-- **Galeria de VÃ­deos Otimizada:** Nova biblioteca de vÃ­deos com redirecionamento direto para o YouTube, miniaturas em alta resoluÃ§Ã£o e carregamento ultrarrÃ¡pido.
-- **NotificaÃ§Ãµes InstantÃ¢neas:** Sistema de e-mail que alerta o usuÃ¡rio **no mesmo dia** em que uma manutenÃ§Ã£o atinge o status crÃ­tico ou vence.
-- **Tabela FIPE Real-Time:** IntegraÃ§Ã£o com a API FIPE para fornecer valores de mercado precisos e atualizados.
-- **Feedback Inteligente:** Sistema que coleta e organiza o feedback dos usuÃ¡rios para melhoria contÃ­nua do sistema.
+- **Histórico Proativo:** Painel que monitora a saúde das peças e indica o status de cada manutenção (Ok, Aviso ou Atrasado).
+- **Agenda de Eventos Automotivos:** Varredura automática de feiras, encontros, competições e exposições do setor, exibidas em cards na página de eventos (`eventos.html`) com filtros por UF, categoria e período, mais **selo de status** (Agendado / Acontecendo / Cancelado / Encerrado / Data a confirmar) e a **fonte** de cada evento. As fontes de **alta confiança** são sites especializados estruturados (NFeiras, Sindirepa, Diretriz, Shopping Interlagos); a **busca web** (Bing via Scrapling, sem browser) entra como fallback de baixa confiança.
+- **Galeria de Vídeos Otimizada:** Nova biblioteca de vídeos com redirecionamento direto para o YouTube, miniaturas em alta resolução e carregamento ultrarrápido.
+- **Notificações Instantâneas:** Sistema de e-mail que alerta o usuário **no mesmo dia** em que uma manutenção atinge o status crítico ou vence.
+- **Tabela FIPE Real-Time:** Integração com a API FIPE para fornecer valores de mercado precisos e atualizados.
+- **Feedback Inteligente:** Sistema que coleta e organiza o feedback dos usuários para melhoria contínua do sistema.
 
-### **Programa de IndicaÃ§Ã£o (Link de Convite)**
+### **Programa de Indicação (Link de Convite)**
 
-- Cada usuÃ¡rio recebe um **link de convite** prÃ³prio, obtido via `GET /api/referral` (JWT), que retorna `referral_code` e `referral_link` no formato `https://<dominio>/cadastro.html?ref=CODIGO`.
-- Quem se cadastra informando um `referred_by` (o cÃ³digo do convite) **concede 1 mÃªs de crÃ©dito/desconto na assinatura Premium a quem indicou** (aplicado na ativaÃ§Ã£o da assinatura via `referral_credit_months` em `routes/auth.py`/`payment.py`).
-- ProteÃ§Ãµes anti-fraude no backend: teto de **20 bÃ´nus por indicador**, mÃ¡ximo de **5 indicaÃ§Ãµes/dia**, mÃ¡ximo de **5 contas por IP/dia** e bloqueio quando o IP do indicado Ã© igual ao do indicador.
+- Cada usuário recebe um **link de convite** próprio, obtido via `GET /api/referral` (JWT), que retorna `referral_code` e `referral_link` no formato `https://<dominio>/cadastro.html?ref=CODIGO`.
+- Quem se cadastra informando um `referred_by` (o código do convite) **concede 1 mês de crédito/desconto na assinatura Premium a quem indicou** (aplicado na ativação da assinatura via `referral_credit_months` em `routes/auth.py`/`payment.py`).
+- Proteções anti-fraude no backend: teto de **20 bônus por indicador**, máximo de **5 indicações/dia**, máximo de **5 contas por IP/dia** e bloqueio quando o IP do indicado é igual ao do indicador.
 
 ### **Mod Passport (recurso Premium)**
 
 - Recurso **exclusivo para contas Premium** (validado por `_require_mod_passport` em `routes/pages.py`).
-- Permite registrar **modificaÃ§Ãµes/melhorias** do veÃ­culo (ex.: som, rodas, motor, preparaÃ§Ã£o) e recalcula o **Valor estimado de mercado** (`fipe_ajustada`) com base nos upgrades aplicados.
-- A **base do valor** Ã© a **Tabela FIPE** (referÃªncia oficial) ou, quando hÃ¡ amostra confiÃ¡vel, a **mediana de anÃºncios reais** (Mercado Livre, via `get_market_price_estimate` em `services/web_scraping.py`).
-- O ajuste por mods Ã© **conservador e transparente**: pesos por categoria (turbo 5%, motor 4%, som 0,5%â€¦) com teto de **12%**, mais qualquer valor em R$ informado por modificaÃ§Ã£o (`_calcular_detalhe` em `routes/pages.py`).
-- O painel exibe o valor FIPE base versus o valor estimado, a **fonte** utilizada e um **aviso** de que nÃ£o Ã© avaliaÃ§Ã£o oficial (nÃ£o substitui perÃ­cia para venda/seguro/financiamento).
+- Permite registrar **modificações/melhorias** do veículo (ex.: som, rodas, motor, preparação) e recalcula o **Valor estimado de mercado** (`fipe_ajustada`) com base nos upgrades aplicados.
+- A **base do valor** é a **Tabela FIPE** (referência oficial) ou, quando há amostra confiável, a **mediana de anúncios reais** (Mercado Livre, via `get_market_price_estimate` em `services/web_scraping.py`).
+- O ajuste por mods é **conservador e transparente**: pesos por categoria (turbo 5%, motor 4%, som 0,5%…) com teto de **12%**, mais qualquer valor em R$ informado por modificação (`_calcular_detalhe` em `routes/pages.py`).
+- O painel exibe o valor FIPE base versus o valor estimado, a **fonte** utilizada e um **aviso** de que não é avaliação oficial (não substitui perícia para venda/seguro/financiamento).
 
-### **Dashboard - Modais de Detalhes do VeÃ­culo**
+### **Dashboard - Modais de Detalhes do Veículo**
 
-- O painel (`dashboard.html`) agora abre **modais interativos** com os detalhes completos de cada veÃ­culo - marca, modelo, ano de fabricaÃ§Ã£o, quilometragem, valor FIPE base/ajustado e status de manutenÃ§Ã£o - alÃ©m de aÃ§Ãµes rÃ¡pidas como editar dados do veÃ­culo e acessar o **Mod Passport**.
+- O painel (`dashboard.html`) agora abre **modais interativos** com os detalhes completos de cada veículo - marca, modelo, ano de fabricação, quilometragem, valor FIPE base/ajustado e status de manutenção - além de ações rápidas como editar dados do veículo e acessar o **Mod Passport**.
 
-### **SeguranÃ§a e Cloud (Hardening de ProduÃ§Ã£o)**
+### **Segurança e Cloud (Hardening de Produção)**
 
-- **ProteÃ§Ã£o AvanÃ§ada:** ImplementaÃ§Ã£o de **SRI (Subresource Integrity)**, **CSP (Content Security Policy)** e sanitizaÃ§Ã£o global contra XSS.
-- **Google OAuth 2.0:** Login simplificado e seguro utilizando contas Google com propagaÃ§Ã£o dinÃ¢mica de tokens.
-- **AutenticaÃ§Ã£o em Duas Etapas (2FA):** Camada de seguranÃ§a adicional para proteÃ§Ã£o de dados sensÃ­veis.
-- **CAPTCHA Cloudflare Turnstile:** ProteÃ§Ã£o anti-bot no cadastro e login - validaÃ§Ã£o server-side de `success`, `action` e `hostname`.
-- **Cloud Resiliency:** Conectividade reforÃ§ada com suporte a SSL e timeouts otimizados para bancos de dados em nuvem.
+- **Proteção Avançada:** Implementação de **SRI (Subresource Integrity)**, **CSP (Content Security Policy)** e sanitização global contra XSS.
+- **Google OAuth 2.0:** Login simplificado e seguro utilizando contas Google com propagação dinâmica de tokens.
+- **Autenticação em Duas Etapas (2FA):** Camada de segurança adicional para proteção de dados sensíveis.
+- **CAPTCHA Cloudflare Turnstile:** Proteção anti-bot no cadastro e login - validação server-side de `success`, `action` e `hostname`.
+- **Cloud Resiliency:** Conectividade reforçada com suporte a SSL e timeouts otimizados para bancos de dados em nuvem.
 
 ---
 
-## ðŸ› ï¸ Tecnologias Utilizadas
+## 🛠️ Tecnologias Utilizadas
 
-### **Backend & InteligÃªncia Artificial**
+### **Backend & Inteligência Artificial**
 
-| Tecnologia            | FunÃ§Ã£o                                                 |
+| Tecnologia            | Função                                                 |
 | :-------------------- | :----------------------------------------------------- |
-| **Flask**             | Servidor robusto e orquestraÃ§Ã£o de APIs REST.          |
-| **Groq API**         | Modelos de linguagem (LLaMA, Groq Compound) para texto e visÃ£o. |
-| **PyMySQL + SSL**     | ConexÃ£o segura e resiliente com o banco de dados.      |
-| **SMTP / Gmail API**  | Motor de disparo de notificaÃ§Ãµes proativas por e-mail. |
-| **JWT + Refresh**     | AutenticaÃ§Ã£o moderna com Tokens de Acesso e Refresh.   |
-| **Overpass API (OSM)**| Consulta de oficinas mecÃ¢nicas via OpenStreetMap.      |
+| **Flask**             | Servidor robusto e orquestração de APIs REST.          |
+| **Groq API**         | Modelos de linguagem (LLaMA, Groq Compound) para texto e visão. |
+| **PyMySQL + SSL**     | Conexão segura e resiliente com o banco de dados.      |
+| **SMTP / Gmail API**  | Motor de disparo de notificações proativas por e-mail. |
+| **JWT + Refresh**     | Autenticação moderna com Tokens de Acesso e Refresh.   |
+| **Overpass API (OSM)**| Consulta de oficinas mecânicas via OpenStreetMap.      |
 | **Google Search**     | Scraping de resultados locais para mecanicas.           |
 | **Scrapling (Bing)**  | Varredura web de eventos via TLS stealth (curl_cffi), sem browser; Brave Search API como fallback se `BRAVE_API_KEY`. |
-| **OpenStreetMap Nominatim** | GeocodificaÃ§Ã£o cidadeâ†’lat/lng dos eventos (cache 30d). |
-| **MySQL `events`**    | PersistÃªncia estruturada dos eventos (upsert, status, confianÃ§a, coords). |
-| **Redis**             | Cache distribuÃ­do de IA, dashboard e mechanics (OSM/Web).|
+| **OpenStreetMap Nominatim** | Geocodificação cidade→lat/lng dos eventos (cache 30d). |
+| **MySQL `events`**    | Persistência estruturada dos eventos (upsert, status, confiança, coords). |
+| **Redis**             | Cache distribuído de IA, dashboard e mechanics (OSM/Web).|
 
 ### **Frontend**
 
-| Tecnologia           | FunÃ§Ã£o                                                     |
+| Tecnologia           | Função                                                     |
 | :------------------- | :--------------------------------------------------------- |
-| **Vanilla JS**       | LÃ³gica de estado e consumo de APIs sem frameworks pesados. |
-| **Glassmorphism UI** | Design moderno com transparÃªncias e animaÃ§Ãµes dinÃ¢micas.   |
-| **DOMPurify + Marked**| RenderizaÃ§Ã£o segura de Markdown e sanitizaÃ§Ã£o de HTML.     |
+| **Vanilla JS**       | Lógica de estado e consumo de APIs sem frameworks pesados. |
+| **Glassmorphism UI** | Design moderno com transparências e animações dinâmicas.   |
+| **DOMPurify + Marked**| Renderização segura de Markdown e sanitização de HTML.     |
 | **Web Speech API**   | Captura e processamento de voz nativo no navegador.        |
 
 ---
 
-## ðŸ—ï¸ Estrutura do Projeto
+## 🏗️ Estrutura do Projeto
 
 ```
 AutoAssist/
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ models/                    # Modelos de ML para treinamento
-â”‚   â”œâ”€â”€ routes/                    # MÃ³dulos de API (Auth, Pages, Database, Mechanics, Events)
-â”‚   â”œâ”€â”€ scripts/                   # Treinamento do ML
-â”‚   â”œâ”€â”€ services/                  # IA e LÃ³gica (NOG IA, Vision, Maintenance, Web Scraping, Automotive Events)
-â”‚   â”œâ”€â”€ utils/                     # Cache Redis, e-mail, tasks assÃ­ncronas e cron auth
-â”‚   â”œâ”€â”€ app.py                     # Entry-point (Servidor Flask)
-â”‚   â”œâ”€â”€ render.yaml                # Blueprint de deploy (Render)
-â”‚   â”œâ”€â”€ docker-compose.yml         # Redis local para desenvolvimento
-â”‚   â””â”€â”€ .env                       # VariÃ¡veis de ambiente (nÃ£o commitar)
-â”œâ”€â”€ frontend/
-â”‚   â”œâ”€â”€ index.html                 # Landing Page
-â”‚   â”œâ”€â”€ chat.html                  # Consultor NOG IA
-â”‚   â”œâ”€â”€ maps.html                   # Mapa de mecÃ¢nicos (OpenStreetMap)
-    â”œâ”€â”€ dashboard.html             # Dashboard
-â”‚   â”œâ”€â”€ library.html               # Galeria de VÃ­deos YouTube
-â”‚   â”œâ”€â”€ maintenance_history.html   # GestÃ£o de ManutenÃ§Ãµes
-â”‚   â”œâ”€â”€ profile.html               # Perfil do UsuÃ¡rio
-â”‚   â”œâ”€â”€ planos.html                # Planos e preÃ§os (Premium R$ 19,90/mÃªs)
-â”‚   â”œâ”€â”€ b2b.html                   # Landing da API B2B (planos, lead, chave self-serve)
-â”‚   â”œâ”€â”€ eventos.html               # Agenda de eventos automotivos
-â”‚   â””â”€â”€ static/
-â”‚       â”œâ”€â”€ css/
-â”‚       â”‚   â”œâ”€â”€ car-scrollytelling.css   # Estilos do carrossel 3D e hero
-â”‚       â”‚   â”œâ”€â”€ shared.css               # Estilos compartilhados (navbar, footer)
-â”‚       â”‚   â”œâ”€â”€ responsive.css           # Media queries globais
-â”‚       â”‚   â”œâ”€â”€ chat.css                 # Estilos do consultor NOG IA
-â”‚       â”‚   â”œâ”€â”€ dashboard.css            # Estilos do dashboard
-â”‚       â”‚   â””â”€â”€ profile.css              # Estilos do perfil
-â”‚       â”œâ”€â”€ js/
-â”‚       â”‚   â”œâ”€â”€ car-scrollytelling.js    # Canvas 2D carrossel com fÃ­sica de perspectiva
-â”‚       â”‚   â”œâ”€â”€ auth.js                  # AutenticaÃ§Ã£o Google OAuth 2.0
-â”‚       â”‚   â””â”€â”€ config.js                # ConfiguraÃ§Ãµes do frontend
-â”‚       â””â”€â”€ logo2.png                    # Logotipo do projeto
-â””â”€â”€ README.md
+├── backend/
+│   ├── models/                    # Modelos de ML para treinamento
+│   ├── routes/                    # Módulos de API (Auth, Pages, Database, Mechanics, Events)
+│   ├── scripts/                   # Treinamento do ML
+│   ├── services/                  # IA e Lógica (NOG IA, Vision, Maintenance, Web Scraping, Automotive Events)
+│   ├── utils/                     # Cache Redis, e-mail, tasks assíncronas e cron auth
+│   ├── app.py                     # Entry-point (Servidor Flask)
+│   ├── render.yaml                # Blueprint de deploy (Render)
+│   ├── docker-compose.yml         # Redis local para desenvolvimento
+│   └── .env                       # Variáveis de ambiente (não commitar)
+├── frontend/
+│   ├── index.html                 # Landing Page
+│   ├── chat.html                  # Consultor NOG IA
+│   ├── maps.html                   # Mapa de mecânicos (OpenStreetMap)
+    ├── dashboard.html             # Dashboard
+│   ├── library.html               # Galeria de Vídeos YouTube
+│   ├── maintenance_history.html   # Gestão de Manutenções
+│   ├── profile.html               # Perfil do Usuário
+│   ├── planos.html                # Planos e preços (Premium R$ 19,90/mês)
+│   ├── b2b.html                   # Landing da API B2B (planos, lead, chave self-serve)
+│   ├── eventos.html               # Agenda de eventos automotivos
+│   └── static/
+│       ├── css/
+│       │   ├── car-scrollytelling.css   # Estilos do carrossel 3D e hero
+│       │   ├── shared.css               # Estilos compartilhados (navbar, footer)
+│       │   ├── responsive.css           # Media queries globais
+│       │   ├── chat.css                 # Estilos do consultor NOG IA
+│       │   ├── dashboard.css            # Estilos do dashboard
+│       │   └── profile.css              # Estilos do perfil
+│       ├── js/
+│       │   ├── car-scrollytelling.js    # Canvas 2D carrossel com física de perspectiva
+│       │   ├── auth.js                  # Autenticação Google OAuth 2.0
+│       │   └── config.js                # Configurações do frontend
+│       └── logo2.png                    # Logotipo do projeto
+└── README.md
 ```
 
 ---
 
-## ðŸš€ Como Executar o Projeto
+## 🚀 Como Executar o Projeto
 
-### 1. PrÃ©-requisitos
+### 1. Pré-requisitos
 
 - Python 3.10 ou superior
 - Servidor MySQL (Local ou Nuvem)
 - Chave de API do Groq (https://console.groq.com)
 
-### 2. ConfiguraÃ§Ã£o do Ambiente
+### 2. Configuração do Ambiente
 
 Crie um arquivo `.env` na pasta `backend/` com:
 
@@ -151,7 +151,7 @@ GROQ_UTILITY_MODEL=openai/gpt-oss-20b
 GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 GROQ_FALLBACK_MODELS=groq/compound
 
-# Busca web de eventos (fallback de baixa confianÃ§a)
+# Busca web de eventos (fallback de baixa confiança)
 # Scrapling/Bing nao exige chave. Brave Search API eleva a qualidade se configurada:
 BRAVE_API_KEY=
 
@@ -206,27 +206,27 @@ CAKTO_WEBHOOK_SECRET=xxx
 
 # Cloudflare Turnstile (CAPTCHA anti-bot)
 # Criar widget: https://dash.cloudflare.com -> Turnstile -> Create Widget
-# (ou via API, veja a seÃ§Ã£o "SeguranÃ§a e Boas PrÃ¡ticas")
+# (ou via API, veja a seção "Segurança e Boas Práticas")
 TURNSTILE_SITE_KEY=0x4AAAAAAA...
 TURNSTILE_SECRET_KEY=segredo_do_widget
-# Frontends autorizados a emitir token, separados por vÃ­rgula, SEM protocolo
-# (produÃ§Ã£o: sÃ³ o domÃ­nio real; dev: localhost,127.0.0.1)
+# Frontends autorizados a emitir token, separados por vírgula, SEM protocolo
+# (produção: só o domínio real; dev: localhost,127.0.0.1)
 TURNSTILE_HOSTNAMES=seu-dominio.com,localhost,127.0.0.1
 
-# API B2B (diagnÃ³stico por foto como serviÃ§o assinÃ¡vel)
+# API B2B (diagnóstico por foto como serviço assinável)
 # Segredo para criar API keys de clientes corporativos (POST /api/b2b/keys).
-# OBS: obrigatÃ³rio - sem ele, a criaÃ§Ã£o de chave retorna 500.
+# OBS: obrigatório - sem ele, a criação de chave retorna 500.
 B2B_ADMIN_SECRET=gere_um_segredo_forte
 
 ```
 
-### 3. InstalaÃ§Ã£o e ExecuÃ§Ã£o
+### 3. Instalação e Execução
 
 ```bash
 # Entre na pasta do backend
 cd backend
 
-# Instale as dependÃªncias
+# Instale as dependências
 pip install -r requirements.txt
 
 # Execute o servidor
@@ -235,7 +235,7 @@ python app.py
 
 ### 4. Redis para desenvolvimento local
 
-O cache de IA, o cache do dashboard (FIPE + prediÃ§Ãµes de manutenÃ§Ã£o), as filas RQ (e-mails/manutenÃ§Ã£o) e o rate limit usam Redis. Para subir um Redis local:
+O cache de IA, o cache do dashboard (FIPE + predições de manutenção), as filas RQ (e-mails/manutenção) e o rate limit usam Redis. Para subir um Redis local:
 
 ```bash
 docker compose up -d   # sobe redis:7-alpine em localhost:6379
@@ -248,31 +248,31 @@ REDIS_URL=redis://localhost:6379/0
 RATELIMIT_STORAGE_URI=redis://localhost:6379/0
 ```
 
-Sem Redis, o cache recai sobre memÃ³ria local (por processo) e as filas RQ nÃ£o processam jobs.
+Sem Redis, o cache recai sobre memória local (por processo) e as filas RQ não processam jobs.
 
 ---
 
-## ðŸ’³ Planos e MonetizaÃ§Ã£o
+## 💳 Planos e Monetização
 
-- **Plano Premium recorrente:** assinatura **R$ 19,90/mÃªs** (via Cakto, `PREMIUM_PLANS` em `routes/payment.py`).
-- **Camada gratuita:** atÃ© **30 consultas/mÃªs** com a IA NOG (`FREE_MONTHLY_CHAT_LIMIT` em `routes/pages.py`); estourar o limite retorna `403 code=free_limit_reached`. Em manutenÃ§Ãµes, o free pode registrar atÃ© **3 por veÃ­culo** (`FREE_MAINTENANCE_LIMIT`), com alertas gratuitos.
-- **IndicaÃ§Ã£o:** quem se cadastra com um cÃ³digo de convite concede **1 mÃªs de crÃ©dito** na assinatura de quem indicou (`referral_credit_months`).
-- **B2B:** diagnÃ³stico por foto como serviÃ§o, com tiers e cota por API key (ver seÃ§Ã£o abaixo).
+- **Plano Premium recorrente:** assinatura **R$ 19,90/mês** (via Cakto, `PREMIUM_PLANS` em `routes/payment.py`).
+- **Camada gratuita:** até **30 consultas/mês** com a IA NOG (`FREE_MONTHLY_CHAT_LIMIT` em `routes/pages.py`); estourar o limite retorna `403 code=free_limit_reached`. Em manutenções, o free pode registrar até **3 por veículo** (`FREE_MAINTENANCE_LIMIT`), com alertas gratuitos.
+- **Indicação:** quem se cadastra com um código de convite concede **1 mês de crédito** na assinatura de quem indicou (`referral_credit_months`).
+- **B2B:** diagnóstico por foto como serviço, com tiers e cota por API key (ver seção abaixo).
 
 ---
 
-## ðŸ¤ API B2B (DiagnÃ³stico por Foto como ServiÃ§o)
+## 🤝 API B2B (Diagnóstico por Foto como Serviço)
 
-API assinÃ¡vel para clientes corporativos enviarem fotos de defeitos e receberem um laudo tÃ©cnico (JSON ou PDF) gerado por IA. AutenticaÃ§Ã£o via header `X-API-Key` (chave criada em `POST /api/b2b/keys`, protegido por `B2B_ADMIN_SECRET`). A chave Ã© exibida **uma vez**; no banco fica sÃ³ o hash SHA-256, com comparaÃ§Ã£o em tempo constante. Rate limit por cliente (Redis, com fallback local). Planos/tiers (`B2B_PLANS`: trial/pro_1k/pro_5k/pro_20k) definem a cota de requisiÃ§Ãµes (`requests_limit`/`requests_used` na tabela `api_clients`); ultrapassar retorna `429`. Clientes podem gerar sua prÃ³pria chave via `POST /api/b2b/self-serve/keys` (JWT do usuÃ¡rio logado).
+API assinável para clientes corporativos enviarem fotos de defeitos e receberem um laudo técnico (JSON ou PDF) gerado por IA. Autenticação via header `X-API-Key` (chave criada em `POST /api/b2b/keys`, protegido por `B2B_ADMIN_SECRET`). A chave é exibida **uma vez**; no banco fica só o hash SHA-256, com comparação em tempo constante. Rate limit por cliente (Redis, com fallback local). Planos/tiers (`B2B_PLANS`: trial/pro_1k/pro_5k/pro_20k) definem a cota de requisições (`requests_limit`/`requests_used` na tabela `api_clients`); ultrapassar retorna `429`. Clientes podem gerar sua própria chave via `POST /api/b2b/self-serve/keys` (JWT do usuário logado).
 
 ### Endpoints
 
-| MÃ©todo | Rota | Auth | DescriÃ§Ã£o |
+| Método | Rota | Auth | Descrição |
 | :----- | :--- | :--- | :-------- |
-| `POST` | `/api/b2b/keys` | `X-Admin-Secret` = `B2B_ADMIN_SECRET` | Cria um cliente e retorna a `api_key` (uso Ãºnico). Body: `{ "nome", "rate_limit_per_min"? }`. |
-| `POST` | `/api/b2b/self-serve/keys` | JWT (usuÃ¡rio logado) | UsuÃ¡rio cria sua prÃ³pria API key B2B (plano/tier definido por `B2B_PLANS`). |
-| `POST` | `/api/b2b/diagnosis` | `X-API-Key` | DiagnÃ³stico por foto. Body: `{ "image": <base64>, "pergunta"?, "formato"?: "json"\|"pdf" }`. |
-| `POST` | `/api/b2b/leads` | pÃºblico | Captura lead do formulÃ¡rio B2B. Body: `{ "nome", "email", "empresa"?, "telefone"?, "mensagem"? }`. |
+| `POST` | `/api/b2b/keys` | `X-Admin-Secret` = `B2B_ADMIN_SECRET` | Cria um cliente e retorna a `api_key` (uso único). Body: `{ "nome", "rate_limit_per_min"? }`. |
+| `POST` | `/api/b2b/self-serve/keys` | JWT (usuário logado) | Usuário cria sua própria API key B2B (plano/tier definido por `B2B_PLANS`). |
+| `POST` | `/api/b2b/diagnosis` | `X-API-Key` | Diagnóstico por foto. Body: `{ "image": <base64>, "pergunta"?, "formato"?: "json"\|"pdf" }`. |
+| `POST` | `/api/b2b/leads` | público | Captura lead do formulário B2B. Body: `{ "nome", "email", "empresa"?, "telefone"?, "mensagem"? }`. |
 | `GET`  | `/api/admin/b2b/leads` | JWT admin | Lista os leads capturados. |
 
 ### Exemplo de fluxo
@@ -284,7 +284,7 @@ curl -X POST http://localhost:5000/api/b2b/keys \
   -H "X-Admin-Secret: $B2B_ADMIN_SECRET" \
   -d '{"nome":"Cliente Teste","rate_limit_per_min":30}'
 
-# 2) DiagnÃ³stico por foto (use a api_key retornada)
+# 2) Diagnóstico por foto (use a api_key retornada)
 IMG=$(base64 -w0 foto.jpg)
 curl -X POST http://localhost:5000/api/b2b/diagnosis \
   -H "Content-Type: application/json" \
@@ -292,49 +292,49 @@ curl -X POST http://localhost:5000/api/b2b/diagnosis \
   -d "{\"image\":\"$IMG\",\"pergunta\":\"Qual o problema?\"}"
 ```
 
-> O laudo Ã© gerado por IA e **nÃ£o substitui inspeÃ§Ã£o mecÃ¢nica presencial**.
+> O laudo é gerado por IA e **não substitui inspeção mecânica presencial**.
 
 ---
 
-## ðŸ“… Agenda de Eventos Automotivos
+## 📅 Agenda de Eventos Automotivos
 
-Pipeline de coleta de eventos tratado como **dado estruturado** (nÃ£o scraping genÃ©rico):
+Pipeline de coleta de eventos tratado como **dado estruturado** (não scraping genérico):
 
-1. **Provedores de alta confianÃ§a** (HTML estÃ¡vel e curado): `nfeiras.com` (automobilismo), `sindirepabrasil.org.br/eventos` (reparaÃ§Ã£o), `diretriz.com.br` (Autopar, Minaspartsâ€¦) e `interlagos.com.br` (itens automotivos).
-2. **Busca web (fallback, baixa confianÃ§a):** Bing via **Scrapling** (`Fetcher`, TLS stealth com `curl_cffi`, sem abrir browser); **Brave Search API** entra se `BRAVE_API_KEY` estiver configurado; Playwright como Ãºltimo recurso.
-3. **NormalizaÃ§Ã£o:** tÃ­tulo normalizado (minÃºsculo, sem acento), `confidence` por fonte (fontes oficiais `0.90`, web `0.40`) e `status` (`upcoming` / `ongoing` / `finished` / `cancelled` / `unknown`).
-4. **DeduplicaÃ§Ã£o por score:** similaridade ponderada (tÃ­tulo + data + cidade + venue + organizador); mantÃ©m o registro de **maior confianÃ§a** como canÃ´nico.
-5. **GeocodificaÃ§Ã£o:** cidadeâ†’lat/lng via Nominatim/OSM (cache 30d), reutilizando o cache de geocoding.
-6. **PersistÃªncia:** upsert na tabela MySQL `events` (id estÃ¡vel via `sha1`), preservando eventos passados e o `status` (nÃ£o sÃ£o apagados).
+1. **Provedores de alta confiança** (HTML estável e curado): `nfeiras.com` (automobilismo), `sindirepabrasil.org.br/eventos` (reparação), `diretriz.com.br` (Autopar, Minasparts…) e `interlagos.com.br` (itens automotivos).
+2. **Busca web (fallback, baixa confiança):** Bing via **Scrapling** (`Fetcher`, TLS stealth com `curl_cffi`, sem abrir browser); **Brave Search API** entra se `BRAVE_API_KEY` estiver configurado; Playwright como último recurso.
+3. **Normalização:** título normalizado (minúsculo, sem acento), `confidence` por fonte (fontes oficiais `0.90`, web `0.40`) e `status` (`upcoming` / `ongoing` / `finished` / `cancelled` / `unknown`).
+4. **Deduplicação por score:** similaridade ponderada (título + data + cidade + venue + organizador); mantém o registro de **maior confiança** como canônico.
+5. **Geocodificação:** cidade→lat/lng via Nominatim/OSM (cache 30d), reutilizando o cache de geocoding.
+6. **Persistência:** upsert na tabela MySQL `events` (id estável via `sha1`), preservando eventos passados e o `status` (não são apagados).
 7. **API:** `GET /api/events/automotive` (filtros `uf`, `q`, `categoria`, `periodo`, `lat`/`lng`/`radius` para "perto de mim") e `GET /api/events/<id>`.
 8. **Frontend:** `eventos.html` renderiza cards com badge de `status` e selo de fonte; a lista mostra apenas eventos futuros.
 
-> Eventos de comunidade (Facebook/Instagram/WhatsApp) e plataformas fechadas (Sympla/Eventbrite sem token) nÃ£o sÃ£o cobertos - ficam como fontes futuras. Nenhuma Ã¡rea protegida/CAPTCHA Ã© contornada.
+> Eventos de comunidade (Facebook/Instagram/WhatsApp) e plataformas fechadas (Sympla/Eventbrite sem token) não são cobertos - ficam como fontes futuras. Nenhuma área protegida/CAPTCHA é contornada.
 
 ### Endpoints
 
-| MÃ©todo | Rota | Auth | DescriÃ§Ã£o |
+| Método | Rota | Auth | Descrição |
 | :----- | :--- | :--- | :-------- |
-| `GET`  | `/api/events/automotive` | PÃ¡gina exige Premium | Lista eventos (filtros `uf`, `q`, `categoria`, `periodo`, `lat`, `lng`, `radius`). `?force=1` refaz a varredura. |
-| `GET`  | `/api/events/<id>` | PÃ¡gina exige Premium | Detalhe de um evento (cache da varredura + MySQL). |
-| `POST` | `/api/cron/events-notifications` | `X-Cron-Secret` | Notifica usuÃ¡rios sobre novos eventos (via RQ/thread). |
+| `GET`  | `/api/events/automotive` | Página exige Premium | Lista eventos (filtros `uf`, `q`, `categoria`, `periodo`, `lat`, `lng`, `radius`). `?force=1` refaz a varredura. |
+| `GET`  | `/api/events/<id>` | Página exige Premium | Detalhe de um evento (cache da varredura + MySQL). |
+| `POST` | `/api/cron/events-notifications` | `X-Cron-Secret` | Notifica usuários sobre novos eventos (via RQ/thread). |
 
 ---
 
-## ðŸ”’ SeguranÃ§a e Boas PrÃ¡ticas
+## 🔒 Segurança e Boas Práticas
 
-- **Bcrypt Hashing**: ProteÃ§Ã£o de senhas com algoritmos de derivaÃ§Ã£o de chave.
-- **CSP (Content Security Policy)**: `unsafe-eval` removido por padrÃ£o; reative com `CSP_ALLOW_UNSAFE_EVAL=1` apenas se estritamente necessÃ¡rio. `unsafe-inline` Ã© mantido para o frontend estÃ¡tico (migraÃ§Ã£o para nonce Ã© recomendada).
-- **JWT Protection**: Endpoints protegidos garantem que apenas usuÃ¡rios autenticados acessem dados sensÃ­veis.
+- **Bcrypt Hashing**: Proteção de senhas com algoritmos de derivação de chave.
+- **CSP (Content Security Policy)**: `unsafe-eval` removido por padrão; reative com `CSP_ALLOW_UNSAFE_EVAL=1` apenas se estritamente necessário. `unsafe-inline` é mantido para o frontend estático (migração para nonce é recomendada).
+- **JWT Protection**: Endpoints protegidos garantem que apenas usuários autenticados acessem dados sensíveis.
 - **Cron Auth**: rotas agendadas devem exigir `X-Cron-Secret` (veja `utils/cron_auth.require_cron_secret` e `MAINTENANCE_EMAIL_CRON_SECRET`).
-- **Cloudflare Turnstile**: CAPTCHA anti-bot em `/api/cadastro` (action `signup`) e `/api/login` (action `login`). O siteverify Ã© feito server-side (`utils/turnstile.turnstile_required`) validando `success`, `action` e `hostname` no allowlist `TURNSTILE_HOSTNAMES` - fail-closed em erro de rede/HTTP. Sem `TURNSTILE_SECRET_KEY` configurada, o decorator Ã© no-op (dev/testes). Para criar o widget via API: token com escopo `Account.Turnstile:Edit` e `POST /accounts/<id>/challenges/widgets` (`{"name","domains":[...],"mode":"managed"}`). Tokens do Turnstile sÃ£o single-use.
-- **Segredos**: o `.env` **nÃ£o deve ser commitado**. Em produÃ§Ã£o, configure os segredos no Render via dashboard/Environment Group.
+- **Cloudflare Turnstile**: CAPTCHA anti-bot em `/api/cadastro` (action `signup`) e `/api/login` (action `login`). O siteverify é feito server-side (`utils/turnstile.turnstile_required`) validando `success`, `action` e `hostname` no allowlist `TURNSTILE_HOSTNAMES` - fail-closed em erro de rede/HTTP. Sem `TURNSTILE_SECRET_KEY` configurada, o decorator é no-op (dev/testes). Para criar o widget via API: token com escopo `Account.Turnstile:Edit` e `POST /accounts/<id>/challenges/widgets` (`{"name","domains":[...],"mode":"managed"}`). Tokens do Turnstile são single-use.
+- **Segredos**: o `.env` **não deve ser commitado**. Em produção, configure os segredos no Render via dashboard/Environment Group.
 
 ---
 
-## ðŸ§ª Testes
+## 🧪 Testes
 
-Os testes ficam em `backend/tests/` (estilo `unittest`). Mockam banco, Redis e visÃ£o por IA, entÃ£o rodam sem Groq/DB externo.
+Os testes ficam em `backend/tests/` (estilo `unittest`). Mockam banco, Redis e visão por IA, então rodam sem Groq/DB externo.
 
 ```bash
 cd backend
@@ -347,53 +347,53 @@ Cobertura de `test_b2b.py` (11 testes, todos passando):
 - `POST /api/b2b/leads` - sucesso (201), campos faltando (400)
 - `GET /api/admin/b2b/leads` - sem admin (403), com admin (200)
 
-> O endpoint de PDF usa `fpdf2`; `_build_laudo_pdf` retorna `bytes`. A criaÃ§Ã£o de chaves exige `B2B_ADMIN_SECRET` definido no `.env`.
+> O endpoint de PDF usa `fpdf2`; `_build_laudo_pdf` retorna `bytes`. A criação de chaves exige `B2B_ADMIN_SECRET` definido no `.env`.
 
 ---
 
-## ðŸ“‹ AlteraÃ§Ãµes Recentes
+## 📋 Alterações Recentes
 
-Registro das mudanÃ§as feitas nesta sessÃ£o de desenvolvimento:
+Registro das mudanças feitas nesta sessão de desenvolvimento:
 
 ### Cobertura de testes da API B2B
-- **Criado `backend/tests/test_b2b.py`** (11 testes, estilo `unittest`) cobrindo todos os endpoints B2B com banco, Redis e visÃ£o por IA mockados - roda sem Groq/DB externo.
+- **Criado `backend/tests/test_b2b.py`** (11 testes, estilo `unittest`) cobrindo todos os endpoints B2B com banco, Redis e visão por IA mockados - roda sem Groq/DB externo.
   - `POST /api/b2b/keys`: sucesso (201, hash gravado == SHA-256 da chave), `X-Admin-Secret` errado (403), `B2B_ADMIN_SECRET` ausente (500).
   - `POST /api/b2b/diagnosis`: sem key (401), sem imagem (400), JSON (200), **PDF** (200, `%PDF`).
   - `POST /api/b2b/leads`: sucesso (201), campos faltando (400).
   - `GET /api/admin/b2b/leads`: sem admin (403), com admin (200).
 
 ### Arquitetura de Eventos Automotivos (estruturada)
-- **Nova tabela `events`** em `backend/routes/database.py` (`TABLES_SQL`): `id` (PK estÃ¡vel `sha1`), `title`, `normalized_title`, `category`, `start_date`/`end_date`, `venue_name`, `address`, `city`, `state`, `latitude`/`longitude`, `organizer`, `event_url`, `source`, `status`, `confidence`, `last_verified_at`, Ã­ndices por UF/cidade/data/status/fonte. Criada via `init_db()`.
+- **Nova tabela `events`** em `backend/routes/database.py` (`TABLES_SQL`): `id` (PK estável `sha1`), `title`, `normalized_title`, `category`, `start_date`/`end_date`, `venue_name`, `address`, `city`, `state`, `latitude`/`longitude`, `organizer`, `event_url`, `source`, `status`, `confidence`, `last_verified_at`, índices por UF/cidade/data/status/fonte. Criada via `init_db()`.
 - **`backend/services/automotive_events.py`:**
-  - `_make_event` estendido com `normalized_title`, `confidence` (via `CONFIDENCE_BY_SOURCE`), `status` (via `derive_status`), `latitude`/`longitude`, `organizer`, `venue_name`, `address`, `country` e **id estÃ¡vel** (`sha1(fonte|titulo|data|cidade)`) - substitui o `hash()` frÃ¡gil entre processos.
-  - `_dedupe_events` por score (tÃ­tulo + data + cidade + venue + organizador; mantÃ©m o canÃ´nico de maior confianÃ§a), no lugar do set ingÃªnuo `(titulo, data)`.
+  - `_make_event` estendido com `normalized_title`, `confidence` (via `CONFIDENCE_BY_SOURCE`), `status` (via `derive_status`), `latitude`/`longitude`, `organizer`, `venue_name`, `address`, `country` e **id estável** (`sha1(fonte|titulo|data|cidade)`) - substitui o `hash()` frágil entre processos.
+  - `_dedupe_events` por score (título + data + cidade + venue + organizador; mantém o canônico de maior confiança), no lugar do set ingênuo `(titulo, data)`.
   - `_geocode_event` (Nominatim/OSM, reuso de cache) e `persist_events` (upsert MySQL em lote) integrados ao `scan_automotive_events`.
   - `_haversine` + filtro `lat`/`lng`/`radius` em `filter_events` ("perto de mim").
-  - Web passa a usar **Scrapling/Bing** como fonte primÃ¡ria (sem browser), Brave API se `BRAVE_API_KEY`, Playwright como fallback.
+  - Web passa a usar **Scrapling/Bing** como fonte primária (sem browser), Brave API se `BRAVE_API_KEY`, Playwright como fallback.
 - **`backend/routes/events.py`:** `GET /api/events/automotive` aceita `lat`/`lng`/`radius`; adicionado `GET /api/events/<id>`.
 - **`frontend/public/eventos.html`:** card com badge de `status` (Agendado/Acontecendo/Cancelado/Encerrado/Data a confirmar) e selo de `fonte_nome`. Lista apenas eventos futuros.
-- **Testes** (`backend/tests/test_events.py`): +7 testes (normalize, modelo/confianÃ§a, status, dedupe por score, mapeamento DB, nearby). SuÃ­te de eventos: **51 passam**, 1 falha prÃ©-existente nÃ£o relacionada (`test_footer_linka_eventos_html`).
+- **Testes** (`backend/tests/test_events.py`): +7 testes (normalize, modelo/confiança, status, dedupe por score, mapeamento DB, nearby). Suíte de eventos: **51 passam**, 1 falha pré-existente não relacionada (`test_footer_linka_eventos_html`).
 - `requirements.txt`: adicionado `scrapling[fetchers]==0.4.14`.
 
 ### Marketing & Posicionamento (P0)
-- **Posicionamento "copiloto de carro de IA":** tÃ­tulos, `og:title`/`twitter:title` e eyebrow de `index.html` passam a usar "Seu copiloto de carro de IA"; `og:image`/`twitter:image` agora apontam para URLs absolutas (`https://autoassist.com.br/...`).
-- **Navbar:** visitante vÃª botÃ£o "Criar conta" (`.nav-btn-cta`); logado vÃª link "Planos". `shared.css` com nova classe de CTA.
-- **Plataforma de pagamento:** cobranÃ§a exclusiva via **Cakto** (`R$ 19,90/mÃªs`, sem anual). Removido ruÃ­do de "Mercado Pago" do copy.
-- **Alinhamento do Free:** `planos.html` e `chat.html` clarificam "5 mensagens grÃ¡tis de visitante â†’ crie conta para 30/mÃªs"; card free "grÃ¡tis ao criar conta".
-- **NOG:** `index.html` explica que "NOG Ã© a inteligÃªncia artificial do AutoAssist" no hero e no chat.
-- **Referral via WhatsApp:** `perfil.html` com botÃ£o "Ganhar 1 mÃªs no WhatsApp" (`wa.me`) e copy "1 mÃªs Premium grÃ¡tis".
-- **Loop de retenÃ§Ã£o â†’ chat:** e-mail de alerta de manutenÃ§Ã£o (`pages.py`) ganhou 2Âº CTA "Pergunte Ã  NOG o que fazer" â†’ `chat.html`.
-- **Analytics consentidos:** `analytics-consent.js` carrega **GA4** + **Meta Pixel** somente apÃ³s consentimento (`GA_MEASUREMENT_ID`/`FB_PIXEL_ID`), sem quebrar a navegaÃ§Ã£o.
-- **SEO tÃ©cnico:** `robots.txt` + `sitemap.xml` (`https://autoassist.com.br`); `index.html`/`planos.html` com `canonical` e JSON-LD (Organization + Service).
-- **B2B cobrando:** `b2b.py` com preÃ§os (R$ 99/399/999 por mÃªs), rota `/api/b2b/self-serve/checkout` (gera pedido Cakto + chave inativa) e ativaÃ§Ã£o via webhook (`payment.py` branch `b2b_`); `b2b.html` com planos/valores e checkout. `CAKTO_B2B_CHECKOUT_URL` Ã© opcional - se ausente, reusa `CAKTO_CHECKOUT_URL` (link do Premium, R$ 19,90); defina apenas para cobrar preÃ§os B2B distintos por tier.
-- **ConteÃºdo descartado:** `blog/` removido (decisÃ£o do usuÃ¡rio); `plan.md` P1-3 marcado como NÃƒO IMPLEMENTADO.
+- **Posicionamento "copiloto de carro de IA":** títulos, `og:title`/`twitter:title` e eyebrow de `index.html` passam a usar "Seu copiloto de carro de IA"; `og:image`/`twitter:image` agora apontam para URLs absolutas (`https://autoassist.com.br/...`).
+- **Navbar:** visitante vê botão "Criar conta" (`.nav-btn-cta`); logado vê link "Planos". `shared.css` com nova classe de CTA.
+- **Plataforma de pagamento:** cobrança exclusiva via **Cakto** (`R$ 19,90/mês`, sem anual). Removido ruído de "Mercado Pago" do copy.
+- **Alinhamento do Free:** `planos.html` e `chat.html` clarificam "5 mensagens grátis de visitante → crie conta para 30/mês"; card free "grátis ao criar conta".
+- **NOG:** `index.html` explica que "NOG é a inteligência artificial do AutoAssist" no hero e no chat.
+- **Referral via WhatsApp:** `perfil.html` com botão "Ganhar 1 mês no WhatsApp" (`wa.me`) e copy "1 mês Premium grátis".
+- **Loop de retenção → chat:** e-mail de alerta de manutenção (`pages.py`) ganhou 2º CTA "Pergunte à NOG o que fazer" → `chat.html`.
+- **Analytics consentidos:** `analytics-consent.js` carrega **GA4** + **Meta Pixel** somente após consentimento (`GA_MEASUREMENT_ID`/`FB_PIXEL_ID`), sem quebrar a navegação.
+- **SEO técnico:** `robots.txt` + `sitemap.xml` (`https://autoassist.com.br`); `index.html`/`planos.html` com `canonical` e JSON-LD (Organization + Service).
+- **B2B cobrando:** `b2b.py` com preços (R$ 99/399/999 por mês), rota `/api/b2b/self-serve/checkout` (gera pedido Cakto + chave inativa) e ativação via webhook (`payment.py` branch `b2b_`); `b2b.html` com planos/valores e checkout. `CAKTO_B2B_CHECKOUT_URL` é opcional - se ausente, reusa `CAKTO_CHECKOUT_URL` (link do Premium, R$ 19,90); defina apenas para cobrar preços B2B distintos por tier.
+- **Conteúdo descartado:** `blog/` removido (decisão do usuário); `plan.md` P1-3 marcado como NÃO IMPLEMENTADO.
 
 ---
 
-## ðŸ“ LicenÃ§a e Autoria
+## 📝 Licença e Autoria
 
 Ideia original de **Clara Francisco**.
-Desenvolvido por **JÃºlio CÃ©sar**, **Caio Lima**, **Eduardo Nishida** e **Caio Yugo**.
+Desenvolvido por **Júlio César**, **Caio Lima**, **Eduardo Nishida** e **Caio Yugo**.
 
 ## Mobile (branch feat/react-native)
 
