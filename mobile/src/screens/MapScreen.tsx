@@ -24,14 +24,18 @@ type Mech = {
 
 type MechResponse = { success: boolean; mechanics: Mech[] };
 
+// Usada apenas quando o usuário nunca permitiu a localização: ainda trazemos
+// os dados do banco (com uma coordenada padrão) em vez de quebrar a tela.
+const FALLBACK_LOCATION = { lat: -15.793889, lng: -47.882778 };
+
 export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   const [mechanics, setMechanics] = useState<Mech[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [locError, setLocError] = useState<string | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [realLocation, setRealLocation] = useState(false);
+  const [needsLocation, setNeedsLocation] = useState(false);
 
-  const loadAround = useCallback(async (lat: number, lng: number) => {
+  const loadAround = useCallback(async (lat: number, lng: number, isReal: boolean) => {
     setLoading(true);
     setError(null);
     try {
@@ -41,6 +45,7 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
       setMechanics(
         (res.mechanics || []).filter((m) => m.latitude != null && m.longitude != null),
       );
+      setRealLocation(isReal);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao carregar mecânicos.');
     } finally {
@@ -48,25 +53,40 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     }
   }, []);
 
+  const enableLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setNeedsLocation(true);
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      setNeedsLocation(false);
+      await loadAround(pos.coords.latitude, pos.coords.longitude, true);
+    } catch {
+      setError('Nao foi possivel obter sua localizacao.');
+    }
+  }, [loadAround]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          if (!cancelled) setLocError('Permissao de localizacao negada.');
-          return;
-        }
-        const pos = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = pos.coords;
-        if (!cancelled) {
-          setCoords({ lat: latitude, lng: longitude });
-          await loadAround(latitude, longitude);
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({});
+          if (!cancelled) await loadAround(pos.coords.latitude, pos.coords.longitude, true);
+        } else {
+          // Usuário nunca permitiu: traz os dados do banco mesmo assim.
+          if (!cancelled) {
+            setNeedsLocation(true);
+            await loadAround(FALLBACK_LOCATION.lat, FALLBACK_LOCATION.lng, false);
+          }
         }
       } catch {
         if (!cancelled) {
-          setError('Nao foi possivel obter sua localizacao.');
-          setLoading(false);
+          setNeedsLocation(true);
+          await loadAround(FALLBACK_LOCATION.lat, FALLBACK_LOCATION.lng, false);
         }
       }
     })();
@@ -75,22 +95,14 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     };
   }, [loadAround]);
 
-  if (locError) {
-    return (
-      <EmptyState
-        title="Localizacao"
-        message={locError}
-        action={{ label: 'Voltar', onPress: () => goTo('more') }}
-      />
-    );
-  }
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Mecanicos proximos</Text>
         <Text style={styles.subtitle}>
-          {coords ? 'Ordenado por distancia da sua localizacao' : 'Obtendo sua localizacao...'}
+          {realLocation
+            ? 'Ordenado por distancia da sua localizacao'
+            : 'Permita a localizacao para ver os mais proximos de voce'}
         </Text>
       </View>
 
@@ -101,6 +113,16 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
+          {needsLocation && !realLocation ? (
+            <Card style={styles.banner}>
+              <Text style={styles.bannerText}>
+                Permita a localizacao para ver os mecanicos mais proximos de voce.
+              </Text>
+              <AppButton variant="secondary" onPress={enableLocation}>
+                Usar minha localizacao
+              </AppButton>
+            </Card>
+          ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {mechanics.length === 0 && !loading ? (
             <EmptyState title="Nenhum mecanico" message="Nao encontramos oficinas proximas." />
@@ -109,7 +131,7 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
             <Card key={m.id} style={styles.item}>
               <View style={styles.itemHead}>
                 <Text style={styles.name}>{m.nome}</Text>
-                {typeof m.distance_km === 'number' ? (
+                {realLocation && typeof m.distance_km === 'number' ? (
                   <Pill tone="info">{m.distance_km.toFixed(1)} km</Pill>
                 ) : null}
               </View>
@@ -163,6 +185,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   loadingText: { color: Palette.textMuted, fontSize: 14 },
   list: { padding: Spacing.four, gap: Spacing.three },
+  banner: { gap: Spacing.two, backgroundColor: Palette.surfaceStrong },
+  bannerText: { color: Palette.text, fontSize: 14, lineHeight: 20 },
   item: { gap: Spacing.two },
   itemHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.two },
   name: { color: Palette.text, fontSize: 16, fontWeight: '800', flex: 1 },
