@@ -1,94 +1,48 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
-import {
-  Camera,
-  Map as MapLibreMap,
-  Marker,
-  UserLocation,
-  type CameraRef,
-  type MapRef,
-  type StyleSpecification,
-  type ViewStateChangeEvent,
-} from '@maplibre/maplibre-react-native';
-import { AppButton, EmptyState, Pill } from '@/components/primitives';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
 import { Palette, Spacing } from '@/constants/theme';
 import { ApiError, apiRequest } from '@/lib/api';
 import * as Location from 'expo-location';
 import type { AppTab } from './AppShell';
 
-type MechMarker = {
+type Mech = {
   id: string;
   nome: string;
-  latitude: number;
-  longitude: number;
-  distance_km?: number;
-  telefone?: string;
-};
-
-type EventMarker = {
-  id: string;
-  titulo: string;
-  latitude?: number;
-  longitude?: number;
+  endereco?: string;
   cidade?: string;
-  uf?: string;
-  event_url?: string;
+  estado?: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  telefone?: string;
+  website?: string;
+  avaliacao_media?: number;
+  total_avaliacoes?: number;
+  especialidades?: string[];
+  distance_km?: number;
 };
 
-type MechanicsResponse = { success: boolean; mechanics: MechMarker[] };
-type EventsResponse = { success: boolean; events: EventMarker[] };
-
-const OSM_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-};
-
-const BRAZIL_CENTER: [number, number] = [-47.882778, -15.793889];
+type MechResponse = { success: boolean; mechanics: Mech[] };
 
 export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
-  const [mechanics, setMechanics] = useState<MechMarker[]>([]);
-  const [events, setEvents] = useState<EventMarker[]>([]);
+  const [mechanics, setMechanics] = useState<Mech[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-
-  const cameraRef = useRef<CameraRef>(null);
-  const mapRef = useRef<MapRef>(null);
-  const regionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const loadAround = useCallback(async (lat: number, lng: number) => {
     setLoading(true);
     setError(null);
     try {
-      const [mechRes, evtRes] = await Promise.all([
-        apiRequest<MechanicsResponse>(
-          `/api/mechanics/search?${new URLSearchParams({ lat: String(lat), lng: String(lng), radius: '15', sort_by: 'distance' })}`,
-        ),
-        apiRequest<EventsResponse>(
-          `/api/events/automotive?${new URLSearchParams({ lat: String(lat), lng: String(lng), radius: '50' })}`,
-        ),
-      ]);
-      setMechanics(
-        (mechRes.mechanics || []).filter(
-          (m) => typeof m.latitude === 'number' && typeof m.longitude === 'number',
-        ),
+      const res = await apiRequest<MechResponse>(
+        `/api/mechanics/search?${new URLSearchParams({ lat: String(lat), lng: String(lng), radius: '15', sort_by: 'distance' })}`,
       );
-      setEvents(
-        (evtRes.events || []).filter(
-          (e) => typeof e.latitude === 'number' && typeof e.longitude === 'number',
-        ),
+      setMechanics(
+        (res.mechanics || []).filter((m) => m.latitude != null && m.longitude != null),
       );
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Falha ao carregar pontos do mapa.');
+      setError(err instanceof ApiError ? err.message : 'Falha ao carregar mecânicos.');
     } finally {
       setLoading(false);
     }
@@ -104,11 +58,10 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
           return;
         }
         const pos = await Location.getCurrentPositionAsync({});
-        const center: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+        const { latitude, longitude } = pos.coords;
         if (!cancelled) {
-          setUserLocation(center);
-          cameraRef.current?.flyTo({ center, zoom: 12, duration: 800 });
-          await loadAround(pos.coords.latitude, pos.coords.longitude);
+          setCoords({ lat: latitude, lng: longitude });
+          await loadAround(latitude, longitude);
         }
       } catch {
         if (!cancelled) {
@@ -119,24 +72,8 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     })();
     return () => {
       cancelled = true;
-      if (regionTimeout.current) clearTimeout(regionTimeout.current);
     };
   }, [loadAround]);
-
-  const handleRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-    const center = event.nativeEvent.center;
-    if (!center || center.length < 2) return;
-    if (regionTimeout.current) clearTimeout(regionTimeout.current);
-    regionTimeout.current = setTimeout(() => {
-      loadAround(center[1], center[0]);
-    }, 600);
-  };
-
-  const centerOnUser = () => {
-    if (!userLocation) return;
-    cameraRef.current?.flyTo({ center: userLocation, zoom: 12, duration: 800 });
-    loadAround(userLocation[1], userLocation[0]);
-  };
 
   if (locError) {
     return (
@@ -148,94 +85,89 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     );
   }
 
-  if (loading && mechanics.length === 0 && events.length === 0) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Palette.primary} />
-        <Text style={styles.loadingText}>Carregando mapa...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <MapLibreMap
-        ref={mapRef}
-        mapStyle={OSM_STYLE}
-        style={styles.map}
-        onRegionDidChange={handleRegionDidChange}>
-        <Camera ref={cameraRef} initialViewState={{ center: BRAZIL_CENTER, zoom: 3 }} />
-        <UserLocation />
-        {mechanics.map((m) => (
-          <Marker
-            key={`m-${m.id}`}
-            id={`m-${m.id}`}
-            lngLat={[Number(m.longitude), Number(m.latitude)]}
-            onPress={() => m.telefone && Linking.openURL(`tel:${m.telefone}`)}>
-            <View style={styles.dotBlue} />
-          </Marker>
-        ))}
-        {events.map((e) => (
-          <Marker
-            key={`e-${e.id}`}
-            id={`e-${e.id}`}
-            lngLat={[Number(e.longitude), Number(e.latitude)]}
-            onPress={() => e.event_url && Linking.openURL(e.event_url)}>
-            <View style={styles.dotRed} />
-          </Marker>
-        ))}
-      </MapLibreMap>
+      <View style={styles.header}>
+        <Text style={styles.title}>Mecanicos proximos</Text>
+        <Text style={styles.subtitle}>
+          {coords ? 'Ordenado por distancia da sua localizacao' : 'Obtendo sua localizacao...'}
+        </Text>
+      </View>
 
-      <View style={styles.legend}>
-        <Pill tone="info">Azul: Mecanicos</Pill>
-        <Pill tone="danger">Vermelho: Eventos</Pill>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <View style={styles.actions}>
-          <AppButton variant="secondary" onPress={centerOnUser}>
-            Centralizar
-          </AppButton>
-          <AppButton variant="ghost" onPress={() => goTo('more')}>
+      {loading && mechanics.length === 0 ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={Palette.primary} />
+          <Text style={styles.loadingText}>Carregando mecanicos...</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.list}>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {mechanics.length === 0 && !loading ? (
+            <EmptyState title="Nenhum mecanico" message="Nao encontramos oficinas proximas." />
+          ) : null}
+          {mechanics.map((m) => (
+            <Card key={m.id} style={styles.item}>
+              <View style={styles.itemHead}>
+                <Text style={styles.name}>{m.nome}</Text>
+                {typeof m.distance_km === 'number' ? (
+                  <Pill tone="info">{m.distance_km.toFixed(1)} km</Pill>
+                ) : null}
+              </View>
+              <Text style={styles.meta}>
+                {[m.cidade, m.estado].filter(Boolean).join(' · ')}
+                {m.endereco ? `\n${m.endereco}` : ''}
+              </Text>
+              {typeof m.avaliacao_media === 'number' ? (
+                <Text style={styles.meta}>
+                  ★ {m.avaliacao_media.toFixed(1)}
+                  {typeof m.total_avaliacoes === 'number' ? ` (${m.total_avaliacoes})` : ''}
+                </Text>
+              ) : null}
+              {Array.isArray(m.especialidades) && m.especialidades.length > 0 ? (
+                <View style={styles.tags}>
+                  {m.especialidades.slice(0, 4).map((s, i) => (
+                    <Pill key={i} tone="neutral">
+                      {s}
+                    </Pill>
+                  ))}
+                </View>
+              ) : null}
+              <View style={styles.actions}>
+                {m.telefone ? (
+                  <AppButton variant="secondary" onPress={() => Linking.openURL(`tel:${m.telefone}`)}>
+                    Ligar
+                  </AppButton>
+                ) : null}
+                {m.website ? (
+                  <AppButton variant="ghost" onPress={() => Linking.openURL(m.website!)}>
+                    Site
+                  </AppButton>
+                ) : null}
+              </View>
+            </Card>
+          ))}
+          <AppButton variant="ghost" onPress={() => goTo('more')} fullWidth>
             Voltar
           </AppButton>
-        </View>
-      </View>
-      <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg, gap: Spacing.two },
+  container: { flex: 1, backgroundColor: Palette.bg },
+  header: { padding: Spacing.four, gap: Spacing.one },
+  title: { color: Palette.text, fontSize: 20, fontWeight: '800' },
+  subtitle: { color: Palette.textMuted, fontSize: 13 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   loadingText: { color: Palette.textMuted, fontSize: 14 },
-  legend: { position: 'absolute', bottom: Spacing.four, left: Spacing.four, right: Spacing.four, gap: Spacing.two },
-  actions: { flexDirection: 'row', gap: Spacing.two },
-  error: { color: Palette.red, fontSize: 13 },
-  dotBlue: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Palette.primary,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  dotRed: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Palette.red,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  attribution: {
-    position: 'absolute',
-    bottom: 2,
-    right: Spacing.two,
-    color: Palette.textMuted,
-    fontSize: 10,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    paddingHorizontal: 4,
-    borderRadius: 4,
-  },
+  list: { padding: Spacing.four, gap: Spacing.three },
+  item: { gap: Spacing.two },
+  itemHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.two },
+  name: { color: Palette.text, fontSize: 16, fontWeight: '800', flex: 1 },
+  meta: { color: Palette.textMuted, fontSize: 13, lineHeight: 18 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  actions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.one },
+  error: { color: Palette.red, fontSize: 13, marginBottom: Spacing.two },
 });

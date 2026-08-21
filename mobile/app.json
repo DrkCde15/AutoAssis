@@ -32,7 +32,6 @@
     "plugins": [
       "expo-secure-store",
       "expo-router",
-      "@maplibre/maplibre-react-native",
       [
         "expo-splash-screen",
         {
@@ -49,7 +48,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "36954a3a-cc65-4977-9d66-f1ff10cffb34"
+      }
     }
   }
 }
