@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
+import MapView, { Marker, UrlTile, type Region } from 'react-native-maps';
 import { AppButton, EmptyState, Pill } from '@/components/primitives';
 import { Palette, Spacing } from '@/constants/theme';
 import { ApiError, apiRequest } from '@/lib/api';
 import * as Location from 'expo-location';
-import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
 import type { AppTab } from './AppShell';
 
 type MechMarker = {
@@ -121,10 +120,11 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        provider={GOOGLE_MAPS_API_KEY ? PROVIDER_GOOGLE : undefined}
+        mapType="none"
         region={region}
         onRegionChangeComplete={setRegion}
         showsUserLocation>
+        <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
         {mechanics.map((m) => (
           <Marker
             key={`m-${m.id}`}
@@ -155,6 +155,7 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
           Voltar
         </AppButton>
       </View>
+      <Text style={styles.attribution}>Map data © OpenStreetMap contributors</Text>
     </View>
   );
 }
@@ -166,4 +167,14 @@ const styles = StyleSheet.create({
   loadingText: { color: Palette.textMuted, fontSize: 14 },
   legend: { position: 'absolute', bottom: Spacing.four, left: Spacing.four, right: Spacing.four, gap: Spacing.two },
   error: { color: Palette.red, fontSize: 13 },
+  attribution: {
+    position: 'absolute',
+    bottom: 2,
+    right: Spacing.two,
+    color: Palette.textMuted,
+    fontSize: 10,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    paddingHorizontal: 4,
+    borderRadius: 4,
+  },
 });

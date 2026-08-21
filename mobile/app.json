@@ -10,9 +10,6 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.autoassist.mobile",
-      "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-      },
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "O AutoAssist usa sua galeria para analisar fotos do veiculo.",
         "NSLocationWhenInUseUsageDescription": "O AutoAssist usa sua localizacao para encontrar oficinas e eventos proximos."
@@ -20,11 +17,6 @@
     },
     "android": {
       "package": "com.autoassist.mobile",
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-        }
-      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
