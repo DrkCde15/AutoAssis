@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Field } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { formatKm } from '@/lib/format';
 import type { Vehicle } from '@/lib/types';
 import { useAuth } from '@/context/auth';
@@ -166,6 +166,7 @@ const styles = StyleSheet.create({
   title: {
     color: Palette.text,
     fontSize: 20,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   muted: {
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
     color: Palette.primary,
     fontWeight: '900',
     fontSize: 18,
+    fontFamily: Fonts.sans,
   },
   vehicleCard: {
     flexDirection: 'row',
@@ -204,6 +206,7 @@ const styles = StyleSheet.create({
   vehicleName: {
     color: Palette.text,
     fontSize: 17,
+    fontFamily: Fonts.sans,
     fontWeight: '900',
   },
 });

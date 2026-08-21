@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import { AppButton, Card, Field } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api';
 import { API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/context/auth';
@@ -184,16 +184,19 @@ const styles = StyleSheet.create({
   markText: {
     color: Palette.white,
     fontSize: 28,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   brandName: {
     color: Palette.text,
     fontSize: 27,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   brandSub: {
     color: Palette.textMuted,
     fontSize: 14,
+    fontFamily: Fonts.serif,
     marginTop: 2,
   },
   card: {
@@ -202,6 +205,7 @@ const styles = StyleSheet.create({
   title: {
     color: Palette.text,
     fontSize: 24,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   subtitle: {
@@ -219,6 +223,7 @@ const styles = StyleSheet.create({
   apiText: {
     color: Palette.textMuted,
     fontSize: 12,
+    fontFamily: Fonts.sans,
     textAlign: 'center',
   },
 });

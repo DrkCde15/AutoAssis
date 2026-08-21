@@ -184,9 +184,6 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
                   <Text style={styles.linkText}>Ligar</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={() => goTo('map')} style={styles.link}>
-                <Text style={styles.linkText}>Ver no mapa</Text>
-              </Pressable>
             </View>
           </Card>
         ))

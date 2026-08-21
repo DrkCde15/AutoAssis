@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { AppButton, Card, EmptyState } from '@/components/primitives';
-import { Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Radius, Spacing, Fonts } from '@/constants/theme';
 import { stripMarkdown } from '@/lib/format';
 import type { ChatRecord, LinkItem, VideoItem } from '@/lib/types';
 import { useAuth } from '@/context/auth';
@@ -220,6 +220,7 @@ const styles = StyleSheet.create({
   title: {
     color: Palette.text,
     fontSize: 20,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   muted: {
@@ -322,6 +323,7 @@ const styles = StyleSheet.create({
   iconButtonText: {
     color: Palette.text,
     fontSize: 24,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   input: {
@@ -336,5 +338,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 12,
     fontSize: 15,
+    fontFamily: Fonts.sans,
   },
 });

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { formatDate } from '@/lib/format';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
   title: {
     color: Palette.text,
     fontSize: 22,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   input: {
@@ -172,10 +173,12 @@ const styles = StyleSheet.create({
     color: Palette.text,
     paddingHorizontal: Spacing.three,
     fontSize: 15,
+    fontFamily: Fonts.sans,
   },
   label: {
     color: Palette.text,
     fontSize: 13,
+    fontFamily: Fonts.sans,
     fontWeight: '700',
   },
   chips: {
@@ -199,6 +202,7 @@ const styles = StyleSheet.create({
     color: Palette.text,
     fontWeight: '700',
     fontSize: 12,
+    fontFamily: Fonts.sans,
   },
   chipTextActive: {
     color: Palette.white,
@@ -215,6 +219,7 @@ const styles = StyleSheet.create({
   eventTitle: {
     color: Palette.text,
     fontSize: 17,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
     flex: 1,
   },
@@ -225,6 +230,7 @@ const styles = StyleSheet.create({
   source: {
     color: Palette.textMuted,
     fontSize: 12,
+    fontFamily: Fonts.sans,
   },
   error: {
     color: Palette.red,

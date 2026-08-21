@@ -1,6 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { AppShell } from '@/screens/AppShell';
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -41,6 +41,7 @@ const styles = StyleSheet.create({
   markText: {
     color: Palette.white,
     fontSize: 34,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
 });

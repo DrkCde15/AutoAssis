@@ -11,7 +11,7 @@ import {
   ViewProps,
 } from 'react-native';
 
-import { Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 
 type ButtonProps = PressableProps & {
   title?: string;
@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderWidth: 1,
+    fontFamily: Fonts.sans,
   },
   fullWidth: {
     width: '100%',
@@ -127,28 +128,31 @@ const styles = StyleSheet.create({
   button_primary: {
     backgroundColor: Palette.primary,
     borderColor: Palette.primary,
+    ...Shadow.md,
   },
   button_secondary: {
     backgroundColor: Palette.surfaceStrong,
-    borderColor: Palette.surfaceStrong,
+    borderColor: Palette.borderStrong,
   },
   button_ghost: {
-    backgroundColor: Palette.surface,
+    backgroundColor: 'transparent',
     borderColor: Palette.border,
   },
   button_danger: {
     backgroundColor: Palette.red,
     borderColor: Palette.red,
+    ...Shadow.md,
   },
   buttonText: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: Fonts.sans,
   },
   buttonText_primary: {
     color: Palette.white,
   },
   buttonText_secondary: {
-    color: Palette.white,
+    color: Palette.text,
   },
   buttonText_ghost: {
     color: Palette.text,
@@ -157,10 +161,11 @@ const styles = StyleSheet.create({
     color: Palette.white,
   },
   pressed: {
-    opacity: 0.82,
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   disabled: {
-    opacity: 0.55,
+    opacity: 0.5,
   },
   fieldWrap: {
     gap: Spacing.one,
@@ -169,23 +174,26 @@ const styles = StyleSheet.create({
     color: Palette.text,
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: Fonts.sans,
   },
   input: {
     minHeight: 48,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Palette.border,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.surfaceStrong,
     color: Palette.text,
     paddingHorizontal: Spacing.three,
     fontSize: 16,
+    fontFamily: Fonts.sans,
   },
   card: {
     backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     padding: Spacing.three,
+    ...Shadow.md,
   },
   pill: {
     alignSelf: 'flex-start',
@@ -195,43 +203,44 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pill_neutral: {
-    backgroundColor: Palette.bgAlt,
-    borderColor: Palette.border,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   pill_good: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#86EFAC',
+    backgroundColor: 'rgba(34,197,94,0.14)',
+    borderColor: 'rgba(34,197,94,0.35)',
   },
   pill_warn: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FCD34D',
+    backgroundColor: 'rgba(245,158,11,0.14)',
+    borderColor: 'rgba(245,158,11,0.35)',
   },
   pill_danger: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FCA5A5',
+    backgroundColor: 'rgba(239,68,68,0.14)',
+    borderColor: 'rgba(239,68,68,0.35)',
   },
   pill_info: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#93C5FD',
+    backgroundColor: 'rgba(59,130,246,0.14)',
+    borderColor: 'rgba(59,130,246,0.35)',
   },
   pillText: {
     fontSize: 12,
     fontWeight: '800',
+    fontFamily: Fonts.sans,
   },
   pillText_neutral: {
-    color: Palette.textMuted,
+    color: 'rgba(250,250,250,0.62)',
   },
   pillText_good: {
-    color: Palette.green,
+    color: '#86EFAC',
   },
   pillText_warn: {
-    color: Palette.amber,
+    color: '#FCD34D',
   },
   pillText_danger: {
-    color: Palette.red,
+    color: '#FCA5A5',
   },
   pillText_info: {
-    color: Palette.blue,
+    color: '#93C5FD',
   },
   empty: {
     alignItems: 'center',
@@ -242,10 +251,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 16,
     textAlign: 'center',
+    fontFamily: Fonts.sans,
   },
   emptyBody: {
     color: Palette.textMuted,
     textAlign: 'center',
     lineHeight: 20,
+    fontFamily: Fonts.sans,
   },
 });

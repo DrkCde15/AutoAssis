@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import type { LinkItem, VideoItem } from '@/lib/types';
@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
   title: {
     color: Palette.text,
     fontSize: 22,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   muted: {
@@ -158,11 +159,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: Palette.text,
     fontSize: 18,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   date: {
     color: Palette.textMuted,
     fontSize: 12,
+    fontFamily: Fonts.sans,
   },
   item: {
     gap: Spacing.one,
@@ -177,6 +180,7 @@ const styles = StyleSheet.create({
   itemMeta: {
     color: Palette.textMuted,
     fontSize: 12,
+    fontFamily: Fonts.sans,
   },
   error: {
     color: Palette.red,

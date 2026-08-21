@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { formatDate, formatKm } from '@/lib/format';
 import type { MaintenanceAlert, Vehicle } from '@/lib/types';
 import type { AppTab } from '@/screens/AppShell';
@@ -156,12 +156,14 @@ const styles = StyleSheet.create({
   kicker: {
     color: Palette.primary,
     fontSize: 12,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
     textTransform: 'uppercase',
   },
   title: {
     color: Palette.text,
     fontSize: 26,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   subtitle: {
@@ -179,6 +181,7 @@ const styles = StyleSheet.create({
   statValue: {
     color: Palette.text,
     fontSize: 28,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   statLabel: {
@@ -197,6 +200,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: Palette.text,
     fontSize: 18,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   vehicleLine: {
@@ -205,6 +209,7 @@ const styles = StyleSheet.create({
   vehicleName: {
     color: Palette.text,
     fontSize: 18,
+    fontFamily: Fonts.sans,
     fontWeight: '800',
   },
   muted: {

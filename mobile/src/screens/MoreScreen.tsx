@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
 
@@ -13,7 +13,6 @@ const ITEMS: { key: AppTab; label: string; desc: string }[] = [
   { key: 'events', label: 'Eventos', desc: 'Feiras, encontros e competições automotivas' },
   { key: 'plans', label: 'Planos & Indicação', desc: 'Assine o Premium e indique amigos' },
   { key: 'mechanics', label: 'Mecânicos', desc: 'Oficinas próximas à sua localização' },
-  { key: 'map', label: 'Mecânicos perto', desc: 'Oficinas próximas em cards' },
   { key: 'dashboard', label: 'Painel', desc: 'Saúde e histórico dos seus veículos' },
   { key: 'notifications', label: 'Notificações', desc: 'Alertas e avisos do AutoAssist' },
   { key: 'feedback', label: 'Feedback', desc: 'Avalie e ajude a melhorar o app' },
@@ -51,6 +50,7 @@ const styles = StyleSheet.create({
   heading: {
     color: Palette.text,
     fontSize: 20,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
     paddingBottom: Spacing.one,
   },
@@ -71,16 +71,19 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: Palette.text,
     fontSize: 17,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   cardDesc: {
     color: Palette.textMuted,
     fontSize: 13,
+    fontFamily: Fonts.sans,
     lineHeight: 18,
   },
   chevron: {
     color: Palette.textMuted,
     fontSize: 24,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
 });

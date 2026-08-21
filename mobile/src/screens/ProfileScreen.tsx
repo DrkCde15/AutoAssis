@@ -1,7 +1,7 @@
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton, Card, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { API_BASE_URL, LOCAL_API_HINT } from '@/lib/config';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
@@ -93,11 +93,13 @@ const styles = StyleSheet.create({
   avatarText: {
     color: Palette.white,
     fontSize: 32,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   name: {
     color: Palette.text,
     fontSize: 22,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
     textAlign: 'center',
   },
@@ -110,6 +112,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: Palette.text,
     fontSize: 18,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   infoRow: {
@@ -122,6 +125,7 @@ const styles = StyleSheet.create({
     color: Palette.textMuted,
     fontWeight: '800',
     fontSize: 12,
+    fontFamily: Fonts.sans,
     textTransform: 'uppercase',
   },
   infoValue: {

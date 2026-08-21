@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Palette, Spacing } from '@/constants/theme';
+import { Fonts, Glass, Palette, Shadow, Spacing } from '@/constants/theme';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { DashboardScreen } from '@/screens/DashboardScreen';
 import { EventsScreen } from '@/screens/EventsScreen';
 import { FeedbackScreen } from '@/screens/FeedbackScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { MaintenanceScreen } from '@/screens/MaintenanceScreen';
-import { MapScreen } from '@/screens/MapScreen';
 import { MechanicsScreen } from '@/screens/MechanicsScreen';
 import { MoreScreen } from '@/screens/MoreScreen';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
@@ -34,16 +34,15 @@ export type AppTab =
   | 'settings'
   | 'feedback'
   | 'dashboard'
-  | 'mechanics'
-  | 'map';
+  | 'mechanics';
 
-const tabs: { key: AppTab; label: string; symbol: string }[] = [
-  { key: 'home', label: 'Inicio', symbol: '⌂' },
-  { key: 'chat', label: 'Chat', symbol: '◌' },
-  { key: 'vehicles', label: 'Veiculos', symbol: '◇' },
-  { key: 'maintenance', label: 'Notas', symbol: '□' },
-  { key: 'profile', label: 'Perfil', symbol: '◎' },
-  { key: 'more', label: 'Mais', symbol: '☰' },
+const tabs: { key: AppTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'home', label: 'Inicio', icon: 'home-outline' },
+  { key: 'chat', label: 'Chat', icon: 'chatbubble-outline' },
+  { key: 'vehicles', label: 'Veiculos', icon: 'car-outline' },
+  { key: 'maintenance', label: 'Notas', icon: 'construct-outline' },
+  { key: 'profile', label: 'Perfil', icon: 'person-outline' },
+  { key: 'more', label: 'Mais', icon: 'ellipsis-horizontal' },
 ];
 
 export function AppShell() {
@@ -78,8 +77,6 @@ export function AppShell() {
         return <DashboardScreen goTo={setTab} />;
       case 'mechanics':
         return <MechanicsScreen goTo={setTab} />;
-      case 'map':
-        return <MapScreen goTo={setTab} />;
       default:
         return <HomeScreen goTo={setTab} />;
     }
@@ -115,14 +112,17 @@ export function AppShell() {
                 'feedback',
                 'dashboard',
                 'mechanics',
-                'map',
               ].includes(tab));
           return (
             <Pressable
               key={item.key}
               onPress={() => setTab(item.key)}
               style={[styles.tabButton, active ? styles.tabButtonActive : null]}>
-              <Text style={[styles.tabSymbol, active ? styles.tabTextActive : null]}>{item.symbol}</Text>
+              <Ionicons
+                name={item.icon}
+                size={22}
+                color={active ? Palette.primary : Palette.textMuted}
+              />
               <Text style={[styles.tabLabel, active ? styles.tabTextActive : null]}>{item.label}</Text>
             </Pressable>
           );
@@ -143,7 +143,8 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
     borderBottomWidth: 1,
     borderBottomColor: Palette.border,
-    backgroundColor: Palette.surface,
+    backgroundColor: Glass.header,
+    ...Shadow.sm,
   },
   brandRow: {
     flexDirection: 'row',
@@ -154,24 +155,29 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: Palette.surfaceStrong,
+    backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Shadow.md,
   },
   markText: {
     color: Palette.white,
     fontWeight: '900',
     fontSize: 20,
+    fontFamily: Fonts.serif,
   },
   brandName: {
     color: Palette.text,
     fontSize: 18,
     fontWeight: '900',
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.2,
   },
   userLine: {
     color: Palette.textMuted,
     fontSize: 12,
     marginTop: 1,
+    fontFamily: Fonts.sans,
   },
   screen: {
     flex: 1,
@@ -184,7 +190,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
     borderTopWidth: 1,
     borderTopColor: Palette.border,
-    backgroundColor: Palette.surface,
+    backgroundColor: Glass.tabBar,
   },
   tabButton: {
     flex: 1,
@@ -197,15 +203,11 @@ const styles = StyleSheet.create({
   tabButtonActive: {
     backgroundColor: Palette.bgAlt,
   },
-  tabSymbol: {
-    color: Palette.textMuted,
-    fontSize: 16,
-    fontWeight: '900',
-  },
   tabLabel: {
     color: Palette.textMuted,
     fontSize: 11,
     fontWeight: '800',
+    fontFamily: Fonts.sans,
   },
   tabTextActive: {
     color: Palette.primary,

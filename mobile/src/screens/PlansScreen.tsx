@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Clipboard, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 import { AppButton, Card, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
 
@@ -104,11 +105,13 @@ const styles = StyleSheet.create({
   title: {
     color: Palette.text,
     fontSize: 22,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   price: {
     color: Palette.primary,
     fontSize: 20,
+    fontFamily: Fonts.sans,
     fontWeight: '900',
   },
   muted: {
@@ -121,12 +124,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: Palette.text,
     fontSize: 18,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   code: {
     color: Palette.text,
     fontWeight: '900',
     fontSize: 16,
+    fontFamily: Fonts.sans,
     letterSpacing: 1,
   },
   refActions: {

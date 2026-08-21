@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Fonts } from '@/constants/theme';
 import { ApiError } from '@/lib/api';
 import { formatCurrency, formatDate, formatKm } from '@/lib/format';
 import type { MaintenanceAlert, MaintenanceRecord, MaintenanceSummary } from '@/lib/types';
@@ -213,6 +213,7 @@ const styles = StyleSheet.create({
   title: {
     color: Palette.text,
     fontSize: 22,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   muted: {
@@ -245,6 +246,7 @@ const styles = StyleSheet.create({
   statValue: {
     color: Palette.text,
     fontSize: 22,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   statLabel: {
@@ -257,6 +259,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: Palette.text,
     fontSize: 18,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   row: {
@@ -265,6 +268,7 @@ const styles = StyleSheet.create({
   itemTitle: {
     color: Palette.text,
     fontSize: 16,
+    fontFamily: Fonts.serif,
     fontWeight: '900',
   },
   listHeader: {

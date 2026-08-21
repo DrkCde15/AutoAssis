@@ -3,21 +3,21 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Palette = {
-  bg: '#F7F8FA',
-  bgAlt: '#EEF2F6',
-  surface: '#FFFFFF',
-  surfaceStrong: '#172033',
-  border: '#DCE3EA',
-  borderStrong: '#A9B6C3',
-  text: '#182230',
-  textMuted: '#64748B',
-  textSoft: '#94A3B8',
-  primary: '#0F766E',
-  primaryDark: '#115E59',
-  blue: '#2563EB',
-  amber: '#B45309',
-  red: '#DC2626',
-  green: '#15803D',
+  bg: '#09090B',
+  bgAlt: '#18181B',
+  surface: '#1C1C1F',
+  surfaceStrong: '#1F1F25',
+  border: '#27272A',
+  borderStrong: '#3F3F46',
+  text: '#FAFAFA',
+  textMuted: '#A1A1AA',
+  textSoft: '#71717A',
+  primary: '#3B82F6',
+  primaryDark: '#2563EB',
+  blue: '#3B82F6',
+  amber: '#F59E0B',
+  red: '#EF4444',
+  green: '#22C55E',
   white: '#FFFFFF',
 } as const;
 
@@ -30,11 +30,11 @@ export const Colors = {
     textSecondary: Palette.textMuted,
   },
   dark: {
-    text: Palette.white,
-    background: '#0B111C',
-    backgroundElement: '#141D2B',
-    backgroundSelected: '#223044',
-    textSecondary: '#B7C2D0',
+    text: Palette.text,
+    background: Palette.bg,
+    backgroundElement: Palette.surface,
+    backgroundSelected: Palette.bgAlt,
+    textSecondary: Palette.textMuted,
   },
 } as const;
 
@@ -42,19 +42,15 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+    sans: 'Outfit',
+    serif: 'Fraunces',
+    rounded: 'Outfit',
+    mono: 'monospace',
   },
   default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
+    sans: 'Outfit',
+    serif: 'Fraunces',
+    rounded: 'Outfit',
     mono: 'monospace',
   },
   web: {
@@ -78,7 +74,36 @@ export const Spacing = {
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
 export const Radius = {
-  sm: 6,
-  md: 8,
-  lg: 12,
+  sm: 8,
+  md: 12,
+  lg: 16,
+} as const;
+
+export const Glass = {
+  header: 'rgba(9, 9, 11, 0.82)',
+  tabBar: 'rgba(9, 9, 11, 0.9)',
+} as const;
+
+export const Shadow = {
+  sm: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  md: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  lg: {
+    shadowColor: '#3B82F6',
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 14,
+  },
 } as const;
