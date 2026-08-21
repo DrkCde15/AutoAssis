@@ -4,12 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Palette, Spacing } from '@/constants/theme';
 import { ChatScreen } from '@/screens/ChatScreen';
+import { DashboardScreen } from '@/screens/DashboardScreen';
 import { EventsScreen } from '@/screens/EventsScreen';
+import { FeedbackScreen } from '@/screens/FeedbackScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { MaintenanceScreen } from '@/screens/MaintenanceScreen';
+import { MapScreen } from '@/screens/MapScreen';
+import { MechanicsScreen } from '@/screens/MechanicsScreen';
 import { MoreScreen } from '@/screens/MoreScreen';
+import { NotificationsScreen } from '@/screens/NotificationsScreen';
 import { PlansScreen } from '@/screens/PlansScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
 import { VehiclesScreen } from '@/screens/VehiclesScreen';
 import { VideosScreen } from '@/screens/VideosScreen';
 import { useAuth } from '@/context/auth';
@@ -23,7 +29,13 @@ export type AppTab =
   | 'more'
   | 'videos'
   | 'events'
-  | 'plans';
+  | 'plans'
+  | 'notifications'
+  | 'settings'
+  | 'feedback'
+  | 'dashboard'
+  | 'mechanics'
+  | 'map';
 
 const tabs: { key: AppTab; label: string; symbol: string }[] = [
   { key: 'home', label: 'Inicio', symbol: '⌂' },
@@ -56,6 +68,18 @@ export function AppShell() {
         return <EventsScreen goTo={setTab} />;
       case 'plans':
         return <PlansScreen goTo={setTab} />;
+      case 'notifications':
+        return <NotificationsScreen goTo={setTab} />;
+      case 'settings':
+        return <SettingsScreen goTo={setTab} />;
+      case 'feedback':
+        return <FeedbackScreen goTo={setTab} />;
+      case 'dashboard':
+        return <DashboardScreen goTo={setTab} />;
+      case 'mechanics':
+        return <MechanicsScreen goTo={setTab} />;
+      case 'map':
+        return <MapScreen goTo={setTab} />;
       default:
         return <HomeScreen goTo={setTab} />;
     }
@@ -81,7 +105,18 @@ export function AppShell() {
         {tabs.map((item) => {
           const active =
             item.key === tab ||
-            (item.key === 'more' && ['videos', 'events', 'plans'].includes(tab));
+            (item.key === 'more' &&
+              [
+                'videos',
+                'events',
+                'plans',
+                'notifications',
+                'settings',
+                'feedback',
+                'dashboard',
+                'mechanics',
+                'map',
+              ].includes(tab));
           return (
             <Pressable
               key={item.key}

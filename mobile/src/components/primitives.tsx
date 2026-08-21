@@ -1,4 +1,4 @@
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,12 +14,22 @@ import {
 import { Palette, Radius, Spacing } from '@/constants/theme';
 
 type ButtonProps = PressableProps & {
-  title: string;
+  title?: string;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   loading?: boolean;
+  fullWidth?: boolean;
 };
 
-export function AppButton({ title, variant = 'primary', loading, disabled, style, ...props }: ButtonProps) {
+export function AppButton({
+  title,
+  variant = 'primary',
+  loading,
+  disabled,
+  style,
+  fullWidth,
+  children,
+  ...props
+}: ButtonProps) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
@@ -30,10 +40,11 @@ export function AppButton({ title, variant = 'primary', loading, disabled, style
         styles[`button_${variant}`],
         state.pressed && !isDisabled ? styles.pressed : null,
         isDisabled ? styles.disabled : null,
+        fullWidth ? styles.fullWidth : null,
         typeof style === 'function' ? style(state) : style,
       ]}>
       {loading ? <ActivityIndicator color={variant === 'ghost' ? Palette.primary : Palette.white} /> : null}
-      <Text style={[styles.buttonText, styles[`buttonText_${variant}`]]}>{title}</Text>
+      <Text style={[styles.buttonText, styles[`buttonText_${variant}`]]}>{title ?? (children as ReactNode)}</Text>
     </Pressable>
   );
 }
@@ -64,23 +75,37 @@ export function Card({ children, style, ...props }: PropsWithChildren<ViewProps>
 }
 
 type PillProps = {
-  label: string;
+  label?: string;
   tone?: 'neutral' | 'good' | 'warn' | 'danger' | 'info';
+  children?: ReactNode;
 };
 
-export function Pill({ label, tone = 'neutral' }: PillProps) {
+export function Pill({ label, tone = 'neutral', children }: PillProps) {
   return (
     <View style={[styles.pill, styles[`pill_${tone}`]]}>
-      <Text style={[styles.pillText, styles[`pillText_${tone}`]]}>{label}</Text>
+      <Text style={[styles.pillText, styles[`pillText_${tone}`]]}>{label ?? children}</Text>
     </View>
   );
 }
 
-export function EmptyState({ title, body }: { title: string; body?: string }) {
+type EmptyStateProps = {
+  title: string;
+  body?: string;
+  message?: string;
+  action?: { label: string; onPress: () => void };
+};
+
+export function EmptyState({ title, body, message, action }: EmptyStateProps) {
+  const detail = body ?? message;
   return (
     <Card style={styles.empty}>
       <Text style={styles.emptyTitle}>{title}</Text>
-      {body ? <Text style={styles.emptyBody}>{body}</Text> : null}
+      {detail ? <Text style={styles.emptyBody}>{detail}</Text> : null}
+      {action ? (
+        <AppButton variant="secondary" onPress={action.onPress}>
+          {action.label}
+        </AppButton>
+      ) : null}
     </Card>
   );
 }
@@ -95,6 +120,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderWidth: 1,
+  },
+  fullWidth: {
+    width: '100%',
   },
   button_primary: {
     backgroundColor: Palette.primary,

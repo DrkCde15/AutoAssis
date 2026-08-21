@@ -19,3 +19,5 @@ export const LOCAL_API_HINT = Platform.select({
 });
 
 export const MOBILE_CLIENT_TOKEN = process.env.EXPO_PUBLIC_MOBILE_CLIENT_TOKEN || '';
+
+export const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
