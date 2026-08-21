@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, UrlTile, type Region } from 'react-native-maps';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Linking, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
+import {
+  Camera,
+  Map as MapLibreMap,
+  Marker,
+  UserLocation,
+  type CameraRef,
+  type MapRef,
+  type StyleSpecification,
+  type ViewStateChangeEvent,
+} from '@maplibre/maplibre-react-native';
 import { AppButton, EmptyState, Pill } from '@/components/primitives';
 import { Palette, Spacing } from '@/constants/theme';
 import { ApiError, apiRequest } from '@/lib/api';
@@ -29,44 +38,32 @@ type EventMarker = {
 type MechanicsResponse = { success: boolean; mechanics: MechMarker[] };
 type EventsResponse = { success: boolean; events: EventMarker[] };
 
-const DEFAULT_REGION: Region = {
-  latitude: -15.793889,
-  longitude: -47.882778,
-  latitudeDelta: 0.5,
-  longitudeDelta: 0.5,
+const OSM_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
+const BRAZIL_CENTER: [number, number] = [-47.882778, -15.793889];
+
 export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
-  const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const [mechanics, setMechanics] = useState<MechMarker[]>([]);
   const [events, setEvents] = useState<EventMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setLocError('Permissao de localizacao negada.');
-          setLoading(false);
-          return;
-        }
-        const pos = await Location.getCurrentPositionAsync({});
-        setRegion({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
-        await loadAround(pos.coords.latitude, pos.coords.longitude);
-      } catch {
-        setError('Nao foi possivel carregar o mapa.');
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const cameraRef = useRef<CameraRef>(null);
+  const mapRef = useRef<MapRef>(null);
+  const regionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadAround = useCallback(async (lat: number, lng: number) => {
     setLoading(true);
@@ -97,6 +94,50 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     }
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          if (!cancelled) setLocError('Permissao de localizacao negada.');
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({});
+        const center: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+        if (!cancelled) {
+          setUserLocation(center);
+          cameraRef.current?.flyTo({ center, zoom: 12, duration: 800 });
+          await loadAround(pos.coords.latitude, pos.coords.longitude);
+        }
+      } catch {
+        if (!cancelled) {
+          setError('Nao foi possivel obter sua localizacao.');
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (regionTimeout.current) clearTimeout(regionTimeout.current);
+    };
+  }, [loadAround]);
+
+  const handleRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+    const center = event.nativeEvent.center;
+    if (!center || center.length < 2) return;
+    if (regionTimeout.current) clearTimeout(regionTimeout.current);
+    regionTimeout.current = setTimeout(() => {
+      loadAround(center[1], center[0]);
+    }, 600);
+  };
+
+  const centerOnUser = () => {
+    if (!userLocation) return;
+    cameraRef.current?.flyTo({ center: userLocation, zoom: 12, duration: 800 });
+    loadAround(userLocation[1], userLocation[0]);
+  };
+
   if (locError) {
     return (
       <EmptyState
@@ -118,44 +159,47 @@ export function MapScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
 
   return (
     <View style={styles.container}>
-      <MapView
+      <MapLibreMap
+        ref={mapRef}
+        mapStyle={OSM_STYLE}
         style={styles.map}
-        mapType="none"
-        region={region}
-        onRegionChangeComplete={setRegion}
-        showsUserLocation>
-        <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
+        onRegionDidChange={handleRegionDidChange}>
+        <Camera ref={cameraRef} initialViewState={{ center: BRAZIL_CENTER, zoom: 3 }} />
+        <UserLocation />
         {mechanics.map((m) => (
           <Marker
             key={`m-${m.id}`}
-            coordinate={{ latitude: m.latitude, longitude: m.longitude }}
-            title={m.nome}
-            description={typeof m.distance_km === 'number' ? `${m.distance_km.toFixed(1)} km` : undefined}
-            pinColor="#208AEF"
-            onCalloutPress={() => m.telefone && Linking.openURL(`tel:${m.telefone}`)}
-          />
+            id={`m-${m.id}`}
+            lngLat={[Number(m.longitude), Number(m.latitude)]}
+            onPress={() => m.telefone && Linking.openURL(`tel:${m.telefone}`)}>
+            <View style={styles.dotBlue} />
+          </Marker>
         ))}
         {events.map((e) => (
           <Marker
             key={`e-${e.id}`}
-            coordinate={{ latitude: e.latitude as number, longitude: e.longitude as number }}
-            title={e.titulo}
-            description={[e.cidade, e.uf].filter(Boolean).join(' · ')}
-            pinColor="#E5484D"
-            onCalloutPress={() => e.event_url && Linking.openURL(e.event_url)}
-          />
+            id={`e-${e.id}`}
+            lngLat={[Number(e.longitude), Number(e.latitude)]}
+            onPress={() => e.event_url && Linking.openURL(e.event_url)}>
+            <View style={styles.dotRed} />
+          </Marker>
         ))}
-      </MapView>
+      </MapLibreMap>
 
       <View style={styles.legend}>
         <Pill tone="info">Azul: Mecanicos</Pill>
         <Pill tone="danger">Vermelho: Eventos</Pill>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <AppButton variant="ghost" onPress={() => goTo('more')}>
-          Voltar
-        </AppButton>
+        <View style={styles.actions}>
+          <AppButton variant="secondary" onPress={centerOnUser}>
+            Centralizar
+          </AppButton>
+          <AppButton variant="ghost" onPress={() => goTo('more')}>
+            Voltar
+          </AppButton>
+        </View>
       </View>
-      <Text style={styles.attribution}>Map data © OpenStreetMap contributors</Text>
+      <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
     </View>
   );
 }
@@ -166,7 +210,24 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg, gap: Spacing.two },
   loadingText: { color: Palette.textMuted, fontSize: 14 },
   legend: { position: 'absolute', bottom: Spacing.four, left: Spacing.four, right: Spacing.four, gap: Spacing.two },
+  actions: { flexDirection: 'row', gap: Spacing.two },
   error: { color: Palette.red, fontSize: 13 },
+  dotBlue: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Palette.primary,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  dotRed: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Palette.red,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
   attribution: {
     position: 'absolute',
     bottom: 2,
