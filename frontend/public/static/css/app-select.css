@@ -68,7 +68,7 @@
   right: 0;
   width: 100%;
   max-width: calc(100vw - 16px);
-  z-index: 60;
+  z-index: 1000;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;

@@ -50,6 +50,12 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+# [LOG] Silencia o log de acesso de requisições ("GET /api/... HTTP/1.1" 200 -)
+# do servidor de desenvolvimento (Werkzeug) e do gunicorn em produção.
+# Mantém warnings/erros e os logs próprios da aplicação (logger acima).
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+logging.getLogger('gunicorn.access').setLevel(logging.WARNING)
+
 print("Importando rotas...")
 from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db, config_bp
 from routes.mechanics import mechanics_bp
@@ -71,7 +77,7 @@ def get_dashboard_url() -> str:
         return request.host_url.rstrip('/') + '/'
     except Exception:
         # Fora de request context (ex.: chamadas internas)
-        fallback = os.getenv("URL_PROD") or "http://localhost:5000/"
+        fallback = os.getenv("URL_PROD") or "http://localhost:5001/"
         return fallback.rstrip('/') + '/'
     # Return base URL for the Flask backend (HTML UI)
     return request.host_url.rstrip('/') + '/'
@@ -152,10 +158,10 @@ csp = {
         "https://api.cakto.com.br",
         "https://photon.komoot.io",
         "https://unpkg.com",
-        "http://localhost:5000",
-        "http://127.0.0.1:5000",
-        "ws://localhost:5000",
-        "ws://127.0.0.1:5000",
+        "http://localhost:5001",
+        "http://127.0.0.1:5001",
+        "ws://localhost:5001",
+        "ws://127.0.0.1:5001",
         "https://challenges.cloudflare.com",
     ] + ([_env_ws_origin()] if _env_ws_origin() else [])
 }
@@ -218,8 +224,8 @@ jwt = JWTManager(app)
 
 # [SEGURANCA] CORS
 base_allowed_origins = [
-    "http://localhost:5000",
-    "http://127.0.0.1:5000",
+    "http://localhost:5001",
+    "http://127.0.0.1:5001",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8501",
@@ -371,8 +377,8 @@ SWAGGER_SPEC = {
         "description": "API do AutoAssist - Ecossistema automotivo com IA. Consulte os endpoints para chat, manutenção preditiva, FIPE, pagamentos e mais.",
     },
     "servers": [
-        {"url": _env_frontend_origin() or "http://localhost:5000", "description": "Producao"},
-        {"url": "http://localhost:5000", "description": "Desenvolvimento"},
+        {"url": _env_frontend_origin() or "http://localhost:5001", "description": "Producao"},
+        {"url": "http://localhost:5001", "description": "Desenvolvimento"},
     ],
     "components": {
         "securitySchemes": {
@@ -734,5 +740,5 @@ def cors_preflight(_):
 
 # Run Flask only (Streamlit removed)
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5001)
 

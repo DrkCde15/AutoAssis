@@ -6,16 +6,16 @@
  * Em desenvolvimento local:
  * - Se rodar em localhost:3000 (Next.js), usamos path relativo e o proxy
  *   (next.config.mjs) encaminha para o Flask.
- * - Se rodar em localhost:5000 (Flask servindo os HTMLs), tambem usamos path
+ * - Se rodar em localhost:5001 (Flask servindo os HTMLs), tambem usamos path
  *   relativo (mesma origem).
  * - Se rodar em outra porta local (ex.: Live Server 5500), apontamos
- *   diretamente para o Flask em http://localhost:5000.
+ *   diretamente para o Flask em http://localhost:5001.
  *
  * Em producao: aponta diretamente ao servidor Flask hospedado.
  */
 // eslint-disable-next-line no-unused-vars
 const CONFIG = (() => {
-  const FLASK_URL_DEV = "http://localhost:5000";
+  const FLASK_URL_DEV = "http://localhost:5001";
   const FLASK_URL_PROD = window.location.origin;
   const API_OVERRIDE_KEY = "autoassist_api_url_override";
 
@@ -26,7 +26,7 @@ const CONFIG = (() => {
     window.location.hostname.startsWith("10.") ||
     window.location.hostname.startsWith("172.");
   const isNextDev = isLocal && window.location.port === "3000";
-  const isFlaskSameOrigin = isLocal && window.location.port === "5000";
+  const isFlaskSameOrigin = isLocal && window.location.port === "5001";
 
   const query = new URLSearchParams(window.location.search);
   const isAllowedOverride = (value) => {

@@ -95,6 +95,8 @@
         gap: 12px;
         flex-wrap: wrap;
         margin-bottom: 20px;
+        position: relative;
+        z-index: 10;
       }
       .results-count {
         font-size: 14px;
@@ -131,7 +133,7 @@
 
       .events-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
         gap: 18px;
       }
       .event-card {
@@ -248,6 +250,10 @@
       @media (max-width: 760px) {
         .events-header { padding-top: 44px; }
         .events-grid { grid-template-columns: 1fr; }
+        .events-toolbar { gap: 10px; }
+        .events-tools { width: 100%; }
+        .events-tools .small-select { flex: 1 1 auto; width: auto; }
+        #btnEventsRefresh { flex: 0 0 auto; }
       }
     </style>
   </head>

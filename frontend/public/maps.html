@@ -555,23 +555,21 @@
             border-radius: var(--radius-lg);
             max-width: 600px;
             width: 100%;
-            max-height: 85vh;
-            overflow-y: auto;
+            max-height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             animation: slideUp 0.25s ease;
         }
-        
-        .modal-content::-webkit-scrollbar { width: 4px; }
-        
+
         .modal-header {
+            flex-shrink: 0;
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             padding: 24px 24px 16px;
             border-bottom: 1px solid var(--border-color);
-            position: sticky;
-            top: 0;
             background: var(--bg-secondary);
-            z-index: 1;
         }
         
         .modal-header-info {
@@ -611,7 +609,33 @@
         }
         
         .modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
             padding: 20px 24px 24px;
+        }
+
+        /* Scrollbar utilizável do corpo do modal */
+        .modal-body {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+        }
+        .modal-body::-webkit-scrollbar {
+            width: 10px;
+        }
+        .modal-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .modal-body::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.6);
+            border-radius: 999px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.85);
+            background-clip: content-box;
         }
         
         .detail-section {
@@ -950,9 +974,33 @@
         }
         .leaflet-popup-content {
             max-width: 280px;
+            max-height: 260px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
         }
         .leaflet-popup-content-wrapper {
             border-radius: 12px;
+        }
+        /* Scrollbar utilizável dentro do popup */
+        .leaflet-popup-content {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+        }
+        .leaflet-popup-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .leaflet-popup-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .leaflet-popup-content::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.6);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .leaflet-popup-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.85);
+            background-clip: content-box;
         }
         
 /* Results count */
@@ -990,6 +1038,10 @@
                 max-width: 100%;
                 max-height: 100vh;
                 border-radius: 0;
+            }
+
+            .modal-overlay {
+                padding: 0;
             }
             
             .hours-grid {
@@ -1275,7 +1327,9 @@ function switchTab(tab) {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: 19
             }).addTo(map);
-            
+
+            map.on('popupopen', onMechanicPopupOpen);
+
             setupMapResizeWatch();
             
             getUserLocation();
@@ -1555,7 +1609,33 @@ ${mechanic.telefone ? `
             }
         }
         
-        // Adicionar mecânicos ao mapa
+        // Mantém o scroll/clique/teclado DENTRO do popup, sem afetar o mapa
+        // (o Leaflet captura wheel/setas para zoom/pan por padrão).
+        function onMechanicPopupOpen(e) {
+            const popup = e.popup;
+            const el = popup.getElement();
+            if (!el) return;
+
+            L.DomEvent.disableScrollPropagation(el);
+            L.DomEvent.disableClickPropagation(el);
+
+            const content = el.querySelector('.leaflet-popup-content');
+            if (!content) return;
+
+            content.setAttribute('tabindex', '0');
+            content.focus({ preventScroll: true });
+
+            L.DomEvent.on(content, 'keydown', function (ev) {
+                const scrollKeys = [
+                    'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown',
+                    'Home', 'End', ' '
+                ];
+                if (scrollKeys.includes(ev.key)) {
+                    L.DomEvent.stopPropagation(ev);
+                }
+            });
+        }
+
         function addMechanicsToMap(mechanics) {
             markers.forEach(marker => map.removeLayer(marker));
             markers = [];
