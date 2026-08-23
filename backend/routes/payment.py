@@ -8,6 +8,7 @@ from services.cakto import CaktoService
 from .database import get_db
 from .push import send_push_notification
 from .b2b import activate_b2b_client
+from .analytics import record_analytics_event
 
 payment_bp = Blueprint("payment", __name__)
 logger = logging.getLogger(__name__)
@@ -115,6 +116,25 @@ def _set_premium_by_email(email: str, is_premium: bool) -> int:
             (email, target_state),
         )
         return 1 if cursor.fetchone() else 0
+
+
+def _emit_premium_transition(user_id, plan, became_premium, prior_premium):
+    """P0.3: emite premium_upgrade/churn apenas em mudança real de estado."""
+    if user_id is None or prior_premium is None:
+        return
+    if became_premium == prior_premium:
+        return
+    try:
+        evt = "premium_upgrade" if became_premium else "premium_churn"
+        record_analytics_event(
+            evt,
+            user_id=user_id,
+            anonymous_id=None,
+            path="/api/pay/webhook/cakto",
+            metadata={"plan": plan, "via": "cakto_webhook"},
+        )
+    except Exception as exc:
+        logger.warning("Falha ao emitir %s: %s", evt, exc)
 
 
 @payment_bp.route("/api/pay/preference", methods=["POST"])
@@ -280,10 +300,15 @@ def cakto_webhook():
 
     target_state = True if should_activate else False
     user_id = None
+    prior_premium = None
     api_amount = _normalize_decimal(data.get("amount"))
 
     if order:
         user_id = order["user_id"]
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_premium FROM users WHERE id = %s", (user_id,))
+            row = cursor.fetchone()
+            prior_premium = bool(row.get("is_premium")) if row else None
         new_status = "approved" if should_activate else "revoked"
         with get_db() as (cursor, conn):
             if api_amount is not None and should_activate:
@@ -314,13 +339,19 @@ def cakto_webhook():
         if not is_b2b:
             email = service.extract_customer_email(payload)
             if email:
+                with get_db() as (cursor, conn):
+                    cursor.execute("SELECT id, is_premium FROM users WHERE email = %s", (email,))
+                    row = cursor.fetchone()
+                if row:
+                    user_id = row["id"]
+                    prior_premium = bool(row.get("is_premium"))
                 updated = _set_premium_by_email(email, target_state)
-                if updated and target_state:
-                    with get_db() as (cursor, conn):
-                        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
-                        row = cursor.fetchone()
-                        if row:
-                            user_id = row["id"]
+
+    # P0.3: instrumenta transições de premium (upgrade/churn) somente em
+    # mudança real de estado (idempotente contra retries do webhook).
+    if updated and not is_b2b and prior_premium is not None and target_state != prior_premium:
+        plan_name = (order.get("plan") if order else None) or "completo"
+        _emit_premium_transition(user_id, plan_name, target_state, prior_premium)
 
     if updated == 0:
         logger.warning(

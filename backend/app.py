@@ -57,6 +57,7 @@ from routes.events import events_bp
 from routes.notifications import notifications_bp
 from routes.push import push_bp
 from routes.b2b import b2b_bp
+from routes.marketing import marketing_bp
 from routes.payment import cakto_webhook as cakto_webhook_handler
 print("Rotas importadas.")
 
@@ -491,6 +492,22 @@ SWAGGER_SPEC = {
                 "responses": {"200": {"description": "Evento registrado"}},
             }
         },
+        "/api/waitlist": {
+            "post": {
+                "summary": "Capturar lead não-logado (lista de espera / topo de funil)",
+                "tags": ["Marketing"],
+                "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WaitlistInput"}}}},
+                "responses": {"201": {"description": "Lead registrado"}, "400": {"description": "E-mail inválido"}},
+            }
+        },
+        "/api/admin/leads": {
+            "get": {
+                "summary": "Listar leads e métricas de conversão (admin)",
+                "tags": ["Marketing"],
+                "security": [{"bearerAuth": []}],
+                "responses": {"200": {"description": "Lista de leads"}, "403": {"description": "Acesso restrito"}},
+            }
+        },
         "/api/docs": {
             "get": {
                 "summary": "Documentacao OpenAPI/Swagger",
@@ -532,9 +549,23 @@ SWAGGER_SPEC = {
             "properties": {
                 "marca": {"type": "string"},
                 "modelo": {"type": "string"},
-                "ano_fabricacao": {"type": "integer"},
+                "ano_fabricacao": {"integer"},
                 "tipo": {"type": "string", "enum": ["carro", "moto", "caminhao"]},
-                "quilometragem": {"type": "integer"},
+                "quilometragem": {"integer"},
+            },
+        },
+        "WaitlistInput": {
+            "type": "object",
+            "required": ["email"],
+            "properties": {
+                "nome": {"type": "string", "example": "Ana Silva"},
+                "email": {"type": "string", "format": "email", "example": "ana@email.com"},
+                "lead_magnet": {"type": "string", "example": "waitlist"},
+                "utm_source": {"type": "string"},
+                "utm_medium": {"type": "string"},
+                "utm_campaign": {"type": "string"},
+                "initial_referrer": {"type": "string"},
+                "referred_by": {"type": "string", "example": "A1B2C3D4"},
             },
         },
     },
@@ -596,6 +627,7 @@ app.register_blueprint(push_bp)
 app.register_blueprint(mechanics_bp)
 app.register_blueprint(config_bp)
 app.register_blueprint(b2b_bp)
+app.register_blueprint(marketing_bp)
 
 # Gera VAPID keys se nao existirem
 if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):

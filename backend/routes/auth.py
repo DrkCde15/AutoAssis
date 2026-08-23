@@ -216,6 +216,37 @@ def _build_nudge_email_html(nome: str, day: int, frontend_base: str) -> str:
     """
 
 
+def _build_referral_invite_email_html(nome: str, day: int, frontend_base: str, referral_link: str) -> str:
+    first = ""
+    if nome:
+        first = nome.split()[0].capitalize()
+    title_suffix = f", {first}" if first else ""
+    if day == 3:
+        headline = "Já convidou um amigo pra cuidar do carro?"
+        body = (
+            "Quem indica o AutoAssist ganha <strong>1 mês de Premium grátis</strong> "
+            "quando o amigo assina. É só enviar o link abaixo — sem precisar cadastrar nada."
+        )
+        cta = "Indicar agora"
+    else:
+        headline = "Faltam poucos dias — indique e ganhe 1 mês Premium"
+        body = (
+            "Você ainda não usou seu convite. Mostre o AutoAssist pra um amigo que tem carro "
+            "e, quando ele assinar o Premium (R$ 19,90/mês), você ganha 1 mês grátis na hora."
+        )
+        cta = "Usar meu convite"
+    return f"""
+        <h2 style="margin-top:0;color:#111827;font-size:20px;">{headline}{title_suffix}</h2>
+        <p style="color:#4b5563;font-size:16px;margin-bottom:20px;">{body}</p>
+        <div style="text-align:center;margin:25px 0;">
+            <a href="{referral_link}" style="display:inline-block;padding:14px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">{cta}</a>
+        </div>
+        <p style="color:#6b7280;font-size:14px;margin-top:20px;">
+            Seu link de convite é único e funcionando — compartilhe à vontade.
+        </p>
+    """
+
+
 def _build_winback_email_html(nome: str, frontend_base: str) -> str:
     first = ""
     if nome:
@@ -272,6 +303,31 @@ def send_due_lifecycle_emails():
                 sent += 1
             except Exception as exc:
                 logger.warning("Falha lifecycle win-back p/ %s: %s", row.get("email"), exc)
+
+        # [NOVO] Drip de indicação: dias 3 e 10 para quem ainda não indicou ninguém.
+        # Automatiza o programa de referral (antes manual via WhatsApp em perfil.html).
+        for day in (3, 10):
+            cursor.execute(
+                "SELECT id, nome, email, referral_code FROM users "
+                "WHERE DATE(created_at) = CURDATE() - INTERVAL %s DAY "
+                "AND (is_premium = 0 OR is_premium IS NULL) "
+                "AND referral_code IS NOT NULL",
+                (day,),
+            )
+            for row in cursor.fetchall() or []:
+                try:
+                    code = row.get("referral_code")
+                    cursor.execute("SELECT COUNT(*) AS cnt FROM users WHERE referred_by = %s", (code,))
+                    if (cursor.fetchone() or {}).get("cnt", 0) > 0:
+                        # Já indicou alguém: não envia mais o convite.
+                        continue
+                    base = _get_frontend_base_url_for_email()
+                    link = f"{base}cadastro.html?ref={code}"
+                    html = _build_referral_invite_email_html(row.get("nome") or "", day, base, link)
+                    enviar_email(row["email"], "AutoAssist: ganhe 1 mês Premium indicando um amigo", html)
+                    sent += 1
+                except Exception as exc:
+                    logger.warning("Falha drip de indicação (dia %s) p/ %s: %s", day, row.get("email"), exc)
     return {"sent": sent}
 
 
@@ -594,6 +650,18 @@ def cadastro():
     if not isinstance(veiculos, list):
         return jsonify(error="Lista de veículos inválida."), 400
 
+    # P0.2: atribuição de aquisição (primeiro toque preservado no frontend).
+    raw_anonymous_id = (data.get("anonymous_id") or "").strip()
+    anonymous_id = raw_anonymous_id[:80] if raw_anonymous_id else None
+    utm_source = (data.get("utm_source") or "").strip()[:120] or None
+    utm_medium = (data.get("utm_medium") or "").strip()[:120] or None
+    utm_campaign = (data.get("utm_campaign") or "").strip()[:120] or None
+    utm_term = (data.get("utm_term") or "").strip()[:120] or None
+    utm_content = (data.get("utm_content") or "").strip()[:120] or None
+    initial_referrer = (
+        (data.get("initial_referrer") or data.get("referrer") or "").strip()[:500] or None
+    )
+
     if veiculo and veiculo.get("possui"):
         veiculos.append(veiculo)
 
@@ -652,13 +720,60 @@ def cadastro():
             cursor.execute("""
                 INSERT INTO users (
                     nome, email, password, possui_veiculo, maintenance_email_enabled,
-                    referral_code, referred_by, signup_ip
-                ) VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s)
+                    referral_code, referred_by, signup_ip,
+                    anonymous_id, utm_source, utm_medium, utm_campaign,
+                    utm_term, utm_content, initial_referrer
+                ) VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 nome, email, bcrypt.hash(password), possui_veiculo,
                 referral_code, referred_by, client_ip,
+                anonymous_id, utm_source, utm_medium, utm_campaign,
+                utm_term, utm_content, initial_referrer,
             ))
             user_id = cursor.lastrowid
+
+            # P0.2: associa eventos anônimos pré-cadastro a este usuário
+            # (anonymous_id -> user_id) sem apagar os eventos anteriores.
+            if anonymous_id:
+                try:
+                    cursor.execute(
+                        "UPDATE analytics_events SET user_id=%s "
+                        "WHERE anonymous_id=%s AND user_id IS NULL",
+                        (user_id, anonymous_id),
+                    )
+                except Exception as link_exc:
+                    logger.warning("Falha ao vincular eventos anonimos: %s", link_exc)
+
+            # [NOVO] converte lead capturado previamente (waitlist) neste usuário.
+            try:
+                cursor.execute(
+                    "UPDATE leads SET converted_user_id=%s WHERE email=%s AND converted_user_id IS NULL",
+                    (user_id, email),
+                )
+            except Exception as lead_exc:
+                logger.warning("Falha ao converter lead em usuario: %s", lead_exc)
+
+            # P0.2: evento de negócio 'signup' (cadastro concluído).
+            try:
+                from .analytics import record_analytics_event
+                record_analytics_event(
+                    "signup",
+                    user_id=user_id,
+                    anonymous_id=anonymous_id,
+                    path="/api/cadastro",
+                    metadata={
+                        "has_vehicle": possui_veiculo,
+                        "referral_code": referral_code,
+                        "referrer": initial_referrer,
+                        "utm_source": utm_source,
+                        "utm_medium": utm_medium,
+                        "utm_campaign": utm_campaign,
+                        "utm_term": utm_term,
+                        "utm_content": utm_content,
+                    },
+                )
+            except Exception as evt_exc:
+                logger.warning("Falha ao emitir evento signup: %s", evt_exc)
 
             # Indique e ganhe: quem indicou ganha 1 mes de premium (com anti-fraude)
             if referred_by:

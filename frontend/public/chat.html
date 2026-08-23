@@ -1963,6 +1963,10 @@
             payload.lat = userLat;
             payload.lng = userLng;
           }
+          // P0.2: identidade anônima para atribuir uso de visitantes (pré-cadastro).
+          if (window.AutoAssistAnalytics && window.AutoAssistAnalytics.getAnonymousId) {
+            payload.anonymous_id = window.AutoAssistAnalytics.getAnonymousId();
+          }
 
           if (CHAT_USE_WEBSOCKET && wsChat && wsChat.readyState === WebSocket.OPEN) {
             wsChat.send(JSON.stringify(payload));

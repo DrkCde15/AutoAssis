@@ -755,6 +755,20 @@
         </div>
     </section>
 
+    <section class="home-waitlist" id="novidades" aria-label="Receba novidades do AutoAssist">
+        <div class="home-waitlist__inner">
+            <span class="home-waitlist__eyebrow">Lista de espera</span>
+            <h2>Quer cuidar melhor do seu carro?</h2>
+            <p>Deixe seu e-mail e receba dicas, novidades e acesso antecipado à NOG — sem custo e sem compromisso. Você pode criar uma conta grátis quando quiser.</p>
+            <form id="waitlistForm" class="home-waitlist__form" novalidate>
+                <input type="text" id="waitlistNome" name="nome" class="home-waitlist__input" placeholder="Seu nome (opcional)" autocomplete="name" maxlength="100" />
+                <input type="email" id="waitlistEmail" name="email" class="home-waitlist__input" placeholder="Seu melhor e-mail" autocomplete="email" required maxlength="100" />
+                <button type="submit" id="waitlistBtn" class="home-waitlist__btn">Quero receber</button>
+            </form>
+            <p id="waitlistMsg" class="home-waitlist__msg" role="status" aria-live="polite"></p>
+        </div>
+    </section>
+
     <footer>
         <nav class="footer-links" aria-label="Links do rodape">
                 <a href="feedback.html" class="footer-link">Feedback</a>
@@ -770,6 +784,76 @@
     </footer>
 
     <script src="static/js/config.js"></script>
+    <style>
+        .home-waitlist { padding: 56px 20px; background: linear-gradient(135deg, #eff6ff, #f8fafc); }
+        .home-waitlist__inner { max-width: 640px; margin: 0 auto; text-align: center; }
+        .home-waitlist__eyebrow { display: inline-block; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #2563eb; margin-bottom: 8px; }
+        .home-waitlist h2 { font-size: 26px; color: #111827; margin: 0 0 10px; }
+        .home-waitlist p { color: #4b5563; font-size: 16px; margin: 0 0 22px; }
+        .home-waitlist__form { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .home-waitlist__input { flex: 1 1 200px; padding: 13px 16px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; }
+        .home-waitlist__btn { padding: 13px 26px; border: 0; border-radius: 10px; background-color: #2563eb; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; }
+        .home-waitlist__btn:disabled { opacity: .6; cursor: default; }
+        .home-waitlist__msg { min-height: 20px; margin: 14px 0 0; font-size: 14px; color: #2563eb; }
+    </style>
+    <script>
+        (function () {
+            var form = document.getElementById('waitlistForm');
+            if (!form) return;
+            var msg = document.getElementById('waitlistMsg');
+            var btn = document.getElementById('waitlistBtn');
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var email = document.getElementById('waitlistEmail').value.trim();
+                var nome = document.getElementById('waitlistNome').value.trim();
+                if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    msg.style.color = '#dc2626';
+                    msg.textContent = 'Informe um e-mail válido.';
+                    return;
+                }
+                btn.disabled = true;
+                btn.textContent = 'Enviando...';
+                msg.style.color = '#2563eb';
+                msg.textContent = '';
+                var payload = { nome: nome, email: email };
+                try {
+                    if (window.AutoAssistAnalytics && window.AutoAssistAnalytics.getAnonymousId) {
+                        payload.anonymous_id = window.AutoAssistAnalytics.getAnonymousId() || null;
+                    }
+                    if (window.AutoAssistAnalytics && window.AutoAssistAnalytics.getAttribution) {
+                        var attr = window.AutoAssistAnalytics.getAttribution() || {};
+                        payload.utm_source = attr.utm_source || null;
+                        payload.utm_medium = attr.utm_medium || null;
+                        payload.utm_campaign = attr.utm_campaign || null;
+                        payload.initial_referrer = document.referrer || null;
+                    }
+                } catch (err) { /* atribuição opcional */ }
+                try {
+                    var res = await fetch('/api/waitlist', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    var data = await res.json().catch(function () { return {}; });
+                    if (res.ok) {
+                        msg.style.color = '#16a34a';
+                        msg.textContent = (data.message || 'E-mail registrado! Verifique sua caixa de entrada.') +
+                            (data.already_user ? ' Você já tem conta — aproveite!' : '');
+                        form.reset();
+                    } else {
+                        msg.style.color = '#dc2626';
+                        msg.textContent = data.error || 'Não foi possível registrar agora. Tente novamente.';
+                    }
+                } catch (err) {
+                    msg.style.color = '#dc2626';
+                    msg.textContent = 'Erro de conexão. Tente novamente.';
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Quero receber';
+                }
+            });
+        })();
+    </script>
     <script src="static/js/analytics-consent.js"></script>
     <script src="static/js/auth.js"></script>
     <script src="static/js/security-utils.js"></script>

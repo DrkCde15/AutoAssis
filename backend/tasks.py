@@ -63,3 +63,7 @@ def dispatch_events_notifications():
         logger.info("Notificações de eventos: %s", result)
     except Exception as e:
         logger.warning("Falha ao notificar eventos em background: %s", e)
+
+def send_lead_welcome_email(lead_id):
+    from routes.marketing import send_lead_welcome_email as _send
+    _send(lead_id)

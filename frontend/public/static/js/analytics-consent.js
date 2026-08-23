@@ -3,6 +3,7 @@
 
   const CONSENT_KEY = "autoassist_analytics_consent";
   const ANONYMOUS_ID_KEY = "autoassist_analytics_id";
+  const ATTRIBUTION_KEY = "autoassist_attribution";
   const ACCEPTED = "accepted";
   const DECLINED = "declined";
   const BLOCKED_KEYS = new Set([
@@ -70,6 +71,34 @@
     return id;
   }
 
+  // Captura de atribuição de primeiro toque (first-touch).
+  // Persistida localmente na primeira visita e preservada ao longo da
+  // sessão, independentemente de a URL ainda conter parâmetros UTM.
+  function captureFirstTouchAttribution() {
+    if (storageGet(ATTRIBUTION_KEY)) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const attr = { first_seen: new Date().toISOString() };
+      ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((k) => {
+        const v = params.get(k);
+        if (v) attr[k] = String(v).slice(0, 120);
+      });
+      attr.referrer = (document.referrer || "").slice(0, 500);
+      attr.landing_path = window.location.pathname;
+      storageSet(ATTRIBUTION_KEY, JSON.stringify(attr));
+    } catch {
+      // Atribuição é melhor-esforço; falhas não devem quebrar a página.
+    }
+  }
+
+  function getAttribution() {
+    try {
+      return JSON.parse(storageGet(ATTRIBUTION_KEY) || "null");
+    } catch {
+      return null;
+    }
+  }
+
   function isPlainValue(value) {
     return value === null || ["string", "number", "boolean"].includes(typeof value);
   }
@@ -113,6 +142,10 @@
     const safeEventType = String(eventType || "").trim().slice(0, 80);
     if (!/^[a-zA-Z0-9_.:-]{1,80}$/.test(safeEventType)) return false;
 
+    // Atribuição de primeiro toque (first-touch), persistida em localStorage.
+    // Não duplica lógica: reutiliza getAttribution(). Campos ausentes viram
+    // undefined e são descartados pelo sanitizeMetadata (não viram "vazio").
+    const attr = getAttribution() || {};
     const payload = {
       event_type: safeEventType,
       path: window.location.pathname,
@@ -122,6 +155,12 @@
         viewport_width: window.innerWidth,
         viewport_height: window.innerHeight,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        utm_source: attr.utm_source || undefined,
+        utm_medium: attr.utm_medium || undefined,
+        utm_campaign: attr.utm_campaign || undefined,
+        utm_term: attr.utm_term || undefined,
+        utm_content: attr.utm_content || undefined,
+        referrer: attr.referrer || undefined,
         ...metadata,
       }),
     };
@@ -255,6 +294,8 @@
 
   window.AutoAssistAnalytics = {
     track,
+    getAnonymousId,
+    getAttribution,
     consent: {
       hasConsent,
       accept() {
@@ -274,6 +315,7 @@
   };
 
   document.addEventListener("DOMContentLoaded", () => {
+    captureFirstTouchAttribution();
     if (hasConsent()) {
       track("page_view");
       return;

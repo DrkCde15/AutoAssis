@@ -572,6 +572,12 @@ const Auth = (() => {
    * @param {Array}  veiculos - lista de objetos de veículo (opcional)
    */
   async function register(nome, email, confirmEmail, password, confirmPassword, veiculos = [], turnstileToken = null, referredBy = null) {
+    // P0.2: inclui identidade anônima e atribuição de aquisição capturada
+    // no frontend (primeiro toque), sem criar arquitetura paralela.
+    const aa = window.AutoAssistAnalytics || {};
+    const anonymousId = aa.getAnonymousId ? aa.getAnonymousId() : null;
+    const attr = aa.getAttribution ? aa.getAttribution() : null;
+
     const res = await fetch(`${CONFIG.API_URL}/api/cadastro`, {
       method: "POST",
       credentials: "include",
@@ -585,6 +591,13 @@ const Auth = (() => {
           veiculos,
           turnstile_token: turnstileToken,
           referred_by: referredBy || null,
+          anonymous_id: anonymousId || null,
+          utm_source: (attr && attr.utm_source) || null,
+          utm_medium: (attr && attr.utm_medium) || null,
+          utm_campaign: (attr && attr.utm_campaign) || null,
+          utm_term: (attr && attr.utm_term) || null,
+          utm_content: (attr && attr.utm_content) || null,
+          initial_referrer: (attr && attr.referrer) || null,
         }),
     });
 

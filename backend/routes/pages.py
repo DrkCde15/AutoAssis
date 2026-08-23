@@ -21,7 +21,59 @@ from utils.async_task import _predictor, train_in_background
 import json
 from decimal import Decimal
 from .database import get_db, is_trial_expired, get_trial_days_remaining, get_mysql_history
+from .analytics import record_analytics_event, has_prior_event
 from utils.email import enviar_email
+
+
+def _emit_usage_events(*, user_id, anonymous_id, is_raio):
+    """Emite eventos de uso do funil (NOG / Raio-X) de forma idempotente.
+
+    ``first_*`` é decidido por dados persistidos (has_prior_event), nunca
+    por estado de memória. Não lança exceção para não impactar a resposta
+    de chat/voz já gerada com sucesso.
+    """
+    identity_uid = user_id
+    identity_aid = anonymous_id if not user_id else None
+    if not identity_uid and not identity_aid:
+        return
+    try:
+        # "primeiro" é decidido ANTES de emitir o evento de uso, para não
+        # contar o próprio evento recém-inserido como prévio.
+        is_first_nog = not has_prior_event("nog_use", user_id=identity_uid, anonymous_id=identity_aid)
+        record_analytics_event(
+            "nog_use",
+            user_id=identity_uid,
+            anonymous_id=identity_aid,
+            path="/api/chat",
+            metadata={"mode": "image" if is_raio else "text"},
+        )
+        if is_first_nog:
+            record_analytics_event(
+                "first_nog_use",
+                user_id=identity_uid,
+                anonymous_id=identity_aid,
+                path="/api/chat",
+                metadata={},
+            )
+        if is_raio:
+            is_first_raio = not has_prior_event("raio_x_use", user_id=identity_uid, anonymous_id=identity_aid)
+            record_analytics_event(
+                "raio_x_use",
+                user_id=identity_uid,
+                anonymous_id=identity_aid,
+                path="/api/chat",
+                metadata={"mode": "image"},
+            )
+            if is_first_raio:
+                record_analytics_event(
+                    "first_raio_x",
+                    user_id=identity_uid,
+                    anonymous_id=identity_aid,
+                    path="/api/chat",
+                    metadata={},
+                )
+    except Exception as exc:
+        logger.warning("Falha ao emitir eventos de uso (nog/raio): %s", exc)
 from .notifications import create_notification
 from .push import send_push_notification
 from pydub import AudioSegment
@@ -2487,6 +2539,21 @@ def get_free_chat_usage_month(cursor, user_id):
     return int((row or {}).get("cnt") or 0)
 
 
+def _emit_free_limit_reached(user_id, used):
+    """P0.3: emite ``free_limit_reached`` 1x por ciclo de limite (idempotente)."""
+    try:
+        if not has_prior_event("free_limit_reached", user_id=user_id, anonymous_id=None):
+            record_analytics_event(
+                "free_limit_reached",
+                user_id=user_id,
+                anonymous_id=None,
+                path="/api/chat",
+                metadata={"limit": FREE_MONTHLY_CHAT_LIMIT, "used": used},
+            )
+    except Exception as exc:
+        logger.warning("Falha ao emitir free_limit_reached: %s", exc)
+
+
 @pages_bp.route("/api/admin/analytics/burn", methods=["GET"])
 @jwt_required()
 def admin_burn_analytics():
@@ -2521,6 +2588,7 @@ def chat():
     msg = (data.get("message") or "").strip()
     session_id = normalize_chat_session_id(data.get("session_id"))
     img_b64 = data.get("image")
+    req_anonymous_id = (data.get("anonymous_id") or "").strip()[:80] or None
     try:
         attachment = parse_chat_attachment(data)
     except ValueError as exc:
@@ -2552,6 +2620,9 @@ def chat():
                 if not _is_effective_premium(user):
                     used = get_free_chat_usage_month(cursor, user_id)
                     if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        # P0.3: instrumenta a chegada ao teto do plano gratuito
+                        # (idempotente por usuário: 1 evento por ciclo de limite).
+                        _emit_free_limit_reached(user_id, used)
                         return jsonify(
                             error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
                             code="free_limit_reached",
@@ -2631,6 +2702,15 @@ def chat():
         if guest_messages_remaining is not None:
             response_payload["guest_messages_remaining"] = guest_messages_remaining
             response_payload["guest_limit"] = GUEST_CHAT_LIMIT
+
+        # P0.2: instrumentação do funil de negócio (NOG / Raio-X).
+        # Emite somente após a resposta ser gerada com sucesso (a análise
+        # de imagem, se houver, já ocorreu dentro de generate_assistant_payload).
+        _emit_usage_events(
+            user_id=user_id,
+            anonymous_id=req_anonymous_id if not user_id else None,
+            is_raio=bool(img_b64) or bool(attachment and attachment.get("kind") in ("image", "binary")),
+        )
         return jsonify(response_payload)
     except Exception as e:
         logger.error(f"Erro na rota /api/chat: {e}")
@@ -2684,6 +2764,9 @@ def handle_voice():
                 if not _is_effective_premium(user):
                     used = get_free_chat_usage_month(cursor, user_id)
                     if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        # P0.3: instrumenta a chegada ao teto do plano gratuito
+                        # (idempotente por usuário: 1 evento por ciclo de limite).
+                        _emit_free_limit_reached(user_id, used)
                         return jsonify(
                             error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
                             code="free_limit_reached",
@@ -2763,6 +2846,14 @@ def handle_voice():
         if guest_messages_remaining is not None:
             response_payload["guest_messages_remaining"] = guest_messages_remaining
             response_payload["guest_limit"] = GUEST_CHAT_LIMIT
+
+        # P0.2: instrumentação do funil de negócio (NOG / Raio-X) via voz.
+        _emit_usage_events(
+            user_id=user_id,
+            anonymous_id=(request.form.get("anonymous_id") or "").strip()[:80] or None
+            if not user_id else None,
+            is_raio=bool(image_b64) or bool(attachment and attachment.get("kind") in ("image", "binary")),
+        )
         return jsonify(response_payload)
 
     except sr.UnknownValueError:
