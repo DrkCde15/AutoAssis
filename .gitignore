@@ -61,3 +61,8 @@ frontend/test-results/
 .openclaude-profile.json
 *.pem
 secure_reports/
+
+# --- Agent skills (installed locally, not part of repo) ---
+.agents/skills/
+.claude/
+skills-lock.json
