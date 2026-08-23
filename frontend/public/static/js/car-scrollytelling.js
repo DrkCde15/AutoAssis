@@ -15,11 +15,11 @@
     const transitionDuration = prefersReducedMotion ? 0 : 900;
 
     const carSources = [
-        "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1920",
-        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1920",
-        "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=1920",
-        "https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=1920",
-        "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?q=80&w=1920",
+        "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=70&w=1280",
+        "https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=70&w=1280",
+        "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=70&w=1280",
+        "https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=70&w=1280",
+        "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?q=70&w=1280",
     ];
 
     const accents = ["#38bdf8", "#f59e0b", "#34d399", "#a78bfa", "#60a5fa"];
@@ -386,7 +386,20 @@
         context.fillRect(0, 0, width, height);
     }
 
+    let isRunning = false;
+
+    function startLoop() {
+        if (isRunning) return;
+        isRunning = true;
+        window.requestAnimationFrame(render);
+    }
+
+    function stopLoop() {
+        isRunning = false;
+    }
+
     function render(elapsed) {
+        if (!isRunning) return;
         draw(elapsed);
         window.requestAnimationFrame(render);
     }
@@ -410,5 +423,40 @@
 
     updateHeaderOffset();
     resize();
-    window.requestAnimationFrame(render);
+
+    // Só anima quando a seção está visível na tela. Em celular, evita
+    // que o loop rode eternamente consumindo CPU/GPU enquanto o usuário
+    // já rolou para longe do hero.
+    let isVisible = true;
+
+    if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                isVisible = entry.isIntersecting;
+                if (isVisible && !document.hidden) {
+                    startLoop();
+                } else {
+                    stopLoop();
+                }
+            },
+            { threshold: 0.01 }
+        );
+        io.observe(section);
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            stopLoop();
+        } else if (isVisible) {
+            startLoop();
+        }
+    });
+
+    if (prefersReducedMotion) {
+        // Sem animação contínua: desenha um quadro estático e para por aí.
+        draw(performance.now());
+    } else {
+        startLoop();
+    }
 })();
