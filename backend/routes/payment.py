@@ -66,17 +66,21 @@ def _get_user_email(user_id: str) -> str | None:
         return str(email).strip().lower() if isinstance(email, str) and email.strip() else None
 
 
-def _set_premium_by_user_id(user_id: str, is_premium: bool) -> int:
+def _set_premium_by_user_id(user_id: str, is_premium: bool, plan: str | None = None) -> int:
     target_state = bool(is_premium)
     with get_db() as (cursor, conn):
+        cursor.execute("SELECT is_premium FROM users WHERE id = %s", (user_id,))
+        row = cursor.fetchone()
+        prior = bool((row or {}).get("is_premium"))
+
         if target_state:
             # P2-1: aplica crédito de indicação (meses grátis) ao ativar premium.
             cursor.execute(
                 "SELECT referral_credit_months FROM users WHERE id = %s",
                 (user_id,),
             )
-            row = cursor.fetchone()
-            credit = int((row or {}).get("referral_credit_months") or 0)
+            cred_row = cursor.fetchone()
+            credit = int((cred_row or {}).get("referral_credit_months") or 0)
             if credit > 0:
                 cursor.execute(
                     """UPDATE users
@@ -86,36 +90,42 @@ def _set_premium_by_user_id(user_id: str, is_premium: bool) -> int:
                        WHERE id = %s""",
                     (credit, user_id),
                 )
-                return 1
-        cursor.execute(
-            "UPDATE users SET is_premium = %s WHERE id = %s",
-            (target_state, user_id),
-        )
-        if int(cursor.rowcount or 0) > 0:
-            return 1
+                updated = 1
+            else:
+                cursor.execute(
+                    "UPDATE users SET is_premium = %s WHERE id = %s",
+                    (target_state, user_id),
+                )
+                updated = int(cursor.rowcount or 0)
+        else:
+            cursor.execute(
+                "UPDATE users SET is_premium = FALSE WHERE id = %s",
+                (user_id,),
+            )
+            updated = int(cursor.rowcount or 0)
 
-        cursor.execute(
-            "SELECT id FROM users WHERE id = %s AND is_premium = %s",
-            (user_id, target_state),
-        )
-        return 1 if cursor.fetchone() else 0
+        if updated > 0 and prior != target_state:
+            _emit_premium_transition(user_id, plan or "completo", target_state, prior)
+        return updated
 
 
-def _set_premium_by_email(email: str, is_premium: bool) -> int:
+def _set_premium_by_email(email: str, is_premium: bool, plan: str | None = None) -> int:
     target_state = bool(is_premium)
     with get_db() as (cursor, conn):
+        cursor.execute("SELECT id, is_premium FROM users WHERE email = %s", (email,))
+        row = cursor.fetchone()
+        if not row:
+            return 0
+        user_id = row.get("id")
+        prior = bool(row.get("is_premium"))
         cursor.execute(
             "UPDATE users SET is_premium = %s WHERE email = %s",
             (target_state, email),
         )
-        if int(cursor.rowcount or 0) > 0:
-            return 1
-
-        cursor.execute(
-            "SELECT id FROM users WHERE email = %s AND is_premium = %s",
-            (email, target_state),
-        )
-        return 1 if cursor.fetchone() else 0
+        updated = int(cursor.rowcount or 0)
+        if updated > 0 and prior != target_state:
+            _emit_premium_transition(user_id, plan or "completo", target_state, prior)
+        return updated
 
 
 def _emit_premium_transition(user_id, plan, became_premium, prior_premium):
@@ -300,15 +310,12 @@ def cakto_webhook():
 
     target_state = True if should_activate else False
     user_id = None
-    prior_premium = None
     api_amount = _normalize_decimal(data.get("amount"))
 
     if order:
         user_id = order["user_id"]
         with get_db() as (cursor, conn):
             cursor.execute("SELECT is_premium FROM users WHERE id = %s", (user_id,))
-            row = cursor.fetchone()
-            prior_premium = bool(row.get("is_premium")) if row else None
         new_status = "approved" if should_activate else "revoked"
         with get_db() as (cursor, conn):
             if api_amount is not None and should_activate:
@@ -328,14 +335,14 @@ def cakto_webhook():
         logger.warning(f"Webhook Cakto: Pedido interno {internal_order_id} nao encontrado.")
 
     updated = 0
+    plan_name = (order.get("plan") if order else None) or "completo"
     if user_id:
         if is_b2b:
             b2b_plan = str(order.get("plan")).replace("b2b_", "", 1)
             updated = activate_b2b_client(user_id, b2b_plan)
         else:
-            updated = _set_premium_by_user_id(user_id, target_state)
+            updated = _set_premium_by_user_id(user_id, target_state, plan=plan_name)
     else:
-        # Fallback por email se falhar o ID do pedido (somente premium)
         if not is_b2b:
             email = service.extract_customer_email(payload)
             if email:
@@ -344,14 +351,7 @@ def cakto_webhook():
                     row = cursor.fetchone()
                 if row:
                     user_id = row["id"]
-                    prior_premium = bool(row.get("is_premium"))
-                updated = _set_premium_by_email(email, target_state)
-
-    # P0.3: instrumenta transições de premium (upgrade/churn) somente em
-    # mudança real de estado (idempotente contra retries do webhook).
-    if updated and not is_b2b and prior_premium is not None and target_state != prior_premium:
-        plan_name = (order.get("plan") if order else None) or "completo"
-        _emit_premium_transition(user_id, plan_name, target_state, prior_premium)
+                updated = _set_premium_by_email(email, target_state, plan=plan_name)
 
     if updated == 0:
         logger.warning(

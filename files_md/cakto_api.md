@@ -98,21 +98,44 @@ Boas praticas destacadas na docs:
 
 ## 5) Eventos de webhook mapeados
 
-Eventos observados na docs:
+Eventos documentados na Cakto (ciclo de assinatura + compra avulsa):
 - `initiate_checkout`
 - `checkout_abandonment`
-- `purchase_approved`
-- `purchase_refused`
-- `pix_gerado`
-- `boleto_gerado`
-- `picpay_gerado`
-- `openfinance_nubank_gerado`
+- `purchase_approved` (compra avulsa aprovada)
+- `purchase_refused` (compra avulsa recusada)
+- `pix_gerado`, `boleto_gerado`, `picpay_gerado`, `openfinance_nubank_gerado` (links de pagamento gerados)
 - `chargeback`
 - `refund`
-- `subscription_created`
-- `subscription_renewed`
-- `subscription_canceled`
-- `subscription_renewal_refused`
+- `subscription_created` (assinatura criada/ativa)
+- `subscription_renewed` (renovacao confirmada)
+- `subscription_renewal_refused` (renovacao recusada / pagamento falhou)
+- `subscription_canceled` (cancelamento)
+- `subscription_paused` (pausa)
+- `subscription_resumed` (retomada)
+
+### 5.1) Mapeamento para o estado de Premium no AutoAssist
+
+O webhook (`backend/routes/payment.py`) usa `CaktoService` para classificar o evento
+(`PAID_EVENTS` / `REVOKE_EVENTS` em `backend/services/cakto.py`):
+
+| Evento | Acao no AutoAssist | Evento de analytics |
+| --- | --- | --- |
+| `purchase_approved` | ativa premium (compra avulsa) | `premium_upgrade` |
+| `subscription_created` | ativa premium | `premium_upgrade` |
+| `subscription_renewed` | mantem/atualiza premium | `premium_upgrade` (se free->premium) |
+| `purchase_refused` | revoga premium | `premium_churn` |
+| `refund` | revoga premium | `premium_churn` |
+| `chargeback` | revoga premium | `premium_churn` |
+| `subscription_canceled` | revoga premium (cancelamento) | `premium_churn` |
+| `subscription_renewal_refused` | revoga premium (falha de renovacao) | `premium_churn` |
+| `subscription_paused` | **nao tratado** (premium segue ativo) | — |
+| `subscription_resumed` | **nao tratado** | — |
+
+Implicacao operacional: como `subscription_canceled` e `subscription_renewal_refused`
+ja estao em `REVOKE_EVENTS` e disparam `premium_churn`, **nao ha necessidade de um job
+agendado de expiracao** — a Cakto e a fonte da verdade de cancelamento / nao-pagamento.
+Porem, exige que o app de webhook configurado na Cakto esteja inscrito nesses eventos de
+assinatura; caso contrario o cancelamento nunca chega e o usuario permanece premium.
 
 ## 6) Estrutura de payload de evento (amostra real da docs)
 
@@ -195,3 +218,47 @@ Para garantir seguranca total e evitar fraudes de webhooks falsos, o AutoAssist 
 - Historico de Eventos: https://docs.cakto.com.br/api-reference/webhooks/event-history
 - Reenviar Evento: https://docs.cakto.com.br/api-reference/webhooks/resend-event
 - Evento de Teste: https://docs.cakto.com.br/api-reference/webhooks/test-webhook
+
+## 11) Instrumentacao de Analytics (premium_upgrade / premium_churn)
+
+Historico: o evento `premium_upgrade` (e `premium_churn`) nao era registrado em
+`analytics_events`, deixando o funil de conversao com o estagio `signup -> premium_upgrade`
+vazio. Causa: a emissao estava acoplada apenas ao webhook da Cakto e a uma chamada
+explicita fragil (`if updated and prior != target` no proprio webhook), que nao cobria
+outros pontos de concessao de premium e era suscetivel a dupla emissao.
+
+Correcao: toda mudanca real de estado de premium foi centralizada em um unico ponto.
+As funcoes `_set_premium_by_user_id` e `_set_premium_by_email` (em `backend/routes/payment.py`,
+as unicas rotinas que efetivamente executam `UPDATE users SET is_premium = ...`) agora:
+- leem o estado anterior (`prior`);
+- aplicam o UPDATE;
+- chamam `_emit_premium_transition(user_id, plan, target_state, prior)` **somente quando
+  `prior != target_state`** (transicao real).
+
+Como essas duas funcoes sao as unicas que alteram `is_premium` no codigo, qualquer caminho
+que conceda/revogue premium (webhook Cakto, credito de indicacao aplicado na ativacao,
+futuros trial/admin) passa a instrumentar `premium_upgrade` (free->premium) e
+`premium_churn` (premium->free) automaticamente. O metadata do evento inclui
+`plan` (do pedido) e `via: cakto_webhook`.
+
+### 11.1) Idempotencia contra retries do webhook
+A condicao `prior != target_state` garante que re-entregas do mesmo webhook (retry da Cakto)
+nao dupliquem o evento: se o usuario ja estiver premium e chegar outro `subscription_renewed`,
+`prior == target == True` => nenhum evento emitido. O mesmo para re-entrega de um
+cancelamento ja processado. Isso evita inflacao de `premium_upgrade` / `premium_churn` no funil.
+
+### 11.2) Webhook Cakto (payment.py)
+O webhook `cakto_webhook` agora apenas chama `_set_premium_by_user_id(user_id, target_state,
+plan=plan_name)` / `_set_premium_by_email(email, target_state, plan=plan_name)` e delega a
+emissao a essas funcoes (a chamada explicita de emissao foi removida do webhook para evitar
+dupla contagem). A validacao ativa (`verify_transaction_status` -> `GET /public_api/orders/{id}/`)
+continua sendo a fonte da verdade antes de aplicar o estado.
+
+### 11.3) Pendentes / riscos conhecidos
+- `subscription_paused` / `subscription_resumed` nao sao tratados (premium fica ativo durante
+  pausa). Se a Cakto nao enviar `subscription_canceled` ao expirar uma pausa, o usuario pode
+  permanecer premium.
+- `verify_transaction_status` usa `GET /public_api/orders/{id}/` (estrutura documentada);
+  conviria validar contra a resposta real da Cakto em producao para garantir o parse de `status`.
+- Nenhuma outra forma de conceder premium (ex.: seed/admin manual) emite o evento hoje; se
+  adicionada, deve passar por `_set_premium_by_user_id`/`_set_premium_by_email` para herdar a instrumentacao.

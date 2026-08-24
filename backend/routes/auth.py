@@ -598,7 +598,25 @@ def google_callback():
                     INSERT INTO users (nome, email, google_id, profile_pic, maintenance_email_enabled) 
                     VALUES (%s, %s, %s, %s, TRUE)
                 """, (nome, email, google_id, picture))
-                
+                new_user_id = cursor.lastrowid
+                try:
+                    from .analytics import record_analytics_event
+                    anon_id = (request.args.get("anonymous_id") or "").strip() or None
+                    record_analytics_event(
+                        "signup",
+                        user_id=new_user_id,
+                        anonymous_id=anon_id,
+                        path="/api/auth/google/callback",
+                        metadata={
+                            "method": "google_oauth",
+                            "has_vehicle": False,
+                            "referral_code": None,
+                            "referrer": None,
+                        },
+                    )
+                except Exception as evt_exc:
+                    logger.warning("Falha ao emitir evento signup (Google): %s", evt_exc)
+
             cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
             user = cursor.fetchone()
 
