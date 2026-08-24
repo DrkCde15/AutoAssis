@@ -20,6 +20,7 @@
     <style>
 
       html, body { height: 100%; }
+      html { height: 100dvh; }
       body {
         font-family: var(--font-sans);
         background:
@@ -28,6 +29,8 @@
           var(--bg-primary);
         color: var(--text-primary);
         height: 100vh;
+        height: 100dvh;
+        min-height: 100dvh;
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -243,6 +246,7 @@
       /* Messages */
       #messages {
         flex: 1;
+        min-height: 0;
         padding: 32px 24px 24px;
         overflow-y: auto;
         display: flex;
@@ -555,6 +559,20 @@
       .chat-input-wrapper:focus-within {
         border-color: var(--accent);
         box-shadow: var(--shadow-glow);
+      }
+      /* Composer: fica fixo na parte inferior, integrado, sem linha divisória */
+      .chat-main footer {
+        flex-shrink: 0;
+        border-top: none !important;
+        background: transparent;
+        padding: 14px 16px;
+        padding-bottom: calc(14px + env(safe-area-inset-bottom));
+      }
+      /* O Lenis (scroll suave) injeta "html.lenis, html.lenis body { height: auto }"
+         em runtime, o que esticava o body e fazia a página inteira rolar,
+         levando o composer para baixo. Mantém a altura fixa da viewport no chat. */
+      html.lenis, html.lenis body {
+        height: 100dvh !important;
       }
       .guest-notice {
         display: flex;
@@ -881,6 +899,9 @@
           <button id="attach" class="btn-icon" title="Anexar arquivo">
             <i class="fas fa-plus"></i>
           </button>
+          <button id="btnReportChat" class="btn-icon" title="Transformar conversa em PDF" aria-label="Transformar conversa em PDF" type="button">
+            <i class="fas fa-file-pdf"></i>
+          </button>
           <input id="messageInput" placeholder="Pergunte sobre seu veículo..." autocomplete="off" />
           <button id="btnVoice" class="btn-icon" title="Usar voz" aria-label="Usar voz" type="button">
             <i class="fas fa-microphone"></i>
@@ -908,6 +929,7 @@
       const sendBtn = document.getElementById("send");
       const btnMyVideos = document.getElementById("btnMyVideos");
       const btnReport = document.getElementById("btnReport");
+      const btnReportChat = document.getElementById("btnReportChat");
       const btnVoice = document.getElementById("btnVoice");
       const btnSidebar = document.getElementById("btnSidebar");
       const btnNewChat = document.getElementById("btnNewChat");
@@ -2122,13 +2144,14 @@
       });
 
       // Report
-      btnReport.addEventListener("click", async () => {
+      async function generateReportPdf() {
         if (!isAuthenticated) {
           alert("Faça login ou crie uma conta para exportar conversas em PDF.");
           return;
         }
         if (!lastAnalysisText) return alert("Faça uma análise primeiro.");
-        btnReport.disabled = true;
+        const reportTargets = [btnReport, btnReportChat].filter(Boolean);
+        reportTargets.forEach((b) => { b.disabled = true; });
         try {
           const res = await Auth.authenticatedFetch("/api/report", {
             method: "POST",
@@ -2156,9 +2179,11 @@
         } catch (e) {
           alert("Erro ao gerar PDF.");
         } finally {
-          btnReport.disabled = false;
+          reportTargets.forEach((b) => { b.disabled = false; });
         }
-      });
+      }
+      btnReport.addEventListener("click", generateReportPdf);
+      btnReportChat.addEventListener("click", generateReportPdf);
 
       // Load history
       (async () => {

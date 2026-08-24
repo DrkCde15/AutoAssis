@@ -85,7 +85,6 @@ textarea.input,
 .field input,
 .field textarea,
 .field select,
-#messageInput,
 #chatHistorySearch {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -98,7 +97,6 @@ textarea.input:focus,
 .field input:focus,
 .field textarea:focus,
 .field select:focus,
-#messageInput:focus,
 #chatHistorySearch:focus {
     border-color: var(--accent, #3b82f6);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);

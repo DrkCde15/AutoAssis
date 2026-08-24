@@ -737,8 +737,8 @@ def cors_preflight(_):
 
     return response
 
-
-# Run Flask only (Streamlit removed)
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001)
-
+    host = "0.0.0.0"
+    port = 5001
+    print(f" * Servidor rodando em http://localhost:{port}")
+    app.run(host=host, port=port)
