@@ -76,7 +76,7 @@
                 <span class="nav-logo-text">AutoAssist</span>
             </a>
             <div class="nav-links" id="authLinks"></div>
-            
+            <button class="nav-toggle" id="navToggle" aria-label="Abrir menu" aria-expanded="false"><i class="fas fa-bars"></i></button>
         </div>
     </nav>
     <div class="wrap">
@@ -84,7 +84,8 @@
       <div class="hero-copy">
         <div class="eyebrow">AutoAssist para Empresas</div>
         <h1>Diagnóstico automotivo por foto, via API</h1>
-        <p>Oficinas, seguradoras, inspectoras e marketplaces integram a IA NOG para gerar laudos a partir de uma foto. Cada chamada devolve diagnóstico em JSON ou PDF.</p>
+        <p>Oficinas, seguradoras, inspectoras e marketplaces integram a IA da AutoAssist (modelo NOG) para gerar laudos a partir de uma foto. Cada chamada devolve diagnóstico em JSON ou PDF.</p>
+        <p style="margin-top:18px;"><a href="/docs" class="btn-primary" style="text-decoration:none;display:inline-block;">Ver documentação da API →</a></p>
       </div>
       <div class="terminal" aria-hidden="true">
         <div><span class="m">POST</span> <span class="a">/api/b2b/diagnosis</span></div>
@@ -120,6 +121,7 @@
         <label for="keyPlan">Plano</label>
         <select id="keyPlan"></select>
         <button class="btn-primary" id="btnCreateKey" style="margin-top:16px;">Criar API key</button>
+        <p style="margin-top:12px;font-size:.82rem;color:var(--muted);">Sem conta? <a href="/docs">Veja uma demo da API</a> ou explore a <a href="#seguranca">segurança e LGPD</a>.</p>
         <div class="msg" id="keyMsg"></div>
         <div id="keyResult" class="hidden" style="margin-top:12px;">
           <p>Sua chave (guarde agora, não será exibida novamente):</p>
@@ -128,10 +130,32 @@
       </div>
       <div id="loginNeeded" class="hidden">
         <p>Faça <a href="login.html">login</a> ou <a href="cadastro.html">crie uma conta</a> para gerar sua API key.</p>
+        <p style="font-size:.82rem;color:var(--muted);">Prefere só explorar? <a href="/docs">Veja a demo da API</a>.</p>
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="seguranca">
+      <h2>Segurança e conformidade (LGPD)</h2>
+      <ul style="margin:0;padding:0;list-style:none;display:grid;gap:12px;">
+        <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-shield-halved" style="color:var(--accent);margin-top:3px;"></i> Imagens e laudos trafegam criptografados (TLS 1.2+) e em repouso.</li>
+        <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-lock" style="color:var(--accent);margin-top:3px;"></i> Isolamento por API key; cada cliente acessa apenas seus próprios laudos.</li>
+        <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-user-shield" style="color:var(--accent);margin-top:3px;"></i> Tratamento de dados conforme a LGPD; não treinamos modelos com dados de clientes B2B.</li>
+        <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-server" style="color:var(--accent);margin-top:3px;"></i> Retenção configurável e exclusão sob demanda para auditoria de seguradoras.</li>
+      </ul>
+    </section>
+
+    <section class="card" style="border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 22px 50px rgba(59,130,246,.18);">
+      <h2>Volumes acima de 20k chamadas/mês</h2>
+      <p style="color:var(--muted);font-size:.95rem;">Contratos enterprise com SLA, faturamento mensal, suporte dedicado e integração white-label.</p>
+      <ul style="margin:0 0 8px;padding:0;list-style:none;display:grid;gap:12px;">
+        <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-bolt" style="color:var(--accent);margin-top:3px;"></i> Throughput dedicado e fila prioritária para picos de sinistro.</li>
+        <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-file-contract" style="color:var(--accent);margin-top:3px;"></i> Acordo de nível de serviço (SLA) e termo de confidencialidade.</li>
+        <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-headset" style="color:var(--accent);margin-top:3px;"></i> Account manager e onboarding de integração assistido.</li>
+      </ul>
+      <a href="#contatoB2B" class="btn-primary" style="text-decoration:none;display:inline-block;">Falar com vendas enterprise →</a>
+    </section>
+
+    <section class="card" id="contatoB2B">
       <h2>Fale com o time B2B</h2>
       <p style="color:var(--muted);font-size:.9rem;">Para volumes maiores ou faturamento mensal, deixe seu contato.</p>
       <label for="leadNome">Nome</label>
@@ -142,8 +166,8 @@
       <input id="leadEmpresa" />
       <label for="leadTelefone">Telefone</label>
       <input id="leadTelefone" />
-      <label for="leadMsg">Mensagem</label>
-      <textarea id="leadMsg" rows="3"></textarea>
+      <label for="leadMsgInput">Mensagem</label>
+      <textarea id="leadMsgInput" rows="3"></textarea>
       <button class="btn-primary" id="btnLead" style="margin-top:16px;">Enviar contato</button>
       <div class="msg" id="leadMsg"></div>
     </section>
@@ -173,9 +197,9 @@
   <script>
     const PLANS = {
       trial:   { label: "Trial gratuito", limit: 100,   rate: 10,  price: 0 },
-      pro_1k:  { label: "Pro 1k",        limit: 1000,  rate: 30,  price: 19.9 },
-      pro_5k:  { label: "Pro 5k",        limit: 5000,  rate: 60,  price: 19.9 },
-      pro_20k: { label: "Pro 20k",       limit: 20000, rate: 120, price: 19.9 },
+      pro_1k:  { label: "Pro 1k",        limit: 1000,  rate: 30,  price: 49.9 },
+      pro_5k:  { label: "Pro 5k",        limit: 5000,  rate: 60,  price: 149.9 },
+      pro_20k: { label: "Pro 20k",       limit: 20000, rate: 120, price: 399.9 },
     };
     const brl = (v) => v === 0 ? "Grátis" : "R$ " + v.toFixed(2).replace(".", ",") + "/mês";
 
@@ -263,7 +287,7 @@
         email: document.getElementById("leadEmail").value.trim(),
         empresa: document.getElementById("leadEmpresa").value.trim(),
         telefone: document.getElementById("leadTelefone").value.trim(),
-        mensagem: document.getElementById("leadMsg").value.trim(),
+        mensagem: document.getElementById("leadMsgInput").value.trim(),
         origem: "site_b2b",
       };
       if (!payload.nome || !payload.email) { msg.className = "msg err"; msg.textContent = "Nome e e-mail são obrigatórios."; return; }

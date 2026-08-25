@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 
 from flask import Blueprint, jsonify, request
@@ -7,7 +8,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from services.cakto import CaktoService
 from .database import get_db
 from .push import send_push_notification
-from .b2b import activate_b2b_client
+from .b2b import activate_b2b_client, set_b2b_client_state
 from .analytics import record_analytics_event
 
 payment_bp = Blueprint("payment", __name__)
@@ -24,6 +25,19 @@ PREMIUM_PLANS = {
     "completo": {"amount": 19.90, "currency": "BRL", "interval": "month"},
 }
 DEFAULT_PLAN = "completo"
+
+# Mapeamento produto/oferta Cakto -> plano interno.
+# O mesmo webhook /api/pay/webhook/cakto recebe eventos de todos os produtos
+# (Premium + planos B2B). Quando o pedido interno nao esta disponivel (evento
+# orfao), usamos este mapa para identificar o plano a partir do ID do produto
+# ou da oferta enviado pela Cakto. Preencha com os IDs reais obtidos na Cakto.
+CAKTO_PRODUCT_TO_PLAN = {
+    os.getenv("CAKTO_PRODUCT_PREMIUM_ID"): "completo",
+    os.getenv("CAKTO_PRODUCT_B2B_1K_ID"): "b2b_pro_1k",
+    os.getenv("CAKTO_PRODUCT_B2B_5K_ID"): "b2b_pro_5k",
+    os.getenv("CAKTO_PRODUCT_B2B_20K_ID"): "b2b_pro_20k",
+}
+CAKTO_PRODUCT_TO_PLAN = {k: v for k, v in CAKTO_PRODUCT_TO_PLAN.items() if k}
 
 _svc = None
 
@@ -277,7 +291,21 @@ def cakto_webhook():
             )
             order = cursor.fetchone()
 
-    is_b2b = bool(order and str(order.get("plan") or "").startswith("b2b_"))
+    # Identifica o produto/plano do evento.
+    # 1) Pedido interno tem prioridade (autoritativo e antifraude).
+    # 2) Fallback: mapear produto/oferta Cakto -> plano interno quando o
+    #    pedido interno nao esta disponivel (ex.: evento orfao).
+    product_info = service.extract_product_info(payload)
+    provider_product_id = product_info.get("product_id")
+    provider_offer_id = product_info.get("offer_id")
+
+    resolved_plan = (order.get("plan") if order else None) or None
+    if not resolved_plan and (provider_product_id or provider_offer_id):
+        resolved_plan = (
+            CAKTO_PRODUCT_TO_PLAN.get(provider_product_id)
+            or CAKTO_PRODUCT_TO_PLAN.get(provider_offer_id)
+        )
+    resolved_is_b2b = bool(resolved_plan) and str(resolved_plan).startswith("b2b_")
 
     if should_activate:
         transaction_id = data.get("id")
@@ -335,15 +363,15 @@ def cakto_webhook():
         logger.warning(f"Webhook Cakto: Pedido interno {internal_order_id} nao encontrado.")
 
     updated = 0
-    plan_name = (order.get("plan") if order else None) or "completo"
+    plan_name = resolved_plan or "completo"
     if user_id:
-        if is_b2b:
-            b2b_plan = str(order.get("plan")).replace("b2b_", "", 1)
-            updated = activate_b2b_client(user_id, b2b_plan)
+        if resolved_is_b2b:
+            b2b_plan = str(resolved_plan).replace("b2b_", "", 1)
+            updated = set_b2b_client_state(user_id, b2b_plan, target_state)
         else:
             updated = _set_premium_by_user_id(user_id, target_state, plan=plan_name)
     else:
-        if not is_b2b:
+        if not resolved_is_b2b:
             email = service.extract_customer_email(payload)
             if email:
                 with get_db() as (cursor, conn):
@@ -352,6 +380,15 @@ def cakto_webhook():
                 if row:
                     user_id = row["id"]
                 updated = _set_premium_by_email(email, target_state, plan=plan_name)
+        else:
+            # Evento B2B sem usuario e sem pedido interno: nao aplicamos Premium
+            # por engano. Apenas registramos e encerramos com sucesso.
+            logger.warning(
+                "Webhook Cakto B2B ignorado (sem usuario/pedido): product=%s offer=%s",
+                provider_product_id,
+                provider_offer_id,
+            )
+            updated = 1
 
     if updated == 0:
         logger.warning(
@@ -364,7 +401,7 @@ def cakto_webhook():
     # Envia push notification ao ativar
     if target_state and user_id:
         try:
-            if is_b2b:
+            if resolved_is_b2b:
                 send_push_notification(
                     user_id=user_id,
                     title="🔑 API B2B ativada!",
