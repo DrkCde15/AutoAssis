@@ -23,8 +23,11 @@
         padding: 24px;
         color: var(--text-primary);
         -webkit-font-smoothing: antialiased;
+        box-sizing: border-box;
+        overflow-x: hidden;
       }
       .gate-card {
+        box-sizing: border-box;
         background: var(--bg-card, #11161f);
         border: 1px solid var(--border-color, rgba(255,255,255,0.08));
         border-radius: 18px;
@@ -79,6 +82,13 @@
         color: var(--text-muted, #9aa4b2);
       }
       .gate-foot a { color: var(--accent-blue, #2f81f7); }
+
+      @media (max-width: 480px) {
+        body { padding: 16px; }
+        .gate-card { padding: 32px 20px; }
+        .gate-card h1 { font-size: 1.3rem; }
+        .turnstile-group { max-width: 100%; overflow: hidden; }
+      }
     </style>
   </head>
   <body>
