@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>AutoAssist • Verificação</title>
+    <link rel="icon" type="image/png" href="static/logo2.png?v=20260506">
+    <link rel="shortcut icon" type="image/png" href="static/logo2.png?v=20260506">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="static/fonts/fonts.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="static/css/shared.css">
+    <link rel="stylesheet" href="static/css/responsive.css">
+
+    <style>
+      body {
+        font-family: var(--font-sans);
+        background: var(--bg-primary);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+      }
+      .gate-card {
+        background: var(--bg-card, #11161f);
+        border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+        border-radius: 18px;
+        padding: 40px 32px;
+        max-width: 460px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      }
+      .gate-card .logo {
+        width: 64px;
+        margin-bottom: 18px;
+      }
+      .gate-card h1 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+      }
+      .gate-card p {
+        color: var(--text-muted, #9aa4b2);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin-bottom: 24px;
+      }
+      .turnstile-group {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+        min-height: 65px;
+      }
+      .gate-error {
+        color: #ff6b6b;
+        font-size: 0.9rem;
+        min-height: 20px;
+        margin-bottom: 12px;
+      }
+      .btn-entrar {
+        width: 100%;
+        padding: 13px 18px;
+        border: none;
+        border-radius: 12px;
+        background: var(--accent-blue, #2f81f7);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .btn-entrar:disabled { opacity: 0.6; cursor: not-allowed; }
+      .gate-foot {
+        margin-top: 18px;
+        font-size: 0.82rem;
+        color: var(--text-muted, #9aa4b2);
+      }
+      .gate-foot a { color: var(--accent-blue, #2f81f7); }
+    </style>
+  </head>
+  <body>
+    <main class="gate-card">
+      <img class="logo" src="static/logo2.png?v=20260506" alt="AutoAssist" />
+      <h1>Verificação de segurança</h1>
+      <p>Para proteger nossos assistentes de IA contra abusos, confirme que você é humano antes de acessar o chat.</p>
+
+      <div class="turnstile-group">
+        <div id="cf-turnstile-widget" data-turnstile-widget data-turnstile-action="chat"></div>
+      </div>
+
+      <div class="gate-error" id="gateError"></div>
+
+      <button class="btn-entrar" id="btnEntrar" type="button">
+        Entrar no chat <i class="fas fa-arrow-right"></i>
+      </button>
+
+      <div class="gate-foot">
+        Já tem conta? <a href="login.html">Entrar</a>
+      </div>
+    </main>
+
+    <script src="./static/js/config.js"></script>
+    <script src="./static/js/auth.js"></script>
+    <script src="./static/js/turnstile.js"></script>
+    <script>
+      (function () {
+        "use strict";
+        var TURNSTILE_KEY = "autoassist_turnstile_token";
+
+        function go(dest) {
+          window.location.replace(dest);
+        }
+
+        function nextUrl() {
+          try {
+            var p = new URLSearchParams(window.location.search);
+            return p.get("next") || "chat.html";
+          } catch (e) {
+            return "chat.html";
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", async function () {
+          var btn = document.getElementById("btnEntrar");
+          var errEl = document.getElementById("gateError");
+
+          // Usuário logado não precisa do desafio
+          if (typeof Auth !== "undefined" && Auth.isAuthenticated && Auth.isAuthenticated()) {
+            go(nextUrl());
+            return;
+          }
+
+          await TurnstileHelper.init();
+
+          // Ambiente sem Turnstile (dev/teste): libera direto
+          if (!TurnstileHelper.isEnabled()) {
+            sessionStorage.removeItem(TURNSTILE_KEY);
+            go(nextUrl());
+            return;
+          }
+
+          btn.addEventListener("click", async function () {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verificando...';
+            errEl.textContent = "";
+            try {
+              var token = await TurnstileHelper.waitForToken("cf-turnstile-widget", 10000);
+              if (!token) {
+                errEl.textContent = "Resolva a verificação de segurança antes de continuar.";
+                btn.disabled = false;
+                btn.innerHTML = 'Entrar no chat <i class="fas fa-arrow-right"></i>';
+                return;
+              }
+              sessionStorage.setItem(TURNSTILE_KEY, token);
+              go(nextUrl());
+            } catch (e) {
+              errEl.textContent = "Não foi possível validar a verificação. Tente novamente.";
+              btn.disabled = false;
+              btn.innerHTML = 'Entrar no chat <i class="fas fa-arrow-right"></i>';
+            }
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

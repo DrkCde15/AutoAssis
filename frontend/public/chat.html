@@ -972,6 +972,15 @@
       const isAuthenticated = typeof Auth !== "undefined" && Auth.isAuthenticated();
       const currentUser = isAuthenticated && typeof Auth !== "undefined" ? Auth.getUser() : null;
       const guestId = isAuthenticated ? null : getGuestId();
+      const GUEST_TURNSTILE_KEY = "autoassist_turnstile_token";
+      const guestTurnstileToken = isAuthenticated ? null : sessionStorage.getItem(GUEST_TURNSTILE_KEY);
+
+      // Visitante sem desafio Turnstile resolvido: encaminha para o portão de
+      // verificação e retorna para o chat após confirmar.
+      if (!isAuthenticated && !guestTurnstileToken) {
+        window.location.replace("verificacao.html?next=" + encodeURIComponent("chat.html"));
+        throw new Error("gate-redirect");
+      }
       let lastAnalysisText = "";
       let isVoiceActive = false;
       let chatHistoryItems = [];
@@ -1217,6 +1226,7 @@
         formData.append("client_history", JSON.stringify(currentThreadHistory));
         formData.append("session_id", currentSessionId);
         if (!isAuthenticated && guestId) formData.append("guest_id", guestId);
+        if (guestTurnstileToken) formData.append("cf-turnstile-response", guestTurnstileToken);
         if (userLat !== null && userLng !== null) {
           formData.append("lat", userLat);
           formData.append("lng", userLng);
@@ -1257,6 +1267,10 @@
 
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data.error) {
+            if (String(data.error || "").indexOf("Verificação de segurança") !== -1) {
+              window.location.replace("verificacao.html?next=" + encodeURIComponent("chat.html"));
+              return;
+            }
             if (data.code === "guest_limit_reached") {
               typingDiv.closest(".message-row")?.remove();
               setGuestMessageCount(FREE_GUEST_MESSAGE_LIMIT);
@@ -1474,6 +1488,7 @@
               if (accessToken) authMsg.token = accessToken;
             } else if (guestId) {
               authMsg.guest_id = guestId;
+              if (guestTurnstileToken) authMsg.turnstile_token = guestTurnstileToken;
             }
             wsChat.send(JSON.stringify(authMsg));
           };
@@ -1485,6 +1500,10 @@
             } else if (data.type === "response") {
               handleWebSocketResponse(data);
             } else if (data.error) {
+              if (String(data.error).indexOf("Verificação de segurança") !== -1) {
+                window.location.replace("verificacao.html?next=" + encodeURIComponent("chat.html"));
+                return;
+              }
               const typingDiv = document.getElementById("typing");
               if (typingDiv) {
                 if (typeof SecurityUtils !== "undefined" && SecurityUtils.setSafeText) {
@@ -1510,6 +1529,7 @@
       async function chatApiFetch(endpoint, options = {}) {
         const headers = { ...(options.headers || {}) };
         if (!isAuthenticated && guestId) headers["X-AutoAssist-Guest-Id"] = guestId;
+        if (guestTurnstileToken) headers["X-Turnstile-Token"] = guestTurnstileToken;
 
         if (typeof Auth !== "undefined" && Auth.optionalFetch) {
           return Auth.optionalFetch(endpoint, { ...options, headers });
@@ -1981,6 +2001,7 @@
           };
           if (attachmentPayload) payload.attachment = attachmentPayload;
           if (!isAuthenticated && guestId) payload.guest_id = guestId;
+          if (guestTurnstileToken) payload.turnstile_token = guestTurnstileToken;
           if (userLat !== null && userLng !== null) {
             payload.lat = userLat;
             payload.lng = userLng;
@@ -2001,6 +2022,10 @@
 
             const data = await res.json().catch(() => ({}));
             if (!res.ok || data.error) {
+              if (String(data.error || "").indexOf("Verificação de segurança") !== -1) {
+                window.location.replace("verificacao.html?next=" + encodeURIComponent("chat.html"));
+                return;
+              }
               if (data.code === "guest_limit_reached") {
                 typingDiv.closest(".message-row")?.remove();
                 setGuestMessageCount(FREE_GUEST_MESSAGE_LIMIT);

@@ -23,6 +23,7 @@ from routes.database import get_db
 from services.vision_ai import analisar_imagem
 from services.cakto import CaktoService
 from utils.cache import get_redis_client
+from utils.turnstile import turnstile_required
 from extensions import limiter
 
 b2b_bp = Blueprint("b2b_bp", __name__)
@@ -473,6 +474,7 @@ def _clean(value, max_len):
 
 @b2b_bp.route("/api/b2b/leads", methods=["POST"])
 @limiter.limit("10 per minute")
+@turnstile_required(action="b2b_lead")
 def post_b2b_lead():
     """Captura um lead do formulario publico da pagina B2B."""
     data = request.get_json(silent=True) or {}
@@ -484,6 +486,8 @@ def post_b2b_lead():
     telefone = _clean(data.get("telefone"), 30)
     mensagem = _clean(data.get("mensagem"), 2000)
     origem = _clean(data.get("origem") or "site_b2b", 60)
+    from utils.abuse_monitor import monitor_public_ingest
+    monitor_public_ingest("b2b_leads", limit=50)
     try:
         with get_db() as (cursor, conn):
             cursor.execute(

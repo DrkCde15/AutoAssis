@@ -80,6 +80,23 @@ def chat_websocket(ws):
                     ws.send(json.dumps({"error": "Token invalido"}))
                     ws.close()
                     return
+
+            # Visitante anônimo: exige Turnstile para proteger o custo da IA
+            if not user_id:
+                from utils.turnstile import (
+                    turnstile_enabled,
+                    verify_turnstile,
+                    expected_hostnames,
+                )
+                if turnstile_enabled():
+                    secret = os.getenv("TURNSTILE_SECRET_KEY", "")
+                    t_token = auth.get("turnstile_token") or ""
+                    if not t_token or not verify_turnstile(
+                        secret, t_token, "chat", expected_hostnames(), None
+                    ):
+                        ws.send(json.dumps({"error": "Verificação de segurança pendente."}))
+                        ws.close()
+                        return
         else:
             ws.send(json.dumps({"error": "Primeira mensagem deve ser de autenticacao"}))
             ws.close()

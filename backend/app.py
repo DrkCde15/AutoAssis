@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask import Flask, jsonify, make_response, request, current_app
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
+from routes.database import get_db
 from flask_talisman import Talisman
 from flask_compress import Compress
 from werkzeug.exceptions import HTTPException
@@ -167,12 +168,29 @@ csp = {
 }
 
 # Configuração dinâmica para não forçar HTTPS em localhost
-talisman = Talisman(app, 
-         force_https=is_production, 
+# permissions_policy explícita: remove 'browsing-topics' (feature removida que
+# gera warning no Chrome) e libera microphone/geolocation no mesmo origin, pois
+# o chat de voz e a busca de mecânicos por proximidade usam essas APIs.
+talisman = Talisman(app,
+         force_https=is_production,
          content_security_policy=csp,
          strict_transport_security=True,
          session_cookie_secure=is_production,
-         referrer_policy='strict-origin-when-cross-origin'
+         referrer_policy='strict-origin-when-cross-origin',
+         permissions_policy={
+             "accelerometer": [],
+             "autoplay": [],
+             "camera": [],
+             "encrypted-media": [],
+             "fullscreen": [],
+             "geolocation": ["'self'"],
+             "gyroscope": [],
+             "magnetometer": [],
+             "microphone": ["'self'"],
+             "midi": [],
+             "payment": [],
+             "usb": [],
+         }
 )
 
 @app.before_request
@@ -555,9 +573,9 @@ SWAGGER_SPEC = {
             "properties": {
                 "marca": {"type": "string"},
                 "modelo": {"type": "string"},
-                "ano_fabricacao": {"integer"},
+                "ano_fabricacao": {"type": "integer"},
                 "tipo": {"type": "string", "enum": ["carro", "moto", "caminhao"]},
-                "quilometragem": {"integer"},
+                "quilometragem": {"type": "integer"},
             },
         },
         "WaitlistInput": {
@@ -576,13 +594,37 @@ SWAGGER_SPEC = {
         },
     },
 }
+def _docs_access_check():
+    """Em produção exige usuário admin; em dev/teste a documentação é livre."""
+    if not is_production:
+        return None
+    try:
+        verify_jwt_in_request()
+        uid = get_jwt_identity()
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_admin FROM users WHERE id = %s", (uid,))
+            row = cursor.fetchone()
+        if row and row.get("is_admin"):
+            return None
+    except Exception:
+        pass
+    return jsonify(error="Acesso restrito. Autentique-se como administrador."), 403
+
 
 @app.route("/api/docs")
 def api_docs():
+    blocked = _docs_access_check()
+    if blocked is not None:
+        return blocked
     return jsonify(SWAGGER_SPEC)
+
 
 @app.route("/api/swagger-ui")
 def swagger_ui():
+    blocked = _docs_access_check()
+    if blocked is not None:
+        return blocked
+
     return f"""
 <!DOCTYPE html>
 <html lang="pt-BR">

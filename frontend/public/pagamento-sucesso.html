@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pagamento confirmado | AutoAssist</title>
-  <link rel="icon" type="image/png" href="icon-dark-32x32.png">
+  <link rel="icon" type="image/png" href="static/logo2.png?v=20260506">
+  <link rel="shortcut icon" type="image/png" href="static/logo2.png?v=20260506">
   <style>
 :root {
       color-scheme: dark;
@@ -198,7 +199,7 @@
             
         </div>
     </nav>
-    <main>
+    <main id="main-content" style="display:none">
     <div class="brand">
       <img src="logo.png" alt="AutoAssist">
       <span>AutoAssist</span>
@@ -228,6 +229,17 @@
   <script src="static/js/auth.js"></script>
     <script src="static/js/security-utils.js"></script>
   <script>
+    // Apenas usuários autenticados (que realizaram o pagamento) podem ver esta
+    // página. Visitantes sem login são redirecionados para a 404.
+    if (typeof Auth === "undefined" || !Auth.isAuthenticated()) {
+      window.location.replace("404.html");
+      throw new Error("pagamento-sucesso: acesso negado");
+    }
+
+    // Usuário autenticado: libera a exibição do conteúdo da página.
+    var mainContent = document.getElementById("main-content");
+    if (mainContent) mainContent.style.display = "";
+
     const statusBox = document.getElementById("payment-status");
     const retryButton = document.getElementById("retry-button");
     const primaryAction = document.getElementById("primary-action");

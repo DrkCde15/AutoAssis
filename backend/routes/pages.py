@@ -18,6 +18,7 @@ import uuid
 from services.maintenance_service import _status_from_remaining, apply_manual_overrides, parse_maintenance_entry, serialize_maintenance_row
 from services.nogai import prever_intervalo_manutencao, _invalidate_maintenance_context, _invalidate_user_ai_cache
 from utils.async_task import _predictor, train_in_background
+from utils.turnstile import turnstile_or_auth
 import json
 from decimal import Decimal
 from .database import get_db, is_trial_expired, get_trial_days_remaining, get_mysql_history
@@ -2582,6 +2583,7 @@ def admin_burn_analytics():
 
 @pages_bp.route("/api/chat", methods=["POST"])
 @limiter.limit("20 per hour")
+@turnstile_or_auth(action="chat")
 def chat():
     user_id = get_optional_user_id()
     data = request.get_json(silent=True) or {}
@@ -2717,6 +2719,7 @@ def chat():
         return jsonify(error="Erro interno"), 500
 
 @pages_bp.route("/api/voice", methods=["POST"])
+@turnstile_or_auth(action="chat")
 def handle_voice():
     user_id = get_optional_user_id()
     if 'audio' not in request.files:

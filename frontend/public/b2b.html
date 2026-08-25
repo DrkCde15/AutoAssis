@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AutoAssist IA para Empresas - Laudo por Foto em API</title>
+  <link rel="icon" type="image/png" href="static/logo2.png?v=20260506">
+  <link rel="shortcut icon" type="image/png" href="static/logo2.png?v=20260506">
   <meta name="description" content="Oficinas, seguradoras e marketplaces integram o diagnóstico automotivo por foto da AutoAssist via API. Planos por volume de requisições." />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="static/css/shared.css">
@@ -85,7 +87,7 @@
         <div class="eyebrow">AutoAssist para Empresas</div>
         <h1>Diagnóstico automotivo por foto, via API</h1>
         <p>Oficinas, seguradoras, inspectoras e marketplaces integram a IA da AutoAssist (modelo NOG) para gerar laudos a partir de uma foto. Cada chamada devolve diagnóstico em JSON ou PDF.</p>
-        <p style="margin-top:18px;"><a href="/docs" class="btn-primary" style="text-decoration:none;display:inline-block;">Ver documentação da API →</a></p>
+        <p style="margin-top:18px;"><a href="docs.html" class="btn-primary" style="text-decoration:none;display:inline-block;">Ver documentação da API →</a></p>
       </div>
       <div class="terminal" aria-hidden="true">
         <div><span class="m">POST</span> <span class="a">/api/b2b/diagnosis</span></div>
@@ -121,7 +123,7 @@
         <label for="keyPlan">Plano</label>
         <select id="keyPlan"></select>
         <button class="btn-primary" id="btnCreateKey" style="margin-top:16px;">Criar API key</button>
-        <p style="margin-top:12px;font-size:.82rem;color:var(--muted);">Sem conta? <a href="/docs">Veja uma demo da API</a> ou explore a <a href="#seguranca">segurança e LGPD</a>.</p>
+        <p style="margin-top:12px;font-size:.82rem;color:var(--muted);">Sem conta? <a href="docs.html">Veja uma demo da API</a> ou explore a <a href="#seguranca">segurança e LGPD</a>.</p>
         <div class="msg" id="keyMsg"></div>
         <div id="keyResult" class="hidden" style="margin-top:12px;">
           <p>Sua chave (guarde agora, não será exibida novamente):</p>
@@ -130,7 +132,7 @@
       </div>
       <div id="loginNeeded" class="hidden">
         <p>Faça <a href="login.html">login</a> ou <a href="cadastro.html">crie uma conta</a> para gerar sua API key.</p>
-        <p style="font-size:.82rem;color:var(--muted);">Prefere só explorar? <a href="/docs">Veja a demo da API</a>.</p>
+        <p style="font-size:.82rem;color:var(--muted);">Prefere só explorar? <a href="docs.html">Veja a demo da API</a>.</p>
       </div>
     </section>
 
@@ -168,6 +170,9 @@
       <input id="leadTelefone" />
       <label for="leadMsgInput">Mensagem</label>
       <textarea id="leadMsgInput" rows="3"></textarea>
+      <div class="turnstile-group" style="margin-top:12px;">
+        <div id="cf-turnstile-b2b" data-turnstile-widget data-turnstile-action="b2b_lead"></div>
+      </div>
       <button class="btn-primary" id="btnLead" style="margin-top:16px;">Enviar contato</button>
       <div class="msg" id="leadMsg"></div>
     </section>
@@ -175,11 +180,13 @@
 
   <script src="static/js/config.js"></script>
   <script src="static/js/auth.js"></script>
+  <script src="static/js/turnstile.js"></script>
   <script src="static/js/navbar.js"></script>
   <script src="static/js/notifications.js" defer></script>
   <script src="static/js/responsive.js" defer></script>
   <script>
         if (typeof Navbar !== 'undefined') { Navbar.init({ validate: true }); }
+        if (typeof TurnstileHelper !== 'undefined') { TurnstileHelper.init(); }
         (function () {
             var toggle = document.getElementById('navToggle');
             var links = document.getElementById('authLinks');
@@ -291,6 +298,16 @@
         origem: "site_b2b",
       };
       if (!payload.nome || !payload.email) { msg.className = "msg err"; msg.textContent = "Nome e e-mail são obrigatórios."; return; }
+
+      // Desafio Turnstile (somente quando habilitado no backend)
+      if (TurnstileHelper.isEnabled() && !TurnstileHelper.isSolved("cf-turnstile-b2b")) {
+        const token = await TurnstileHelper.waitForToken("cf-turnstile-b2b", 10000);
+        if (!token) { msg.className = "msg err"; msg.textContent = "Resolva a verificação de segurança antes de enviar."; return; }
+      }
+      if (TurnstileHelper.isEnabled()) {
+        payload.turnstile_token = TurnstileHelper.getToken("cf-turnstile-b2b");
+      }
+
       msg.className = "msg"; msg.textContent = "Enviando...";
       try {
         const res = await fetch("/api/b2b/leads", {

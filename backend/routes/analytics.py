@@ -449,6 +449,9 @@ def record_analytics_event_route():
     user_id = _get_optional_user_id()
     user_agent = request.headers.get("User-Agent")
 
+    from utils.abuse_monitor import monitor_public_ingest
+    monitor_public_ingest("analytics_events", limit=500)
+
     record_analytics_event(
         event_type,
         user_id=user_id,

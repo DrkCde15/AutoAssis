@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentação da API AutoAssist — Laudo Automotivo por Foto</title>
+  <meta name="description" content="Documentação da API B2B da AutoAssist: diagnóstico automotivo por foto via POST /api/b2b/diagnosis. Exemplos de requisição, autenticação por API key e planos." />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="static/css/shared.css">
+  <link rel="stylesheet" href="static/css/responsive.css">
+  <link rel="stylesheet" href="static/css/notifications.css">
+  <link rel="stylesheet" href="static/css/animations.css">
+  <link rel="stylesheet" href="static/fonts/fonts.css">
+  <style>
+    :root { --bg:#09090b; --card:#18181b; --line:#27272a; --text:#e4e4e7; --muted:#a1a1aa; --accent:#3b82f6; --success:#30d158; --code:#0f0f12; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: var(--font-sans); background:var(--bg); color:var(--text); line-height:1.6; -webkit-font-smoothing:antialiased; }
+    .wrap { max-width:1080px; margin:0 auto; padding:72px 24px 96px; }
+    .eyebrow { color:var(--accent); font-weight:600; letter-spacing:.08em; text-transform:uppercase; font-size:.78rem; }
+    h1 { font-family:var(--font-display); font-size:clamp(2rem,4vw,2.8rem); line-height:1.05; letter-spacing:-0.01em; margin:.4rem 0; }
+    h2 { font-family:var(--font-display); font-size:1.5rem; margin-top:56px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+    h3 { font-family:var(--font-display); font-size:1.1rem; margin:28px 0 8px; }
+    p { color:var(--muted); }
+    a { color:var(--accent); }
+    code.inline { background:var(--code); padding:2px 6px; border-radius:6px; font-size:.85rem; font-family:ui-monospace,monospace; color:#7dd3fc; }
+    .terminal-link { margin-top:18px; }
+    .terminal-link a { text-decoration:none; display:inline-block; background:var(--accent); color:#fff; font-weight:600; padding:12px 18px; border-radius:10px; }
+    .endpoint { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:24px 28px; margin:20px 0; }
+    .endpoint-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .method { font-family:ui-monospace,monospace; font-weight:700; font-size:.78rem; padding:5px 10px; border-radius:8px; letter-spacing:.05em; }
+    .method.post { background:rgba(59,130,246,.15); color:#7dd3fc; border:1px solid rgba(59,130,246,.4); }
+    .path { font-family:ui-monospace,monospace; font-size:1rem; color:var(--text); }
+    .desc { color:var(--muted); margin:10px 0 0; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
+    @media (max-width: 768px){ .grid2 { grid-template-columns:1fr; } }
+    .block-label { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
+    pre { background:var(--code); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; margin:0; }
+    pre code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; line-height:1.6; color:#e4e4e7; white-space:pre; }
+    .tok-k { color:#f0abfc; } .tok-s { color:#86efac; } .tok-c { color:#a1a1aa; } .tok-b { color:#7dd3fc; }
+    table { width:100%; border-collapse:collapse; margin-top:14px; font-size:.9rem; }
+    th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); }
+    th { color:var(--muted); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; }
+    td code { color:#7dd3fc; }
+    .pill { display:inline-block; font-size:.72rem; padding:3px 9px; border-radius:999px; background:rgba(48,209,88,.15); color:var(--success); border:1px solid rgba(48,209,88,.35); }
+    .pill.auth { background:rgba(59,130,246,.15); color:#7dd3fc; border-color:rgba(59,130,246,.35); }
+    .note { background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.25); border-radius:12px; padding:16px 18px; margin-top:16px; color:var(--muted); }
+    .nav-toggle { display:none; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo">
+        <div class="nav-logo-icon">
+          <img src="logo.png?v=20260608" alt="AutoAssist IA" style="height:84px;width:auto;">
+        </div>
+        <span class="nav-logo-text">AutoAssist</span>
+      </a>
+      <div class="nav-links" id="authLinks"></div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <div class="eyebrow">AutoAssist para Empresas · API</div>
+    <h1>Documentação da API de Laudo Automotivo</h1>
+    <p>Transforme uma foto de veículo em laudo técnico via API. Envie a imagem em <code class="inline">base64</code> para <code class="inline">POST /api/b2b/diagnosis</code> e receba o diagnóstico em <strong>JSON</strong> ou <strong>PDF</strong> em menos de 3 segundos.</p>
+    <div class="terminal-link">
+      <a href="b2b.html">← Voltar para a página B2B</a>
+    </div>
+
+    <h2>Visão geral</h2>
+    <p>
+      <span class="pill auth">Base URL</span> &nbsp;<code class="inline">https://api.autoassist.com.br</code> (substitua pelo seu domínio de produção)<br><br>
+      <span class="pill auth">Formato</span> &nbsp;JSON (<code class="inline">application/json</code>). O endpoint de diagnóstico também suporta resposta em PDF.<br><br>
+      <span class="pill auth">Auth</span> &nbsp;API key enviada no header <code class="inline">X-API-Key</code>. Crie sua chave pelo autoatendimento em <a href="b2b.html">b2b.html</a>.
+    </p>
+
+    <h2>Autenticação</h2>
+    <p>Toda chamada à API exige o header <code class="inline">X-API-Key</code>. Chaves inativas (ex.: plano pago ainda não pago) retornam <code class="inline">401</code>.</p>
+    <div class="endpoint">
+      <div class="endpoint-head">
+        <span class="method post">POST</span>
+        <span class="path">/api/b2b/self-serve/keys</span>
+        <span class="pill auth">Requer login (JWT)</span>
+      </div>
+      <p class="desc">Cria uma API key de autoatendimento (trial gratuito de 100 chamadas ou plano pago). A chave é exibida <strong>apenas uma vez</strong>.</p>
+      <div class="grid2">
+        <div>
+          <div class="block-label">Request</div>
+          <pre><code>POST /api/b2b/self-serve/keys
+Authorization: Bearer &lt;SEU_JWT&gt;
+Content-Type: application/json
+
+{
+  <span class="tok-k">"nome"</span>: <span class="tok-s">"Oficina Centro Automotivo"</span>,
+  <span class="tok-k">"plan"</span>: <span class="tok-s">"pro_5k"</span>
+}</code></pre>
+        </div>
+        <div>
+          <div class="block-label">Response 201</div>
+          <pre><code>{
+  <span class="tok-k">"success"</span>: <span class="tok-b">true</span>,
+  <span class="tok-k">"plan"</span>: <span class="tok-s">"pro_5k"</span>,
+  <span class="tok-k">"api_key"</span>: <span class="tok-s">"aa_xxxxxxxxxxxxxxxx"</span>,
+  <span class="tok-k">"requests_limit"</span>: <span class="tok-b">5000</span>,
+  <span class="tok-k">"rate_limit_per_min"</span>: <span class="tok-b">60</span>,
+  <span class="tok-k">"aviso"</span>: <span class="tok-s">"Guarde esta chave agora..."</span>
+}</code></pre>
+        </div>
+      </div>
+      <p class="desc">Planos disponíveis: <code class="inline">trial</code>, <code class="inline">pro_1k</code>, <code class="inline">pro_5k</code>, <code class="inline">pro_20k</code>. Para planos pagos, use <code class="inline">/api/b2b/self-serve/checkout</code> para gerar a chave + link de pagamento Cakto.</p>
+    </div>
+
+    <h2>Diagnóstico por foto</h2>
+    <div class="endpoint">
+      <div class="endpoint-head">
+        <span class="method post">POST</span>
+        <span class="path">/api/b2b/diagnosis</span>
+        <span class="pill auth">X-API-Key</span>
+      </div>
+      <p class="desc">Recebe uma imagem em base64 e devolve o laudo gerado pela IA. Suporta formato <code class="inline">json</code> (padrão) ou <code class="inline">pdf</code>.</p>
+      <h3>Parâmetros (body JSON)</h3>
+      <table>
+        <thead><tr><th>Campo</th><th>Tipo</th><th>Obrigatório</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>image</code></td><td>string</td><td>Sim</td><td>Imagem do veículo em base64 (data URI ou base64 puro). Máx. 15 MB.</td></tr>
+          <tr><td><code>pergunta</code></td><td>string</td><td>Não</td><td>Pergunta específica sobre a imagem (ex.: "qual a gravidade desta avaria?").</td></tr>
+          <tr><td><code>formato</code></td><td>string</td><td>Não</td><td><code>json</code> (padrão) ou <code>pdf</code>.</td></tr>
+        </tbody>
+      </table>
+      <div class="grid2">
+        <div>
+          <div class="block-label">Request (JSON)</div>
+          <pre><code>POST /api/b2b/diagnosis
+X-API-Key: aa_xxxxxxxxxxxxxxxx
+Content-Type: application/json
+
+{
+  <span class="tok-k">"image"</span>: <span class="tok-s">"data:image/jpeg;base64,/9j/4AAQ..."</span>,
+  <span class="tok-k">"formato"</span>: <span class="tok-s">"json"</span>
+}</code></pre>
+        </div>
+        <div>
+          <div class="block-label">Response 200 (JSON)</div>
+          <pre><code>{
+  <span class="tok-k">"success"</span>: <span class="tok-b">true</span>,
+  <span class="tok-k">"client"</span>: <span class="tok-s">"Oficina Centro"</span>,
+  <span class="tok-k">"formato"</span>: <span class="tok-s">"json"</span>,
+  <span class="tok-k">"laudo"</span>: <span class="tok-s">"Detectamos folga na..."</span>,
+  <span class="tok-k">"aviso"</span>: <span class="tok-s">"Laudo gerado por IA..."</span>
+}</code></pre>
+        </div>
+      </div>
+      <h3>Resposta em PDF</h3>
+      <p class="desc">Com <code class="inline">"formato": "pdf"</code>, a resposta é um arquivo <code class="inline">application/pdf</code> anexado (<code class="inline">laudo_autoassist.pdf</code>), pronto para anexar a sinistros ou ordens de serviço.</p>
+      <pre><code>{
+  <span class="tok-k">"image"</span>: <span class="tok-s">"data:image/jpeg;base64,/9j/4AAQ..."</span>,
+  <span class="tok-k">"formato"</span>: <span class="tok-s">"pdf"</span>
+}</code></pre>
+      <div class="note">
+        <strong>Códigos de erro:</strong> <code class="inline">401</code> API key inválida/inativa · <code class="inline">400</code> campo <code class="inline">image</code> ausente · <code class="inline">413</code> imagem &gt; 15 MB · <code class="inline">429</code> limite de taxa ou cota esgotada · <code class="inline">502</code> falha na análise.
+      </div>
+    </div>
+
+    <h2>Checkout de plano pago</h2>
+    <div class="endpoint">
+      <div class="endpoint-head">
+        <span class="method post">POST</span>
+        <span class="path">/api/b2b/self-serve/checkout</span>
+        <span class="pill auth">Requer login (JWT)</span>
+      </div>
+      <p class="desc">Cria a chave (inicialmente inativa) e retorna a URL de pagamento Cakto. A chave é ativada automaticamente via webhook após a confirmação.</p>
+      <div class="grid2">
+        <div>
+          <div class="block-label">Request</div>
+          <pre><code>POST /api/b2b/self-serve/checkout
+Authorization: Bearer &lt;SEU_JWT&gt;
+Content-Type: application/json
+
+{
+  <span class="tok-k">"nome"</span>: <span class="tok-s">"Seguradora Exemplo"</span>,
+  <span class="tok-k">"plan"</span>: <span class="tok-s">"pro_20k"</span>
+}</code></pre>
+        </div>
+        <div>
+          <div class="block-label">Response 201</div>
+          <pre><code>{
+  <span class="tok-k">"success"</span>: <span class="tok-b">true</span>,
+  <span class="tok-k">"plan"</span>: <span class="tok-s">"pro_20k"</span>,
+  <span class="tok-k">"api_key"</span>: <span class="tok-s">"aa_xxxxxxxxxxxxxxxx"</span>,
+  <span class="tok-k">"checkout_url"</span>: <span class="tok-s">"https://pay.cakto.com.br/..."</span>,
+  <span class="tok-k">"aviso"</span>: <span class="tok-s">"Chave criada. Conclua o pagamento..."</span>
+}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h2>Leads (contato enterprise)</h2>
+    <div class="endpoint">
+      <div class="endpoint-head">
+        <span class="method post">POST</span>
+        <span class="path">/api/b2b/leads</span>
+        <span class="pill">Público</span>
+      </div>
+      <p class="desc">Registra um contato para volumes acima de 20k chamadas/mês ou faturamento mensal.</p>
+      <pre><code>POST /api/b2b/leads
+Content-Type: application/json
+
+{
+  <span class="tok-k">"nome"</span>: <span class="tok-s">"Maria Silva"</span>,
+  <span class="tok-k">"email"</span>: <span class="tok-s">"maria@seguradora.com"</span>,
+  <span class="tok-k">"empresa"</span>: <span class="tok-s">"Seguradora Exemplo"</span>,
+  <span class="tok-k">"telefone"</span>: <span class="tok-s">"11999999999"</span>,
+  <span class="tok-k">"mensagem"</span>: <span class="tok-s">"Preciso de 50k chamadas/mês"</span>
+}</code></pre>
+      <p class="desc">Resposta: <code class="inline">201</code> <code class="inline">{ "message": "Recebemos seu contato!..." }</code>. Campos <code class="inline">nome</code> e <code class="inline">email</code> são obrigatórios.</p>
+    </div>
+
+    <h2>Limites por plano</h2>
+    <table>
+      <thead><tr><th>Plano</th><th>Chamadas/mês</th><th>Taxa (req/min)</th><th>Preço</th></tr></thead>
+      <tbody>
+        <tr><td><code>trial</code></td><td>100</td><td>10</td><td>Grátis</td></tr>
+        <tr><td><code>pro_1k</code></td><td>1.000</td><td>30</td><td>R$ 49,90/mês</td></tr>
+        <tr><td><code>pro_5k</code></td><td>5.000</td><td>60</td><td>R$ 149,90/mês</td></tr>
+        <tr><td><code>pro_20k</code></td><td>20.000</td><td>120</td><td>R$ 399,90/mês</td></tr>
+      </tbody>
+    </table>
+    <p>Ao exceder a taxa por minuto ou a cota mensal, o endpoint retorna <code class="inline">429</code>. Volumes maiores: fale com o time B2B via <code class="inline">/api/b2b/leads</code>.</p>
+
+    <h2>Exemplo completo (cURL)</h2>
+    <pre><code><span class="tok-c"># 1) Crie a chave (requer JWT de usuário logado)</span>
+curl -X POST https://api.autoassist.com.br/api/b2b/self-serve/keys \
+  -H <span class="tok-s">"Authorization: Bearer &lt;SEU_JWT&gt;"</span> \
+  -H <span class="tok-s">"Content-Type: application/json"</span> \
+  -d <span class="tok-s">'{"nome":"Oficina Centro","plan":"pro_5k"}'</span>
+
+<span class="tok-c"># 2) Consuma o diagnóstico</span>
+curl -X POST https://api.autoassist.com.br/api/b2b/diagnosis \
+  -H <span class="tok-s">"X-API-Key: aa_xxxxxxxxxxxxxxxx"</span> \
+  -H <span class="tok-s">"Content-Type: application/json"</span> \
+  -d <span class="tok-s">'{"image":"data:image/jpeg;base64,/9j/4AAQ...","formato":"pdf"}'</span> \
+  --output laudo.pdf</code></pre>
+
+    <div class="note">
+      <strong>Interface interativa:</strong> a especificação OpenAPI está disponível em
+      <code class="inline">/api/docs</code> e o Swagger UI em <code class="inline">/api/swagger-ui</code>.
+    </div>
+  </div>
+
+  <script src="static/js/config.js"></script>
+  <script src="static/js/auth.js"></script>
+  <script src="static/js/navbar.js"></script>
+  <script src="static/js/notifications.js" defer></script>
+  <script src="static/js/responsive.js" defer></script>
+  <script>
+    if (typeof Navbar !== 'undefined') { Navbar.init({ validate: true }); }
+  </script>
+</body>
+</html>
