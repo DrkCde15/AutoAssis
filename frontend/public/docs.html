@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Documentação da API AutoAssist — Laudo Automotivo por Foto</title>
   <meta name="description" content="Documentação da API B2B da AutoAssist: diagnóstico automotivo por foto via POST /api/b2b/diagnosis. Exemplos de requisição, autenticação por API key e planos." />
+  <link rel="icon" type="image/png" href="static/logo2.png?v=20260506">
+  <link rel="shortcut icon" type="image/png" href="static/logo2.png?v=20260506">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="static/css/shared.css">
   <link rel="stylesheet" href="static/css/responsive.css">
@@ -26,15 +28,16 @@
     .terminal-link { margin-top:18px; }
     .terminal-link a { text-decoration:none; display:inline-block; background:var(--accent); color:#fff; font-weight:600; padding:12px 18px; border-radius:10px; }
     .endpoint { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:24px 28px; margin:20px 0; }
-    .endpoint-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .endpoint-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; min-width:0; }
     .method { font-family:ui-monospace,monospace; font-weight:700; font-size:.78rem; padding:5px 10px; border-radius:8px; letter-spacing:.05em; }
     .method.post { background:rgba(59,130,246,.15); color:#7dd3fc; border:1px solid rgba(59,130,246,.4); }
-    .path { font-family:ui-monospace,monospace; font-size:1rem; color:var(--text); }
+    .path { font-family:ui-monospace,monospace; font-size:1rem; color:var(--text); min-width:0; overflow-wrap:anywhere; word-break:break-word; }
     .desc { color:var(--muted); margin:10px 0 0; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
+    .grid2 > * { min-width: 0; }
     @media (max-width: 768px){ .grid2 { grid-template-columns:1fr; } }
     .block-label { font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
-    pre { background:var(--code); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; margin:0; }
+    pre { background:var(--code); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; max-width:100%; margin:0; }
     pre code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; line-height:1.6; color:#e4e4e7; white-space:pre; }
     .tok-k { color:#f0abfc; } .tok-s { color:#86efac; } .tok-c { color:#a1a1aa; } .tok-b { color:#7dd3fc; }
     table { width:100%; border-collapse:collapse; margin-top:14px; font-size:.9rem; }
@@ -45,6 +48,14 @@
     .pill.auth { background:rgba(59,130,246,.15); color:#7dd3fc; border-color:rgba(59,130,246,.35); }
     .note { background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.25); border-radius:12px; padding:16px 18px; margin-top:16px; color:var(--muted); }
     .nav-toggle { display:none; }
+    td code, .path, code.inline { overflow-wrap: anywhere; word-break: break-word; }
+    @media (max-width: 768px) {
+      .wrap { padding: 36px 16px 64px; }
+      .endpoint { padding: 20px 18px; }
+      .endpoint-head { gap: 8px; }
+      table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      th, td { white-space: normal; }
+    }
   </style>
 </head>
 <body>
