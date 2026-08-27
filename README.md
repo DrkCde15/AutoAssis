@@ -98,13 +98,13 @@ Por padrão o app usa `https://autoassist-l9lr.onrender.com`. Para apontar para 
 EXPO_PUBLIC_FLASK_URL=IP LOCAL:5001
 ```
 
-`192.168.15.5` é o IP da máquina na rede (descubra com `hostname -I` no WSL). O app resolve esse IP **no celular**, então:
+`IP LOCAL` é o IP da máquina na rede (descubra com `hostname -I` no WSL). O app resolve esse IP **no celular**, então:
 
-- **Celular físico (Expo Go):** use o IP da rede do PC (ex.: `http://192.168.15.5:5001`).
+- **Celular físico (Expo Go):** use o IP da rede do PC (ex.: `IP LOCAL:5001`).
 - **Android emulator:** `http://10.0.2.2:5001`.
 - **iOS simulator / web:** `http://localhost:5001`.
 
-O `.env.local` é lido na subida do Expo — reinicie o `npm start` após alterá-lo. Confirme que o backend está acessível pelo celular abrindo `http://192.168.15.5:5001` no navegador do aparelho.
+O `.env.local` é lido na subida do Expo — reinicie o `npm start` após alterá-lo. Confirme que o backend está acessível pelo celular abrindo `IP LOCAL:5001` no navegador do aparelho.
 
 ---
 
