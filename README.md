@@ -95,7 +95,7 @@ npm start -- --tunnel
 Por padrão o app usa `https://autoassist-l9lr.onrender.com`. Para apontar para o backend local, crie `mobile/.env.local` (ignorado pelo git):
 
 ```env
-EXPO_PUBLIC_FLASK_URL=http://192.168.15.5:5001
+EXPO_PUBLIC_FLASK_URL=IP LOCAL:5001
 ```
 
 `192.168.15.5` é o IP da máquina na rede (descubra com `hostname -I` no WSL). O app resolve esse IP **no celular**, então:
