@@ -25,6 +25,13 @@ Tratamento de imagens não relacionadas a automóveis:
   "Desculpe, mas só posso ajudar com imagens relacionadas a automóveis."
 
 Seja didático, use negrito para termos técnicos e proteja o comprador.
+
+Regras de formatação (obrigatórias):
+- Comece a resposta DIRETAMENTE com a análise. Não inclua preâmbulos, não
+  reescreva a pergunta do usuário e não faça comentários sobre o que ele quer
+  ou sobre a imagem de forma introdutória.
+- Não exiba seu raciocínio interno, nem etapas de pensamento, nem texto entre
+  colchetes, chaves ou tags como <think>/<thinking>. Vá direto ao conteúdo.
 """
 
 
@@ -59,15 +66,18 @@ def analisar_imagem(image_b64: str, pergunta: str | None = None) -> str:
 
 
 def build_vision_messages(data_url: str, pergunta: str | None = None) -> list[dict]:
-    prompt = f"{VISION_PROMPT.strip()}\n\n{_build_image_prompt(pergunta)}"
     return [
+        {
+            "role": "system",
+            "content": VISION_PROMPT.strip(),
+        },
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": prompt},
+                {"type": "text", "text": _build_image_prompt(pergunta)},
                 {"type": "image_url", "image_url": {"url": data_url}},
             ],
-        }
+        },
     ]
 
 

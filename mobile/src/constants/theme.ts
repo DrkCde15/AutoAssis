@@ -12,14 +12,21 @@ export const Palette = {
   text: '#FAFAFA',
   textMuted: '#A1A1AA',
   textSoft: '#71717A',
-  primary: '#3B82F6',
-  primaryDark: '#2563EB',
+  primary: '#7C5CFF',
+  primaryDark: '#5B3FE0',
+  accent: '#A78BFA',
   blue: '#3B82F6',
+  cyan: '#22D3EE',
   amber: '#F59E0B',
   red: '#EF4444',
   green: '#22C55E',
   white: '#FFFFFF',
 } as const;
+
+export const Gradients = {
+  brand: ['#7C5CFF', '#3B82F6'] as [string, string],
+  brandSoft: ['rgba(124,92,255,0.18)', 'rgba(59,130,246,0.10)'] as [string, string],
+};
 
 export const Colors = {
   light: {
@@ -100,8 +107,8 @@ export const Shadow = {
     elevation: 8,
   },
   lg: {
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.16,
+    shadowColor: '#7C5CFF',
+    shadowOpacity: 0.22,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 10 },
     elevation: 14,

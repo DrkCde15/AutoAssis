@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask import Flask, jsonify, make_response, request, current_app
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
+from routes.database import get_db
 from flask_talisman import Talisman
 from flask_compress import Compress
 from werkzeug.exceptions import HTTPException
@@ -50,6 +51,12 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+# [LOG] Silencia o log de acesso de requisições ("GET /api/... HTTP/1.1" 200 -)
+# do servidor de desenvolvimento (Werkzeug) e do gunicorn em produção.
+# Mantém warnings/erros e os logs próprios da aplicação (logger acima).
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+logging.getLogger('gunicorn.access').setLevel(logging.WARNING)
+
 print("Importando rotas...")
 from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db, config_bp
 from routes.mechanics import mechanics_bp
@@ -57,6 +64,7 @@ from routes.events import events_bp
 from routes.notifications import notifications_bp
 from routes.push import push_bp
 from routes.b2b import b2b_bp
+from routes.marketing import marketing_bp
 from routes.payment import cakto_webhook as cakto_webhook_handler
 print("Rotas importadas.")
 
@@ -70,7 +78,7 @@ def get_dashboard_url() -> str:
         return request.host_url.rstrip('/') + '/'
     except Exception:
         # Fora de request context (ex.: chamadas internas)
-        fallback = os.getenv("URL_PROD") or "http://localhost:5000/"
+        fallback = os.getenv("URL_PROD") or "http://localhost:5001/"
         return fallback.rstrip('/') + '/'
     # Return base URL for the Flask backend (HTML UI)
     return request.host_url.rstrip('/') + '/'
@@ -151,21 +159,38 @@ csp = {
         "https://api.cakto.com.br",
         "https://photon.komoot.io",
         "https://unpkg.com",
-        "http://localhost:5000",
-        "http://127.0.0.1:5000",
-        "ws://localhost:5000",
-        "ws://127.0.0.1:5000",
+        "http://localhost:5001",
+        "http://127.0.0.1:5001",
+        "ws://localhost:5001",
+        "ws://127.0.0.1:5001",
         "https://challenges.cloudflare.com",
     ] + ([_env_ws_origin()] if _env_ws_origin() else [])
 }
 
 # Configuração dinâmica para não forçar HTTPS em localhost
-talisman = Talisman(app, 
-         force_https=is_production, 
+# permissions_policy explícita: remove 'browsing-topics' (feature removida que
+# gera warning no Chrome) e libera microphone/geolocation no mesmo origin, pois
+# o chat de voz e a busca de mecânicos por proximidade usam essas APIs.
+talisman = Talisman(app,
+         force_https=is_production,
          content_security_policy=csp,
          strict_transport_security=True,
          session_cookie_secure=is_production,
-         referrer_policy='strict-origin-when-cross-origin'
+         referrer_policy='strict-origin-when-cross-origin',
+         permissions_policy={
+             "accelerometer": [],
+             "autoplay": [],
+             "camera": [],
+             "encrypted-media": [],
+             "fullscreen": [],
+             "geolocation": ["'self'"],
+             "gyroscope": [],
+             "magnetometer": [],
+             "microphone": ["'self'"],
+             "midi": [],
+             "payment": [],
+             "usb": [],
+         }
 )
 
 @app.before_request
@@ -217,8 +242,8 @@ jwt = JWTManager(app)
 
 # [SEGURANCA] CORS
 base_allowed_origins = [
-    "http://localhost:5000",
-    "http://127.0.0.1:5000",
+    "http://localhost:5001",
+    "http://127.0.0.1:5001",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8501",
@@ -370,8 +395,8 @@ SWAGGER_SPEC = {
         "description": "API do AutoAssist - Ecossistema automotivo com IA. Consulte os endpoints para chat, manutenção preditiva, FIPE, pagamentos e mais.",
     },
     "servers": [
-        {"url": _env_frontend_origin() or "http://localhost:5000", "description": "Producao"},
-        {"url": "http://localhost:5000", "description": "Desenvolvimento"},
+        {"url": _env_frontend_origin() or "http://localhost:5001", "description": "Producao"},
+        {"url": "http://localhost:5001", "description": "Desenvolvimento"},
     ],
     "components": {
         "securitySchemes": {
@@ -491,6 +516,22 @@ SWAGGER_SPEC = {
                 "responses": {"200": {"description": "Evento registrado"}},
             }
         },
+        "/api/waitlist": {
+            "post": {
+                "summary": "Capturar lead não-logado (lista de espera / topo de funil)",
+                "tags": ["Marketing"],
+                "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/WaitlistInput"}}}},
+                "responses": {"201": {"description": "Lead registrado"}, "400": {"description": "E-mail inválido"}},
+            }
+        },
+        "/api/admin/leads": {
+            "get": {
+                "summary": "Listar leads e métricas de conversão (admin)",
+                "tags": ["Marketing"],
+                "security": [{"bearerAuth": []}],
+                "responses": {"200": {"description": "Lista de leads"}, "403": {"description": "Acesso restrito"}},
+            }
+        },
         "/api/docs": {
             "get": {
                 "summary": "Documentacao OpenAPI/Swagger",
@@ -537,15 +578,53 @@ SWAGGER_SPEC = {
                 "quilometragem": {"type": "integer"},
             },
         },
+        "WaitlistInput": {
+            "type": "object",
+            "required": ["email"],
+            "properties": {
+                "nome": {"type": "string", "example": "Ana Silva"},
+                "email": {"type": "string", "format": "email", "example": "ana@email.com"},
+                "lead_magnet": {"type": "string", "example": "waitlist"},
+                "utm_source": {"type": "string"},
+                "utm_medium": {"type": "string"},
+                "utm_campaign": {"type": "string"},
+                "initial_referrer": {"type": "string"},
+                "referred_by": {"type": "string", "example": "A1B2C3D4"},
+            },
+        },
     },
 }
+def _docs_access_check():
+    """Em produção exige usuário admin; em dev/teste a documentação é livre."""
+    if not is_production:
+        return None
+    try:
+        verify_jwt_in_request()
+        uid = get_jwt_identity()
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_admin FROM users WHERE id = %s", (uid,))
+            row = cursor.fetchone()
+        if row and row.get("is_admin"):
+            return None
+    except Exception:
+        pass
+    return jsonify(error="Acesso restrito. Autentique-se como administrador."), 403
+
 
 @app.route("/api/docs")
 def api_docs():
+    blocked = _docs_access_check()
+    if blocked is not None:
+        return blocked
     return jsonify(SWAGGER_SPEC)
+
 
 @app.route("/api/swagger-ui")
 def swagger_ui():
+    blocked = _docs_access_check()
+    if blocked is not None:
+        return blocked
+
     return f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -596,6 +675,7 @@ app.register_blueprint(push_bp)
 app.register_blueprint(mechanics_bp)
 app.register_blueprint(config_bp)
 app.register_blueprint(b2b_bp)
+app.register_blueprint(marketing_bp)
 
 # Gera VAPID keys se nao existirem
 if not os.getenv("VAPID_PRIVATE_KEY") or not os.getenv("VAPID_PUBLIC_KEY"):
@@ -699,8 +779,8 @@ def cors_preflight(_):
 
     return response
 
-
-# Run Flask only (Streamlit removed)
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5001)))
-
+    host = "0.0.0.0"
+    port = 5001
+    print(f" * Servidor rodando em http://localhost:{port}")
+    app.run(host=host, port=port)

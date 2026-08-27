@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Clipboard from '@react-native-clipboard/clipboard';
+import * as Clipboard from 'expo-clipboard';
 
 import { AppButton, Card, Pill } from '@/components/primitives';
 import { Palette, Spacing, Fonts } from '@/constants/theme';
@@ -49,9 +49,9 @@ export function PlansScreen({ goTo }: PlansScreenProps) {
     }
   }
 
-  function copyLink() {
+  async function copyLink() {
     if (!referralLink) return;
-    Clipboard.setString(referralLink);
+    await Clipboard.setStringAsync(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

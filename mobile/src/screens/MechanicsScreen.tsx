@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
 import { Palette, Spacing } from '@/constants/theme';
 import { ApiError, apiRequest } from '@/lib/api';
+import { useAuth } from '@/context/auth';
 import * as Location from 'expo-location';
 import type { AppTab } from './AppShell';
 
@@ -32,15 +34,59 @@ const SORT_OPTIONS: { key: string; label: string }[] = [
 ];
 
 export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
+  const { user, request } = useAuth();
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
   const [radius, setRadius] = useState('10');
   const [serviceType, setServiceType] = useState('');
   const [sortBy, setSortBy] = useState('distance');
+
+  useEffect(() => {
+    if (!user || !request) return;
+    let active = true;
+    void (async () => {
+      try {
+        const data = await request<{ favorites: Mechanic[] }>('/api/mechanics/favorites');
+        if (!active) return;
+        setFavIds(new Set((data.favorites || []).map((f) => String(f.id))));
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user, request]);
+
+  const toggleFavorite = useCallback(
+    async (m: Mechanic) => {
+      if (!request) return;
+      const id = String(m.id);
+      const isFav = favIds.has(id);
+      const prev = favIds;
+      setFavIds((s) => {
+        const next = new Set(s);
+        if (isFav) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+      try {
+        if (isFav) {
+          await request(`/api/mechanics/${id}/favorite`, { method: 'DELETE' });
+        } else {
+          await request(`/api/mechanics/${id}/favorite`, { method: 'POST' });
+        }
+      } catch {
+        setFavIds(prev);
+      }
+    },
+    [request, favIds],
+  );
 
   const requestLocation = useCallback(async () => {
     setLocError(null);
@@ -179,6 +225,18 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
             ) : null}
 
             <View style={styles.actions}>
+              {typeof m.id === 'number' ? (
+                <Pressable onPress={() => toggleFavorite(m)} style={styles.link}>
+                  <Ionicons
+                    name={favIds.has(String(m.id)) ? 'heart' : 'heart-outline'}
+                    size={18}
+                    color={favIds.has(String(m.id)) ? Palette.red : Palette.primary}
+                  />
+                  <Text style={[styles.linkText, favIds.has(String(m.id)) ? styles.favOn : null]}>
+                    {favIds.has(String(m.id)) ? 'Favorito' : 'Favoritar'}
+                  </Text>
+                </Pressable>
+              ) : null}
               {m.telefone ? (
                 <Pressable onPress={() => Linking.openURL(`tel:${m.telefone}`)} style={styles.link}>
                   <Text style={styles.linkText}>Ligar</Text>
@@ -211,7 +269,8 @@ const styles = StyleSheet.create({
   meta: { color: Palette.textMuted, fontSize: 14, marginTop: Spacing.one },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
   actions: { flexDirection: 'row', gap: Spacing.four, marginTop: Spacing.two },
-  link: { paddingVertical: 4 },
+  link: { paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
   linkText: { color: Palette.primary, fontSize: 14, fontWeight: '600' },
+  favOn: { color: Palette.red },
   error: { color: Palette.red, fontSize: 14 },
 });

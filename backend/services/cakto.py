@@ -206,6 +206,29 @@ class CaktoService:
         return None
 
     @staticmethod
+    def extract_product_info(payload: dict) -> dict:
+        """Extrai os identificadores de produto/oferta do payload da Cakto.
+
+        O mesmo endpoint de webhook recebe eventos de multiplos produtos
+        (Premium + planos B2B). Estes IDs permitem mapear o evento ao plano
+        interno quando o pedido interno nao esta disponivel.
+        """
+        data = CaktoService.extract_data(payload)
+
+        def _id(value):
+            if isinstance(value, dict):
+                return str(
+                    value.get("id") or value.get("id_product") or value.get("offer_id") or ""
+                ).strip() or None
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            return None
+
+        product = data.get("product") if isinstance(data, dict) else None
+        offer = data.get("offer") if isinstance(data, dict) else None
+        return {"product_id": _id(product), "offer_id": _id(offer)}
+
+    @staticmethod
     def extract_reference_user_id(payload: dict) -> str | None:
         data = CaktoService.extract_data(payload)
         candidates = (

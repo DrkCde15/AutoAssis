@@ -1,7 +1,7 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, apiRequest } from '@/lib/api';
-import { clearSession, loadSession, saveAccessToken, saveSession, saveUser } from '@/lib/storage';
+import { clearSession, loadSession, saveAccessToken, saveSession, saveTokens, saveUser } from '@/lib/storage';
 import type { LoginResult, User } from '@/lib/types';
 
 type Credentials = {
@@ -20,6 +20,7 @@ type AuthContextValue = {
   login: (credentials: Credentials) => Promise<LoginResult>;
   register: (payload: RegisterPayload) => Promise<void>;
   verifyTwoFactor: (pendingToken: string, code: string) => Promise<void>;
+  loginWithGoogle: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<User | null>;
   request: <T>(path: string, options?: { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown }) => Promise<T>;
@@ -50,21 +51,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await clearSession();
   }, []);
 
-  const refreshAccessToken = useCallback(async () => {
-    if (!refreshToken) {
-      throw new Error('Sessao expirada.');
-    }
+  const refreshWith = useCallback(async (token: string) => {
     const result = await apiRequest<LoginResult>('/api/refresh', {
       method: 'POST',
-      token: refreshToken,
+      token,
     });
     if (!result.access_token) {
       throw new Error('Servidor nao retornou token de acesso.');
     }
-    setAccessToken(result.access_token);
     await saveAccessToken(result.access_token);
     return result.access_token;
-  }, [refreshToken]);
+  }, []);
+
+  const refreshAccessToken = useCallback(async () => {
+    if (!refreshToken) {
+      throw new Error('Sessao expirada.');
+    }
+    const fresh = await refreshWith(refreshToken);
+    setAccessToken(fresh);
+    return fresh;
+  }, [refreshToken, refreshWith]);
 
   const request = useCallback<AuthContextValue['request']>(
     async (path, options = {}) => {
@@ -138,23 +144,56 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [persistLogin],
   );
 
+  const loginWithGoogle = useCallback(
+    async (accessToken: string, refreshToken: string) => {
+      setAccessToken(accessToken);
+      setRefreshToken(refreshToken);
+      await saveTokens(accessToken, refreshToken);
+      try {
+        const current = await apiRequest<User>('/api/user', { token: accessToken });
+        setUser(current);
+        await saveUser(current);
+      } catch {
+        /* mantém os tokens mesmo se /api/user falhar pontualmente */
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     let mounted = true;
-    loadSession()
-      .then((session) => {
+    (async () => {
+      try {
+        const session = await loadSession();
         if (!mounted) return;
-        setAccessToken(session.accessToken);
-        setRefreshToken(session.refreshToken);
-        setUser(session.user);
-      })
-      .finally(() => {
+        if (session.refreshToken) {
+          try {
+            const fresh = await refreshWith(session.refreshToken);
+            setAccessToken(fresh);
+            setRefreshToken(session.refreshToken);
+            setUser(session.user);
+          } catch {
+            await clearSession();
+            setAccessToken(null);
+            setRefreshToken(null);
+            setUser(null);
+          }
+        } else if (session.accessToken) {
+          setAccessToken(session.accessToken);
+          setRefreshToken(null);
+          setUser(session.user);
+        }
+      } catch {
+        // ignora falha de leitura do storage
+      } finally {
         if (mounted) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refreshWith]);
 
   const value = useMemo(
     () => ({
@@ -164,11 +203,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       register,
       verifyTwoFactor,
+      loginWithGoogle,
       logout,
       refreshUser,
       request,
     }),
-    [user, loading, accessToken, login, register, verifyTwoFactor, logout, refreshUser, request],
+    [user, loading, accessToken, login, register, verifyTwoFactor, loginWithGoogle, logout, refreshUser, request],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

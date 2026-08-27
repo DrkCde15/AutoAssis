@@ -49,8 +49,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   };
 
   if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    init.body = JSON.stringify(options.body);
+    if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+      init.body = options.body;
+    } else {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(options.body);
+    }
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, init);

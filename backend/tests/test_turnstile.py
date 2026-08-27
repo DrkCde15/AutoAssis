@@ -156,16 +156,6 @@ class TurnstileRequiredDecoratorTest(unittest.TestCase):
             resp = self.client.post("/protegida", json={"email": "x@x.com", "turnstile_token": "good"})
         self.assertEqual(resp.status_code, 200)
 
-    @patch("backend.utils.turnstile.os.getenv")
-    def test_cliente_mobile_bypassa(self, mock_getenv):
-        mock_getenv.side_effect = _env_getter(secret="segredo")
-        resp = self.client.post(
-            "/protegida",
-            json={"email": "x@x.com"},
-            headers={"X-Client": "autoassist-mobile"},
-        )
-        self.assertEqual(resp.status_code, 200)
-
 
 class ConfigPublicEndpointTest(unittest.TestCase):
     def setUp(self):

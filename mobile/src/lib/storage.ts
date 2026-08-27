@@ -69,6 +69,13 @@ export async function saveAccessToken(accessToken: string) {
   await setItem(KEYS.access, accessToken);
 }
 
+export async function saveTokens(accessToken: string, refreshToken: string) {
+  await Promise.all([
+    setItem(KEYS.access, accessToken),
+    setItem(KEYS.refresh, refreshToken),
+  ]);
+}
+
 export async function saveUser(user: User) {
   await setItem(KEYS.user, JSON.stringify(user));
 }

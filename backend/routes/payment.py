@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 
 from flask import Blueprint, jsonify, request
@@ -7,7 +8,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from services.cakto import CaktoService
 from .database import get_db
 from .push import send_push_notification
-from .b2b import activate_b2b_client
+from .b2b import activate_b2b_client, set_b2b_client_state
+from .analytics import record_analytics_event
 
 payment_bp = Blueprint("payment", __name__)
 logger = logging.getLogger(__name__)
@@ -23,6 +25,19 @@ PREMIUM_PLANS = {
     "completo": {"amount": 19.90, "currency": "BRL", "interval": "month"},
 }
 DEFAULT_PLAN = "completo"
+
+# Mapeamento produto/oferta Cakto -> plano interno.
+# O mesmo webhook /api/pay/webhook/cakto recebe eventos de todos os produtos
+# (Premium + planos B2B). Quando o pedido interno nao esta disponivel (evento
+# orfao), usamos este mapa para identificar o plano a partir do ID do produto
+# ou da oferta enviado pela Cakto. Preencha com os IDs reais obtidos na Cakto.
+CAKTO_PRODUCT_TO_PLAN = {
+    os.getenv("CAKTO_PRODUCT_PREMIUM_ID"): "completo",
+    os.getenv("CAKTO_PRODUCT_B2B_1K_ID"): "b2b_pro_1k",
+    os.getenv("CAKTO_PRODUCT_B2B_5K_ID"): "b2b_pro_5k",
+    os.getenv("CAKTO_PRODUCT_B2B_20K_ID"): "b2b_pro_20k",
+}
+CAKTO_PRODUCT_TO_PLAN = {k: v for k, v in CAKTO_PRODUCT_TO_PLAN.items() if k}
 
 _svc = None
 
@@ -65,17 +80,21 @@ def _get_user_email(user_id: str) -> str | None:
         return str(email).strip().lower() if isinstance(email, str) and email.strip() else None
 
 
-def _set_premium_by_user_id(user_id: str, is_premium: bool) -> int:
+def _set_premium_by_user_id(user_id: str, is_premium: bool, plan: str | None = None) -> int:
     target_state = bool(is_premium)
     with get_db() as (cursor, conn):
+        cursor.execute("SELECT is_premium FROM users WHERE id = %s", (user_id,))
+        row = cursor.fetchone()
+        prior = bool((row or {}).get("is_premium"))
+
         if target_state:
             # P2-1: aplica crédito de indicação (meses grátis) ao ativar premium.
             cursor.execute(
                 "SELECT referral_credit_months FROM users WHERE id = %s",
                 (user_id,),
             )
-            row = cursor.fetchone()
-            credit = int((row or {}).get("referral_credit_months") or 0)
+            cred_row = cursor.fetchone()
+            credit = int((cred_row or {}).get("referral_credit_months") or 0)
             if credit > 0:
                 cursor.execute(
                     """UPDATE users
@@ -85,36 +104,61 @@ def _set_premium_by_user_id(user_id: str, is_premium: bool) -> int:
                        WHERE id = %s""",
                     (credit, user_id),
                 )
-                return 1
-        cursor.execute(
-            "UPDATE users SET is_premium = %s WHERE id = %s",
-            (target_state, user_id),
-        )
-        if int(cursor.rowcount or 0) > 0:
-            return 1
+                updated = 1
+            else:
+                cursor.execute(
+                    "UPDATE users SET is_premium = %s WHERE id = %s",
+                    (target_state, user_id),
+                )
+                updated = int(cursor.rowcount or 0)
+        else:
+            cursor.execute(
+                "UPDATE users SET is_premium = FALSE WHERE id = %s",
+                (user_id,),
+            )
+            updated = int(cursor.rowcount or 0)
 
-        cursor.execute(
-            "SELECT id FROM users WHERE id = %s AND is_premium = %s",
-            (user_id, target_state),
-        )
-        return 1 if cursor.fetchone() else 0
+        if updated > 0 and prior != target_state:
+            _emit_premium_transition(user_id, plan or "completo", target_state, prior)
+        return updated
 
 
-def _set_premium_by_email(email: str, is_premium: bool) -> int:
+def _set_premium_by_email(email: str, is_premium: bool, plan: str | None = None) -> int:
     target_state = bool(is_premium)
     with get_db() as (cursor, conn):
+        cursor.execute("SELECT id, is_premium FROM users WHERE email = %s", (email,))
+        row = cursor.fetchone()
+        if not row:
+            return 0
+        user_id = row.get("id")
+        prior = bool(row.get("is_premium"))
         cursor.execute(
             "UPDATE users SET is_premium = %s WHERE email = %s",
             (target_state, email),
         )
-        if int(cursor.rowcount or 0) > 0:
-            return 1
+        updated = int(cursor.rowcount or 0)
+        if updated > 0 and prior != target_state:
+            _emit_premium_transition(user_id, plan or "completo", target_state, prior)
+        return updated
 
-        cursor.execute(
-            "SELECT id FROM users WHERE email = %s AND is_premium = %s",
-            (email, target_state),
+
+def _emit_premium_transition(user_id, plan, became_premium, prior_premium):
+    """P0.3: emite premium_upgrade/churn apenas em mudança real de estado."""
+    if user_id is None or prior_premium is None:
+        return
+    if became_premium == prior_premium:
+        return
+    try:
+        evt = "premium_upgrade" if became_premium else "premium_churn"
+        record_analytics_event(
+            evt,
+            user_id=user_id,
+            anonymous_id=None,
+            path="/api/pay/webhook/cakto",
+            metadata={"plan": plan, "via": "cakto_webhook"},
         )
-        return 1 if cursor.fetchone() else 0
+    except Exception as exc:
+        logger.warning("Falha ao emitir %s: %s", evt, exc)
 
 
 @payment_bp.route("/api/pay/preference", methods=["POST"])
@@ -247,7 +291,21 @@ def cakto_webhook():
             )
             order = cursor.fetchone()
 
-    is_b2b = bool(order and str(order.get("plan") or "").startswith("b2b_"))
+    # Identifica o produto/plano do evento.
+    # 1) Pedido interno tem prioridade (autoritativo e antifraude).
+    # 2) Fallback: mapear produto/oferta Cakto -> plano interno quando o
+    #    pedido interno nao esta disponivel (ex.: evento orfao).
+    product_info = service.extract_product_info(payload)
+    provider_product_id = product_info.get("product_id")
+    provider_offer_id = product_info.get("offer_id")
+
+    resolved_plan = (order.get("plan") if order else None) or None
+    if not resolved_plan and (provider_product_id or provider_offer_id):
+        resolved_plan = (
+            CAKTO_PRODUCT_TO_PLAN.get(provider_product_id)
+            or CAKTO_PRODUCT_TO_PLAN.get(provider_offer_id)
+        )
+    resolved_is_b2b = bool(resolved_plan) and str(resolved_plan).startswith("b2b_")
 
     if should_activate:
         transaction_id = data.get("id")
@@ -284,6 +342,8 @@ def cakto_webhook():
 
     if order:
         user_id = order["user_id"]
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT is_premium FROM users WHERE id = %s", (user_id,))
         new_status = "approved" if should_activate else "revoked"
         with get_db() as (cursor, conn):
             if api_amount is not None and should_activate:
@@ -303,24 +363,32 @@ def cakto_webhook():
         logger.warning(f"Webhook Cakto: Pedido interno {internal_order_id} nao encontrado.")
 
     updated = 0
+    plan_name = resolved_plan or "completo"
     if user_id:
-        if is_b2b:
-            b2b_plan = str(order.get("plan")).replace("b2b_", "", 1)
-            updated = activate_b2b_client(user_id, b2b_plan)
+        if resolved_is_b2b:
+            b2b_plan = str(resolved_plan).replace("b2b_", "", 1)
+            updated = set_b2b_client_state(user_id, b2b_plan, target_state)
         else:
-            updated = _set_premium_by_user_id(user_id, target_state)
+            updated = _set_premium_by_user_id(user_id, target_state, plan=plan_name)
     else:
-        # Fallback por email se falhar o ID do pedido (somente premium)
-        if not is_b2b:
+        if not resolved_is_b2b:
             email = service.extract_customer_email(payload)
             if email:
-                updated = _set_premium_by_email(email, target_state)
-                if updated and target_state:
-                    with get_db() as (cursor, conn):
-                        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
-                        row = cursor.fetchone()
-                        if row:
-                            user_id = row["id"]
+                with get_db() as (cursor, conn):
+                    cursor.execute("SELECT id, is_premium FROM users WHERE email = %s", (email,))
+                    row = cursor.fetchone()
+                if row:
+                    user_id = row["id"]
+                updated = _set_premium_by_email(email, target_state, plan=plan_name)
+        else:
+            # Evento B2B sem usuario e sem pedido interno: nao aplicamos Premium
+            # por engano. Apenas registramos e encerramos com sucesso.
+            logger.warning(
+                "Webhook Cakto B2B ignorado (sem usuario/pedido): product=%s offer=%s",
+                provider_product_id,
+                provider_offer_id,
+            )
+            updated = 1
 
     if updated == 0:
         logger.warning(
@@ -333,7 +401,7 @@ def cakto_webhook():
     # Envia push notification ao ativar
     if target_state and user_id:
         try:
-            if is_b2b:
+            if resolved_is_b2b:
                 send_push_notification(
                     user_id=user_id,
                     title="🔑 API B2B ativada!",

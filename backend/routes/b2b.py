@@ -23,6 +23,7 @@ from routes.database import get_db
 from services.vision_ai import analisar_imagem
 from services.cakto import CaktoService
 from utils.cache import get_redis_client
+from utils.turnstile import turnstile_required
 from extensions import limiter
 
 b2b_bp = Blueprint("b2b_bp", __name__)
@@ -37,9 +38,16 @@ MAX_IMAGE_B64 = 15 * 1024 * 1024  # 15 MB base64 (~11 MB binário)
 # requests_limit == 0 significa ilimitado (chaves criadas via admin).
 B2B_PLANS = {
     "trial":   {"requests_limit": 100,   "rate_limit_per_min": 10,  "label": "Trial gratuito", "amount": 0,     "currency": "BRL", "interval": "month"},
-    "pro_1k":  {"requests_limit": 1000,  "rate_limit_per_min": 30,  "label": "Pro 1k",         "amount": 19.90, "currency": "BRL", "interval": "month"},
-    "pro_5k":  {"requests_limit": 5000,  "rate_limit_per_min": 60,  "label": "Pro 5k",         "amount": 19.90, "currency": "BRL", "interval": "month"},
-    "pro_20k": {"requests_limit": 20000, "rate_limit_per_min": 120, "label": "Pro 20k",        "amount": 19.90, "currency": "BRL", "interval": "month"},
+    "pro_1k":  {"requests_limit": 1000,  "rate_limit_per_min": 30,  "label": "Pro 1k",         "amount": 49.90, "currency": "BRL", "interval": "month"},
+    "pro_5k":  {"requests_limit": 5000,  "rate_limit_per_min": 60,  "label": "Pro 5k",         "amount": 149.90, "currency": "BRL", "interval": "month"},
+    "pro_20k": {"requests_limit": 20000, "rate_limit_per_min": 120, "label": "Pro 20k",        "amount": 399.90, "currency": "BRL", "interval": "month"},
+}
+# URLs de checkout Cakto por tier (Opção A: preço distinto por plano).
+# Prioriza variaveis de ambiente; fallback para os links cadastrados em producao.
+CAKTO_B2B_URLS = {
+    "pro_1k":  os.getenv("CAKTO_B2B_1K_URL")  or "https://pay.cakto.com.br/tqsqfbm_1063481",
+    "pro_5k":  os.getenv("CAKTO_B2B_5K_URL")  or "https://pay.cakto.com.br/9d8ewr2_1063487",
+    "pro_20k": os.getenv("CAKTO_B2B_20K_URL") or "https://pay.cakto.com.br/pw29nsi_1063494",
 }
 DEFAULT_B2B_PLAN = "trial"
 
@@ -350,8 +358,13 @@ def _b2b_user_email(user_id):
         return None
 
 
-def activate_b2b_client(user_id, plan):
-    """Ativa a API key B2B pendente do usuario apos confirmacao de pagamento."""
+def set_b2b_client_state(user_id, plan, active=True):
+    """Ativa ou revoga a API key B2B do usuario conforme o evento da Cakto.
+
+    `active=True` confirma pagamento/renovacao; `active=False` revoga em
+    cancelamento/reembolso. A clausula nao filtra por is_active previo, para
+    que renovacoes (ja ativas) e revogacoes funcionem corretamente.
+    """
     cfg = B2B_PLANS.get(plan)
     if not cfg:
         return 0
@@ -359,15 +372,20 @@ def activate_b2b_client(user_id, plan):
         with get_db() as (cursor, conn):
             cursor.execute(
                 """UPDATE api_clients
-                   SET is_active = TRUE, plan = %s, requests_limit = %s
-                   WHERE user_id = %s AND plan = %s AND is_active = FALSE
+                   SET is_active = %s, plan = %s, requests_limit = %s
+                   WHERE user_id = %s AND plan = %s
                    LIMIT 1""",
-                (plan, cfg["requests_limit"], user_id, plan),
+                (bool(active), plan, cfg["requests_limit"], user_id, plan),
             )
             return int(cursor.rowcount or 0)
     except Exception as exc:
-        logger.error("Erro ao ativar cliente B2B: %s", exc, exc_info=True)
+        logger.error("Erro ao definir estado do cliente B2B: %s", exc, exc_info=True)
         return 0
+
+
+def activate_b2b_client(user_id, plan):
+    """Compatibilidade: ativa a API key B2B pendente apos confirmacao de pagamento."""
+    return set_b2b_client_state(user_id, plan, active=True)
 
 
 @b2b_bp.route("/api/b2b/self-serve/checkout", methods=["POST"])
@@ -412,7 +430,7 @@ def create_self_serve_checkout():
         checkout_url = svc.build_checkout_url(
             user_id=user_id,
             user_email=_b2b_user_email(user_id),
-            provided_url=os.getenv("CAKTO_B2B_CHECKOUT_URL") or None,
+            provided_url=CAKTO_B2B_URLS.get(plan) or os.getenv("CAKTO_B2B_CHECKOUT_URL") or None,
             internal_order_id=order_id,
         )
     except Exception as exc:
@@ -456,6 +474,7 @@ def _clean(value, max_len):
 
 @b2b_bp.route("/api/b2b/leads", methods=["POST"])
 @limiter.limit("10 per minute")
+@turnstile_required(action="b2b_lead")
 def post_b2b_lead():
     """Captura um lead do formulario publico da pagina B2B."""
     data = request.get_json(silent=True) or {}
@@ -467,6 +486,8 @@ def post_b2b_lead():
     telefone = _clean(data.get("telefone"), 30)
     mensagem = _clean(data.get("mensagem"), 2000)
     origem = _clean(data.get("origem") or "site_b2b", 60)
+    from utils.abuse_monitor import monitor_public_ingest
+    monitor_public_ingest("b2b_leads", limit=50)
     try:
         with get_db() as (cursor, conn):
             cursor.execute(

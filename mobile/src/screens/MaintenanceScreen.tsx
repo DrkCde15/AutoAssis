@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
-import { Palette, Spacing, Fonts } from '@/constants/theme';
+import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { ApiError } from '@/lib/api';
 import { formatCurrency, formatDate, formatKm } from '@/lib/format';
 import type { MaintenanceAlert, MaintenanceRecord, MaintenanceSummary } from '@/lib/types';
-import type { AppTab } from '@/screens/AppShell';
+import type { Nav } from '@/screens/AppShell';
 import { useAuth } from '@/context/auth';
 
-type MaintenanceScreenProps = {
-  goTo: (tab: AppTab) => void;
-};
+type Tab = 'proximas' | 'atrasadas' | 'concluidas';
 
-export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
+export function MaintenanceScreen({ nav }: { nav: Nav }) {
   const { user, request, refreshUser } = useAuth();
+  const [tab, setTab] = useState<Tab>('proximas');
   const [description, setDescription] = useState('');
   const [history, setHistory] = useState<MaintenanceRecord[]>([]);
   const [alerts, setAlerts] = useState<MaintenanceAlert[]>([]);
@@ -23,6 +22,9 @@ export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailMsg, setEmailMsg] = useState('');
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -40,7 +42,7 @@ export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
       if (error instanceof ApiError && error.status === 403) {
         setPremiumBlocked(true);
       } else {
-        setMessage(error instanceof Error ? error.message : 'Erro ao carregar manutencoes.');
+        setMessage(error instanceof Error ? error.message : 'Erro ao carregar manutenções.');
       }
     } finally {
       setRefreshing(false);
@@ -48,30 +50,69 @@ export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
   }, [request]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void load();
-    }, 0);
+    const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load, user?.is_premium]);
 
   const locked = premiumBlocked || !user?.is_premium;
 
+  useEffect(() => {
+    if (locked) return;
+    let active = true;
+    void (async () => {
+      try {
+        const data = await request<{ enabled: boolean }>('/api/maintenance/email-settings');
+        if (active) setEmailEnabled(!!data.enabled);
+      } catch {
+        if (active) setEmailEnabled(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [request, locked]);
+
+  async function toggleEmail(value: boolean) {
+    setEmailLoading(true);
+    setEmailMsg('');
+    try {
+      await request('/api/maintenance/email-settings', { method: 'PUT', body: { enabled: value } });
+      setEmailEnabled(value);
+    } catch (error) {
+      setEmailMsg(error instanceof Error ? error.message : 'Erro ao salvar preferência.');
+    } finally {
+      setEmailLoading(false);
+    }
+  }
+
+  async function sendEmailNow() {
+    setEmailLoading(true);
+    setEmailMsg('');
+    try {
+      const data = await request<{ success: boolean; reason?: string }>('/api/maintenance/email/send-now', {
+        method: 'POST',
+      });
+      setEmailMsg(data.reason || (data.success ? 'E-mail enviado.' : 'Nada a enviar agora.'));
+    } catch (error) {
+      setEmailMsg(error instanceof Error ? error.message : 'Erro ao enviar e-mail.');
+    } finally {
+      setEmailLoading(false);
+    }
+  }
+
   async function saveMaintenance() {
     if (!description.trim()) {
-      setMessage('Descreva a manutencao realizada.');
+      setMessage('Descreva a manutenção realizada.');
       return;
     }
     setSaving(true);
     setMessage('');
     try {
-      await request('/api/maintenance/history', {
-        method: 'POST',
-        body: { descricao: description.trim() },
-      });
+      await request('/api/maintenance/history', { method: 'POST', body: { descricao: description.trim() } });
       setDescription('');
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Erro ao salvar manutencao.');
+      setMessage(error instanceof Error ? error.message : 'Erro ao salvar manutenção.');
     } finally {
       setSaving(false);
     }
@@ -86,29 +127,39 @@ export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
       });
       const checkoutUrl = data.checkout_url || data.data?.checkout_url;
       if (!checkoutUrl) {
-        setMessage('Checkout premium nao configurado.');
+        setMessage('Checkout premium não configurado.');
         return;
       }
       await Linking.openURL(checkoutUrl);
       await refreshUser();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Nao foi possivel abrir o checkout.');
+      setMessage(error instanceof Error ? error.message : 'Não foi possível abrir o checkout.');
     }
   }
+
+  function toneFromAlert(alert: MaintenanceAlert): 'neutral' | 'good' | 'warn' | 'danger' | 'info' {
+    const code = String(alert.status_code || alert.status || '').toLowerCase();
+    if (code.includes('overdue') || code.includes('atras') || code.includes('critical')) return 'danger';
+    if (code.includes('warning') || code.includes('avis')) return 'warn';
+    return 'info';
+  }
+
+  const proximas = alerts.filter((a) => !/atras|overdue|conclu|done|ok/i.test(a.status_code || a.status || ''));
+  const atrasadas = alerts.filter((a) => /atras|overdue/i.test(a.status_code || a.status || ''));
 
   if (locked) {
     return (
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
         <Card style={styles.lockedCard}>
           <Pill label="Premium" tone="info" />
-          <Text style={styles.title}>Historico e alertas premium</Text>
+          <Text style={styles.title}>Histórico e alertas premium</Text>
           <Text style={styles.muted}>
-            No app mobile, as anotacoes de manutencao usam a mesma API do site e liberam previsao de vencimento,
+            No app mobile, as anotações de manutenção usam a mesma API do site e liberam previsão de vencimento,
             alertas e resumo de gastos.
           </Text>
           <View style={styles.actions}>
             <AppButton title="Ativar Premium" onPress={openCheckout} />
-            <AppButton title="Ir para o chat" variant="ghost" onPress={() => goTo('chat')} />
+            <AppButton title="Perguntar à NOG" variant="ghost" onPress={() => nav.goTo('chat')} />
           </View>
           {message ? <Text style={styles.error}>{message}</Text> : null}
         </Card>
@@ -122,12 +173,12 @@ export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
       <Card style={styles.form}>
-        <Text style={styles.title}>Registrar manutencao</Text>
+        <Text style={styles.title}>Registrar manutenção</Text>
         <Text style={styles.muted}>
-          Escreva de forma natural, por exemplo: troquei o oleo hoje com 65000 km por 280 reais.
+          Escreva de forma natural, por exemplo: troquei o óleo hoje com 65000 km por 280 reais.
         </Text>
         <Field
-          label="Descricao"
+          label="Descrição"
           value={description}
           onChangeText={setDescription}
           multiline
@@ -135,7 +186,26 @@ export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
           style={styles.description}
         />
         {message ? <Text style={styles.error}>{message}</Text> : null}
-        <AppButton title="Salvar anotacao" onPress={saveMaintenance} loading={saving} />
+        <AppButton title="Salvar anotação" onPress={saveMaintenance} loading={saving} />
+      </Card>
+
+      <Card style={styles.emailCard}>
+        <Text style={styles.title}>Lembretes por e-mail</Text>
+        <Text style={styles.muted}>Receba alertas de manutenção vencendo direto no seu e-mail.</Text>
+        <View style={styles.emailRow}>
+          <Text style={styles.emailLabel}>Ativar lembretes</Text>
+          <Switch
+            value={!!emailEnabled}
+            onValueChange={toggleEmail}
+            disabled={emailLoading || emailEnabled === null}
+            thumbColor={Palette.white}
+            trackColor={{ false: Palette.bgAlt, true: Palette.primary }}
+          />
+        </View>
+        {emailEnabled ? (
+          <AppButton title="Enviar agora" variant="secondary" onPress={sendEmailNow} loading={emailLoading} />
+        ) : null}
+        {emailMsg ? <Text style={styles.error}>{emailMsg}</Text> : null}
       </Card>
 
       <View style={styles.grid}>
@@ -149,134 +219,140 @@ export function MaintenanceScreen({ goTo }: MaintenanceScreenProps) {
         </Card>
       </View>
 
-      <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>Alertas</Text>
-        {alerts.length ? (
-          alerts.map((alert, index) => (
-            <View key={`${alert.id || index}`} style={styles.row}>
-              <Pill tone={toneFromAlert(alert)} label={alert.status_label || alert.status || 'Status'} />
-              <Text style={styles.itemTitle}>{alert.maintenance_label || 'Manutencao'}</Text>
-              <Text style={styles.muted}>
-                {alert.message || `${formatDate(alert.next_due_date)} · ${formatKm(alert.next_due_km)}`}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.muted}>Sem alertas acionaveis agora.</Text>
-        )}
-      </Card>
-
-      <View style={styles.listHeader}>
-        <Text style={styles.sectionTitle}>Historico</Text>
+      <View style={styles.tabs}>
+        <TabButton label="Próximas" count={proximas.length} active={tab === 'proximas'} onPress={() => setTab('proximas')} />
+        <TabButton label="Atrasadas" count={atrasadas.length} active={tab === 'atrasadas'} onPress={() => setTab('atrasadas')} danger={atrasadas.length > 0} />
+        <TabButton label="Concluídas" count={history.length} active={tab === 'concluidas'} onPress={() => setTab('concluidas')} />
       </View>
 
-      {history.length ? (
-        history.map((item) => (
-          <Card key={item.id} style={styles.historyCard}>
+      {tab !== 'concluidas' && (tab === 'atrasadas' ? atrasadas.length : proximas.length) ? (
+        (tab === 'atrasadas' ? atrasadas : proximas).map((alert, index) => (
+          <Card key={`${alert.id || index}`} style={styles.card}>
             <View style={styles.row}>
-              <Text style={styles.itemTitle}>{item.maintenance_label || 'Manutencao geral'}</Text>
-              <Text style={styles.muted}>{item.description || '-'}</Text>
-              <Text style={styles.muted}>
-                {formatDate(item.service_date)} · {formatKm(item.service_km)} · {formatCurrency(item.cost, item.currency)}
-              </Text>
-              <Text style={styles.muted}>
-                Proxima: {formatDate(item.next_due_date)} · {formatKm(item.next_due_km)}
-              </Text>
+              <Pill tone={tab === 'atrasadas' ? 'danger' : toneFromAlert(alert)} label={alert.status_label || alert.status || 'Status'} />
             </View>
+            <Text style={styles.itemTitle}>{alert.maintenance_label || 'Manutenção'}</Text>
+            <Text style={styles.muted}>{alert.message || `${formatDate(alert.next_due_date)} · ${formatKm(alert.next_due_km)}`}</Text>
           </Card>
         ))
-      ) : (
-        <EmptyState title="Sem anotacoes" body="Registre a primeira manutencao para iniciar o historico." />
-      )}
+      ) : null}
+
+      {tab === 'concluidas' && history.length ? (
+        history.map((item) => (
+          <Card key={item.id} style={styles.card}>
+            <Text style={styles.itemTitle}>{item.maintenance_label || 'Manutenção geral'}</Text>
+            <Text style={styles.muted}>{item.description || '-'}</Text>
+            <Text style={styles.muted}>
+              {formatDate(item.service_date)} · {formatKm(item.service_km)} · {formatCurrency(item.cost, item.currency)}
+            </Text>
+          </Card>
+        ))
+      ) : null}
+
+      {(tab === 'concluidas' ? history.length : tab === 'atrasadas' ? atrasadas.length : proximas.length) === 0 ? (
+        <EmptyState
+          title={tab === 'concluidas' ? 'Sem anotações' : tab === 'atrasadas' ? 'Nada atrasado 🎉' : 'Nada pendente'}
+          body="Registre a primeira manutenção para iniciar o histórico."
+        />
+      ) : null}
     </ScrollView>
   );
 }
 
-function toneFromAlert(alert: MaintenanceAlert): 'neutral' | 'good' | 'warn' | 'danger' | 'info' {
-  const code = String(alert.status_code || alert.status || '').toLowerCase();
-  if (code.includes('overdue') || code.includes('atras') || code.includes('critical')) return 'danger';
-  if (code.includes('warning') || code.includes('avis')) return 'warn';
-  return 'info';
+function TabButton({
+  label,
+  count,
+  active,
+  danger,
+  onPress,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  danger?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <PressableTab active={active} danger={danger} onPress={onPress}>
+      <Text style={[styles.tabLabel, active ? styles.tabLabelActive : null]}>{label}</Text>
+      <View style={[styles.tabCount, danger ? styles.tabCountDanger : null, active ? styles.tabCountActive : null]}>
+        <Text style={styles.tabCountText}>{count}</Text>
+      </View>
+    </PressableTab>
+  );
+}
+
+function PressableTab({
+  active,
+  danger,
+  onPress,
+  children,
+}: {
+  active: boolean;
+  danger?: boolean;
+  onPress: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.tab,
+        active ? styles.tabActive : null,
+        danger && !active ? styles.tabDanger : null,
+      ]}>
+      {children}
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
-  root: {
+  root: { flex: 1 },
+  content: { padding: Spacing.three, gap: Spacing.three },
+  lockedCard: { gap: Spacing.two },
+  title: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900' },
+  muted: { color: Palette.textMuted, lineHeight: 20 },
+  actions: { gap: Spacing.two },
+  error: { color: Palette.red, lineHeight: 20 },
+  form: { gap: Spacing.two },
+  emailCard: { gap: Spacing.two },
+  emailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.one },
+  emailLabel: { color: Palette.text, fontWeight: '700', fontSize: 15 },
+  description: { minHeight: 96, textAlignVertical: 'top', paddingTop: 12 },
+  grid: { flexDirection: 'row', gap: Spacing.two },
+  stat: { flex: 1, gap: Spacing.one },
+  statValue: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900' },
+  statLabel: { color: Palette.textMuted, fontWeight: '800' },
+  tabs: { flexDirection: 'row', gap: Spacing.two },
+  tab: {
     flex: 1,
-  },
-  content: {
-    padding: Spacing.three,
-    gap: Spacing.three,
-  },
-  lockedCard: {
-    gap: Spacing.two,
-  },
-  title: {
-    color: Palette.text,
-    fontSize: 22,
-    fontFamily: Fonts.serif,
-    fontWeight: '900',
-  },
-  muted: {
-    color: Palette.textMuted,
-    lineHeight: 20,
-  },
-  actions: {
-    gap: Spacing.two,
-  },
-  error: {
-    color: Palette.red,
-    lineHeight: 20,
-  },
-  form: {
-    gap: Spacing.two,
-  },
-  description: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-    paddingTop: 12,
-  },
-  grid: {
     flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  stat: {
-    flex: 1,
-    gap: Spacing.one,
-  },
-  statValue: {
-    color: Palette.text,
-    fontSize: 22,
-    fontFamily: Fonts.serif,
-    fontWeight: '900',
-  },
-  statLabel: {
-    color: Palette.textMuted,
-    fontWeight: '800',
-  },
-  section: {
-    gap: Spacing.two,
-  },
-  sectionTitle: {
-    color: Palette.text,
-    fontSize: 18,
-    fontFamily: Fonts.serif,
-    fontWeight: '900',
-  },
-  row: {
-    gap: Spacing.one,
-  },
-  itemTitle: {
-    color: Palette.text,
-    fontSize: 16,
-    fontFamily: Fonts.serif,
-    fontWeight: '900',
-  },
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  historyCard: {
+    justifyContent: 'center',
     gap: Spacing.one,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    backgroundColor: Palette.surface,
   },
+  tabActive: { borderColor: Palette.primary, backgroundColor: 'rgba(124,92,255,0.14)' },
+  tabDanger: { borderColor: 'rgba(239,68,68,0.5)' },
+  tabLabel: { color: Palette.textMuted, fontWeight: '800', fontFamily: Fonts.sans },
+  tabLabelActive: { color: Palette.primary },
+  tabCount: {
+    minWidth: 22,
+    paddingHorizontal: 6,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Palette.bgAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabCountActive: { backgroundColor: Palette.primary },
+  tabCountDanger: { backgroundColor: 'rgba(239,68,68,0.2)' },
+  tabCountText: { color: Palette.text, fontWeight: '900', fontSize: 12 },
+  card: { gap: Spacing.one },
+  row: { flexDirection: 'row' },
+  itemTitle: { color: Palette.text, fontSize: 16, fontFamily: Fonts.serif, fontWeight: '900' },
 });

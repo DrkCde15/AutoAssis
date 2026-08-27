@@ -18,6 +18,7 @@ export type User = {
   possui_veiculo?: boolean;
   veiculos?: Vehicle[];
   total_consultas?: number;
+  is_two_factor_enabled?: boolean;
   maintenance_email_enabled?: boolean;
   maintenance_email_last_sent?: string | null;
 };
@@ -46,12 +47,21 @@ export type VideoItem = {
 
 export type ChatRecord = {
   id?: number;
+  session_id?: string;
   mensagem_usuario: string;
   resposta_ia: string;
   created_at?: string;
   videos?: VideoItem[];
   links?: LinkItem[];
   topic?: string;
+};
+
+export type Conversation = {
+  session_id: string | null;
+  title: string;
+  preview: string;
+  updated_at?: string;
+  count: number;
 };
 
 export type MaintenanceRecord = {

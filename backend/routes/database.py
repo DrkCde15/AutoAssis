@@ -10,6 +10,7 @@ from pymysql.cursors import DictCursor
 from dbutils.pooled_db import PooledDB
 
 # Carrega variáveis de ambiente procurando o .env na pasta pai (backend/)
+
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '..', '.env'))
 
@@ -356,6 +357,25 @@ TABLES_SQL = {
         INDEX idx_events_status (status),
         INDEX idx_events_source (source)
     )""",
+    "leads": """CREATE TABLE IF NOT EXISTS leads (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        nome VARCHAR(100) NULL,
+        email VARCHAR(100) NOT NULL,
+        anonymous_id VARCHAR(80) NULL,
+        utm_source VARCHAR(120) NULL,
+        utm_medium VARCHAR(120) NULL,
+        utm_campaign VARCHAR(120) NULL,
+        utm_term VARCHAR(120) NULL,
+        utm_content VARCHAR(120) NULL,
+        initial_referrer VARCHAR(500) NULL,
+        referred_by VARCHAR(20) NULL,
+        lead_magnet VARCHAR(60) NULL,
+        converted_user_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_leads_email (email),
+        INDEX idx_leads_created (created_at),
+        INDEX idx_leads_referred (referred_by)
+    )""",
 }
 
 
@@ -394,7 +414,14 @@ def init_db():
             ("premium_expires_at", "DATETIME NULL"),
             ("mod_passport", "BOOLEAN DEFAULT FALSE"),
             ("signup_ip", "VARCHAR(45) NULL"),
-            ("referral_credit_months", "INT DEFAULT 0")
+            ("referral_credit_months", "INT DEFAULT 0"),
+            ("anonymous_id", "VARCHAR(80) NULL"),
+            ("utm_source", "VARCHAR(120) NULL"),
+            ("utm_medium", "VARCHAR(120) NULL"),
+            ("utm_campaign", "VARCHAR(120) NULL"),
+            ("utm_term", "VARCHAR(120) NULL"),
+            ("utm_content", "VARCHAR(120) NULL"),
+            ("initial_referrer", "VARCHAR(500) NULL")
         ]
         for col, dtype in columns:
             if col not in existing_columns:
@@ -431,7 +458,7 @@ def init_db():
                 AND id NOT IN (SELECT DISTINCT user_id FROM veiculos)
             """)
         except Exception as e:
-            print(f"Aviso migração veículos: {e}")
+            print(f"Aviso migracao veiculos: {e}")
 
         try:
             cursor.execute("ALTER TABLE users MODIFY COLUMN password VARCHAR(255) NULL")
@@ -524,7 +551,7 @@ def init_db():
             except Exception:
                 pass # Ignora se o índice já existir
 
-        print("✅ Banco de dados inicializado com sucesso!")
+        print("Banco de dados inicializado com sucesso!")
 
 
 # (enviar_email removido daqui e movido para utils.email)

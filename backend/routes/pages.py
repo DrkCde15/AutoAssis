@@ -18,10 +18,63 @@ import uuid
 from services.maintenance_service import _status_from_remaining, apply_manual_overrides, parse_maintenance_entry, serialize_maintenance_row
 from services.nogai import prever_intervalo_manutencao, _invalidate_maintenance_context, _invalidate_user_ai_cache
 from utils.async_task import _predictor, train_in_background
+from utils.turnstile import turnstile_or_auth
 import json
 from decimal import Decimal
 from .database import get_db, is_trial_expired, get_trial_days_remaining, get_mysql_history
+from .analytics import record_analytics_event, has_prior_event
 from utils.email import enviar_email
+
+
+def _emit_usage_events(*, user_id, anonymous_id, is_raio):
+    """Emite eventos de uso do funil (NOG / Raio-X) de forma idempotente.
+
+    ``first_*`` é decidido por dados persistidos (has_prior_event), nunca
+    por estado de memória. Não lança exceção para não impactar a resposta
+    de chat/voz já gerada com sucesso.
+    """
+    identity_uid = user_id
+    identity_aid = anonymous_id if not user_id else None
+    if not identity_uid and not identity_aid:
+        return
+    try:
+        # "primeiro" é decidido ANTES de emitir o evento de uso, para não
+        # contar o próprio evento recém-inserido como prévio.
+        is_first_nog = not has_prior_event("nog_use", user_id=identity_uid, anonymous_id=identity_aid)
+        record_analytics_event(
+            "nog_use",
+            user_id=identity_uid,
+            anonymous_id=identity_aid,
+            path="/api/chat",
+            metadata={"mode": "image" if is_raio else "text"},
+        )
+        if is_first_nog:
+            record_analytics_event(
+                "first_nog_use",
+                user_id=identity_uid,
+                anonymous_id=identity_aid,
+                path="/api/chat",
+                metadata={},
+            )
+        if is_raio:
+            is_first_raio = not has_prior_event("raio_x_use", user_id=identity_uid, anonymous_id=identity_aid)
+            record_analytics_event(
+                "raio_x_use",
+                user_id=identity_uid,
+                anonymous_id=identity_aid,
+                path="/api/chat",
+                metadata={"mode": "image"},
+            )
+            if is_first_raio:
+                record_analytics_event(
+                    "first_raio_x",
+                    user_id=identity_uid,
+                    anonymous_id=identity_aid,
+                    path="/api/chat",
+                    metadata={},
+                )
+    except Exception as exc:
+        logger.warning("Falha ao emitir eventos de uso (nog/raio): %s", exc)
 from .notifications import create_notification
 from .push import send_push_notification
 from pydub import AudioSegment
@@ -2211,6 +2264,7 @@ def get_chat_history():
     user_id = get_jwt_identity()
     after_id = parse_after_id(request.args.get("after_id"))
     limit = parse_history_limit(request.args.get("limit"))
+    raw_session = request.args.get("session_id")
     try:
         with get_db() as (cursor, conn):
             user = get_user_by_id(cursor, user_id)
@@ -2219,7 +2273,17 @@ def get_chat_history():
 
             order_direction = "ASC" if after_id else "DESC"
             after_filter = "AND id > %s" if after_id else ""
-            params = [user_id]
+            session_clause = ""
+            session_params: list = []
+            if raw_session is not None:
+                if raw_session.strip().lower() == "null":
+                    session_clause = "AND session_id IS NULL"
+                else:
+                    candidate = normalize_chat_session_id(raw_session)
+                    if candidate is not None:
+                        session_clause = "AND session_id = %s"
+                        session_params.append(candidate)
+            params = [user_id, *session_params]
             if after_id:
                 params.append(after_id)
             params.append(limit)
@@ -2229,6 +2293,7 @@ def get_chat_history():
                 SELECT id, session_id, mensagem_usuario, resposta_ia, created_at, videos, links, topic, attachments
                 FROM chats
                 WHERE user_id = %s
+                {session_clause}
                 {after_filter}
                 ORDER BY id {order_direction}
                 LIMIT %s
@@ -2245,6 +2310,77 @@ def get_chat_history():
     except Exception as e:
         logger.error(f"Erro no historico: {e}")
         return jsonify(error="Erro interno"), 500
+
+
+@pages_bp.route("/api/chat/conversations", methods=["GET"])
+@jwt_required()
+def list_chat_conversations():
+    user_id = get_jwt_identity()
+    q = (request.args.get("q") or "").strip()
+    try:
+        with get_db() as (cursor, conn):
+            user = get_user_by_id(cursor, user_id)
+            if not user:
+                return invalid_session_response()
+
+            cursor.execute(
+                """
+                SELECT id, session_id, mensagem_usuario, resposta_ia, topic, created_at
+                FROM chats
+                WHERE user_id = %s
+                ORDER BY id DESC
+                """,
+                (user_id,),
+            )
+            rows = cursor.fetchall()
+
+        groups = {}
+        order = []
+        needle = q.lower()
+        for row in rows:
+            sid = row.get("session_id")
+            key = sid if sid else "__null__"
+            if key not in groups:
+                groups[key] = {
+                    "session_id": sid,
+                    "topic": (row.get("topic") or "").strip(),
+                    "preview": (row.get("mensagem_usuario") or "").strip(),
+                    "updated_at": row.get("created_at"),
+                    "count": 0,
+                    "matches": False,
+                }
+                order.append(key)
+            groups[key]["count"] += 1
+            if needle:
+                hay = " ".join([
+                    row.get("mensagem_usuario") or "",
+                    row.get("resposta_ia") or "",
+                    row.get("topic") or "",
+                ]).lower()
+                if needle in hay:
+                    groups[key]["matches"] = True
+
+        conversations = []
+        for key in order:
+            g = groups[key]
+            if needle and not g["matches"]:
+                continue
+            title = g["topic"] or g["preview"] or "Nova conversa"
+            if key == "__null__" and not g["topic"]:
+                title = "Consultoria geral"
+            updated = g["updated_at"]
+            conversations.append({
+                "session_id": g["session_id"],
+                "title": title[:80],
+                "preview": g["preview"][:140],
+                "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else updated,
+                "count": g["count"],
+            })
+        return jsonify(conversations=conversations), 200
+    except Exception as e:
+        logger.error(f"Erro ao listar conversas: {e}")
+        return jsonify(error="Erro interno"), 500
+
 
 @pages_bp.route("/api/chat/history/<int:chat_id>", methods=["DELETE"])
 @jwt_required()
@@ -2487,6 +2623,21 @@ def get_free_chat_usage_month(cursor, user_id):
     return int((row or {}).get("cnt") or 0)
 
 
+def _emit_free_limit_reached(user_id, used):
+    """P0.3: emite ``free_limit_reached`` 1x por ciclo de limite (idempotente)."""
+    try:
+        if not has_prior_event("free_limit_reached", user_id=user_id, anonymous_id=None):
+            record_analytics_event(
+                "free_limit_reached",
+                user_id=user_id,
+                anonymous_id=None,
+                path="/api/chat",
+                metadata={"limit": FREE_MONTHLY_CHAT_LIMIT, "used": used},
+            )
+    except Exception as exc:
+        logger.warning("Falha ao emitir free_limit_reached: %s", exc)
+
+
 @pages_bp.route("/api/admin/analytics/burn", methods=["GET"])
 @jwt_required()
 def admin_burn_analytics():
@@ -2515,12 +2666,14 @@ def admin_burn_analytics():
 
 @pages_bp.route("/api/chat", methods=["POST"])
 @limiter.limit("20 per hour")
+@turnstile_or_auth(action="chat")
 def chat():
     user_id = get_optional_user_id()
     data = request.get_json(silent=True) or {}
     msg = (data.get("message") or "").strip()
     session_id = normalize_chat_session_id(data.get("session_id"))
     img_b64 = data.get("image")
+    req_anonymous_id = (data.get("anonymous_id") or "").strip()[:80] or None
     try:
         attachment = parse_chat_attachment(data)
     except ValueError as exc:
@@ -2552,6 +2705,9 @@ def chat():
                 if not _is_effective_premium(user):
                     used = get_free_chat_usage_month(cursor, user_id)
                     if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        # P0.3: instrumenta a chegada ao teto do plano gratuito
+                        # (idempotente por usuário: 1 evento por ciclo de limite).
+                        _emit_free_limit_reached(user_id, used)
                         return jsonify(
                             error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
                             code="free_limit_reached",
@@ -2631,12 +2787,22 @@ def chat():
         if guest_messages_remaining is not None:
             response_payload["guest_messages_remaining"] = guest_messages_remaining
             response_payload["guest_limit"] = GUEST_CHAT_LIMIT
+
+        # P0.2: instrumentação do funil de negócio (NOG / Raio-X).
+        # Emite somente após a resposta ser gerada com sucesso (a análise
+        # de imagem, se houver, já ocorreu dentro de generate_assistant_payload).
+        _emit_usage_events(
+            user_id=user_id,
+            anonymous_id=req_anonymous_id if not user_id else None,
+            is_raio=bool(img_b64) or bool(attachment and attachment.get("kind") in ("image", "binary")),
+        )
         return jsonify(response_payload)
     except Exception as e:
         logger.error(f"Erro na rota /api/chat: {e}")
         return jsonify(error="Erro interno"), 500
 
 @pages_bp.route("/api/voice", methods=["POST"])
+@turnstile_or_auth(action="chat")
 def handle_voice():
     user_id = get_optional_user_id()
     if 'audio' not in request.files:
@@ -2661,8 +2827,8 @@ def handle_voice():
         client_history = []
 
     try:
-        # Converter webm para wav usando pydub
-        audio_segment = AudioSegment.from_file(audio_file, format="webm")
+        # Converter o audio recebido para wav usando pydub (formato detectado automaticamente)
+        audio_segment = AudioSegment.from_file(audio_file)
         wav_io = io.BytesIO()
         audio_segment.export(wav_io, format="wav")
         wav_io.seek(0)
@@ -2684,6 +2850,9 @@ def handle_voice():
                 if not _is_effective_premium(user):
                     used = get_free_chat_usage_month(cursor, user_id)
                     if used >= FREE_MONTHLY_CHAT_LIMIT:
+                        # P0.3: instrumenta a chegada ao teto do plano gratuito
+                        # (idempotente por usuário: 1 evento por ciclo de limite).
+                        _emit_free_limit_reached(user_id, used)
                         return jsonify(
                             error="Você atingiu seu limite mensal de consultas no plano gratuito. Assine o Premium para consultas ilimitadas com a IA NOG.",
                             code="free_limit_reached",
@@ -2763,6 +2932,14 @@ def handle_voice():
         if guest_messages_remaining is not None:
             response_payload["guest_messages_remaining"] = guest_messages_remaining
             response_payload["guest_limit"] = GUEST_CHAT_LIMIT
+
+        # P0.2: instrumentação do funil de negócio (NOG / Raio-X) via voz.
+        _emit_usage_events(
+            user_id=user_id,
+            anonymous_id=(request.form.get("anonymous_id") or "").strip()[:80] or None
+            if not user_id else None,
+            is_raio=bool(image_b64) or bool(attachment and attachment.get("kind") in ("image", "binary")),
+        )
         return jsonify(response_payload)
 
     except sr.UnknownValueError:

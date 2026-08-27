@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import os
 import unicodedata
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_text(text):
-    """Remove acentos e minÃºsculas para casar palavras-chave ("mecÃ¢nico" == "mecanic")."""
+    """Remove acentos e minúsculas para casar palavras-chave ("mecânico" == "mecanic")."""
     normalized = unicodedata.normalize("NFD", str(text or "").lower())
     return "".join(c for c in normalized if unicodedata.category(c) != "Mn")
 
@@ -80,6 +80,23 @@ def chat_websocket(ws):
                     ws.send(json.dumps({"error": "Token invalido"}))
                     ws.close()
                     return
+
+            # Visitante anônimo: exige Turnstile para proteger o custo da IA
+            if not user_id:
+                from utils.turnstile import (
+                    turnstile_enabled,
+                    verify_turnstile,
+                    expected_hostnames,
+                )
+                if turnstile_enabled():
+                    secret = os.getenv("TURNSTILE_SECRET_KEY", "")
+                    t_token = auth.get("turnstile_token") or ""
+                    if not t_token or not verify_turnstile(
+                        secret, t_token, "chat", expected_hostnames(), None
+                    ):
+                        ws.send(json.dumps({"error": "Verificação de segurança pendente."}))
+                        ws.close()
+                        return
         else:
             ws.send(json.dumps({"error": "Primeira mensagem deve ser de autenticacao"}))
             ws.close()
@@ -117,10 +134,10 @@ def chat_websocket(ws):
                     ws.send(json.dumps({"error": str(exc)}))
                     continue
                 except Exception:
-                    ws.send(json.dumps({"error": "Arquivo anexado invÃ¡lido."}))
+                    ws.send(json.dumps({"error": "Arquivo anexado inválido."}))
                     continue
 
-            # Passa localizaÃ§Ã£o do usuÃ¡rio para o contexto do chatbot
+            # Passa localização do usuário para o contexto do chatbot
             if not isinstance(user_data, dict):
                 user_data = {}
             user_data["lat"] = data.get("lat")
