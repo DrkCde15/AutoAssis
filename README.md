@@ -25,6 +25,7 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 - **Galeria de Vídeos Otimizada:** Nova biblioteca de vídeos com redirecionamento direto para o YouTube, miniaturas em alta resolução e carregamento ultrarrápido.
 - **Notificações Instantâneas:** Sistema de e-mail que alerta o usuário **no mesmo dia** em que uma manutenção atinge o status crítico ou vence.
 - **Tabela FIPE Real-Time:** Integração com a API FIPE para fornecer valores de mercado precisos e atualizados.
+- **Fotos dos Veículos:** Upload e exibição da foto de cada veículo no dashboard e no perfil (`foto_base64` na tabela `veiculos`). Envie/remova a foto via `POST /api/veiculos/<id>/foto`.
 - **Feedback Inteligente:** Sistema que coleta e organiza o feedback dos usuários para melhoria contínua do sistema.
 
 ### **Programa de Indicação (Link de Convite)**
@@ -350,6 +351,19 @@ Cobertura de `test_b2b.py` (11 testes, todos passando):
 ## 📋 Alterações Recentes
 
 Registro das mudanças feitas nesta sessão de desenvolvimento:
+
+### Fotos dos veículos + sessões de chat
+- **Backend (`backend/routes/database.py`):** nova coluna `foto_base64 MEDIUMTEXT` na tabela `veiculos` (criada por `init_db()` e via `ALTER TABLE` de migração).
+- **Backend (`backend/routes/dashboard.py`):** `/api/dashboard` passa a retornar `foto_base64` de cada veículo na agregação (`v.foto_base64` na query).
+- **Backend (`backend/routes/pages.py`):**
+  - `/api/veiculos` (listagem) retorna `foto_base64`.
+  - Novo `POST /api/veiculos/<int:v_id>/foto` (JWT): salva a foto (base64 cru do corpo `foto`), valida magic bytes PNG/JPG/GIF e rejeita outros formatos; enviar `foto` vazio/nulo limpa a foto atual.
+  - `GET /api/chat/history` aceita o filtro `session_id` (valor específico ou `null` para sessões sem agrupamento).
+  - Novo `GET /api/chat/conversations` (JWT): lista as conversas agrupadas por `session_id`, com `title`, `preview`, `updated_at` e `count`, e busca opcional por `q`.
+  - `handle_voice` passa a detectar o formato do áudio recebido automaticamente (`AudioSegment.from_file` sem `format` fixo em webm).
+- **Frontend (`frontend/public/dashboard.html`):** helper `vehiclePhotoSrc()` (infere MIME PNG/JPG/GIF); card do veículo e modal de detalhes (`vm-icon`) exibem a foto quando disponível, com fallback no ícone; CSS `.vehicle-photo`/`.vm-photo`.
+- **Frontend (`frontend/public/perfil.html`):** lista de veículos exibe a foto; botão de câmera por veículo faz upload via `POST /api/veiculos/<id>/foto` e botão para remover a foto; `loadProfile()` passa a buscar `/api/veiculos` (já traz `foto_base64`) para a lista.
+- **Frontend (`frontend/public/chat.html`):** `renderSession()` busca as mensagens da sessão no servidor com o novo filtro `?session_id=...`, aproveitando a funcionalidade backend (com fallback no agrupamento local).
 
 ### Cobertura de testes da API B2B
 - **Criado `backend/tests/test_b2b.py`** (11 testes, estilo `unittest`) cobrindo todos os endpoints B2B com banco, Redis e visão por IA mockados - roda sem Groq/DB externo.

@@ -147,6 +147,7 @@ def _build_vehicle_dashboard(row, health_score, pred):
         "modelo": row["modelo"],
         "ano_fabricacao": row["ano_fabricacao"],
         "quilometragem": row["quilometragem"],
+        "foto_base64": row.get("foto_base64"),
     }
 
     # FIPE - usa cache se <24h, dispara refresh em background se stale
@@ -221,7 +222,7 @@ def get_dashboard_data():
             # 1) Veículos agregados (1 query)
             cur.execute(
                 """SELECT v.id, v.tipo, v.marca, v.modelo,
-                          v.ano_fabricacao, v.quilometragem,
+                          v.ano_fabricacao, v.quilometragem, v.foto_base64,
                           v.fipe_valor, v.fipe_mes_referencia, v.fipe_updated_at,
                           COUNT(mh.id) AS qtde_manutencao,
                           MAX(mh.service_date) AS ultima_manutencao,

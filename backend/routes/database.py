@@ -86,6 +86,7 @@ TABLES_SQL = {
         ano_fabricacao INT,
         ano_compra INT,
         quilometragem INT,
+        foto_base64 MEDIUMTEXT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )""",
@@ -439,7 +440,8 @@ def init_db():
             ("fipe_mes_referencia", "VARCHAR(50) NULL"),
             ("fipe_updated_at", "DATETIME NULL"),
             ("modificacoes", "TEXT NULL"),
-            ("fipe_ajustada", "VARCHAR(50) NULL")
+            ("fipe_ajustada", "VARCHAR(50) NULL"),
+            ("foto_base64", "MEDIUMTEXT NULL")
         ]
         for col, dtype in veiculos_columns:
             if col not in existing_veiculos_columns:

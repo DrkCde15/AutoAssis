@@ -1737,14 +1737,31 @@
         });
       }
 
-      function renderSession(group, options = {}) {
+      async function renderSession(group, options = {}) {
         messagesDiv.innerHTML = "";
         currentSessionId = group.session_id;
         activeHistoryKey = group.session_id;
-        
+
         currentThreadHistory = [];
         lastAnalysisText = "";
-        group.messages.forEach(chat => {
+
+        let messages = group.messages;
+        if (isAuthenticated && typeof Auth !== "undefined" && group.session_id) {
+          try {
+            const res = await Auth.authenticatedFetch(
+              `/api/chat/history?session_id=${encodeURIComponent(group.session_id)}&limit=200`,
+              { redirectOnInvalid: false }
+            );
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data.chats) && data.chats.length) messages = data.chats;
+            }
+          } catch (e) {
+            console.warn("Erro ao carregar mensagens da sessão:", e);
+          }
+        }
+
+        messages.forEach(chat => {
           renderChatEntry(chat);
           appendToCurrentThread(chat.mensagem_usuario, chat.resposta_ia);
           lastAnalysisText = chat.resposta_ia || "";

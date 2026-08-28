@@ -499,7 +499,9 @@ def google_login():
         return jsonify(error="Configuração do Google OAuth2 incompleta"), 500
 
     state = secrets.token_urlsafe(16)
-    
+    if request.args.get("mobile"):
+        state = f"{state}|m"
+
     authorization_url = google_client.prepare_request_uri(
         uri=hosts.authorization_endpoint,
         redirect_uri=GOOGLE_REDIRECT_URI,
@@ -622,7 +624,17 @@ def google_callback():
 
         # Gerar tokens JWT conforme o plano atual do usuario.
         access_token, refresh_token = create_user_tokens(user)
-        
+
+        # Mobile: devolve os tokens via redirect para o scheme do app (capturado pelo Expo)
+        if state and str(state).endswith("|m"):
+            from flask import make_response
+            scheme = os.getenv("MOBILE_OAUTH_SCHEME", "autoassist://oauth")
+            sep = "&" if "?" in scheme else "?"
+            mobile_redirect = f"{scheme}{sep}access_token={access_token}&refresh_token={refresh_token}"
+            resp = make_response(redirect(mobile_redirect))
+            resp.set_cookie("oauth_state", "", expires=0)
+            return resp
+
         # Obter a URL do frontend do .env
         frontend_base = get_frontend_url()
         

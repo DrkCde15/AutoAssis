@@ -1524,7 +1524,7 @@ def list_veiculos():
             cursor.execute(
                 """
                 SELECT id, tipo, marca, modelo, ano_fabricacao, ano_compra, quilometragem,
-                       fipe_valor, fipe_mes_referencia, modificacoes, fipe_ajustada
+                       fipe_valor, fipe_mes_referencia, modificacoes, fipe_ajustada, foto_base64
                 FROM veiculos
                 WHERE user_id = %s
                 ORDER BY created_at DESC, id DESC
@@ -1567,6 +1567,47 @@ def list_veiculos():
     except Exception as e:
         logger.error(f"Erro ao listar veiculos: {e}")
         return jsonify(error="Erro ao listar veiculos"), 500
+
+@pages_bp.route("/api/veiculos/<int:v_id>/foto", methods=["POST"])
+@jwt_required()
+def upload_veiculo_foto(v_id):
+    """Salva (ou remove) a foto do veículo. Recebe base64 em ``foto``.
+
+    Enviar ``foto`` vazio/nulo limpa a foto atual.
+    """
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    foto = data.get("foto")
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT id FROM veiculos WHERE id = %s AND user_id = %s", (v_id, user_id))
+            if not cursor.fetchone():
+                return jsonify(error="Veículo não encontrado"), 404
+
+            if not foto:
+                cursor.execute("UPDATE veiculos SET foto_base64 = NULL WHERE id = %s AND user_id = %s", (v_id, user_id))
+                conn.commit()
+                return jsonify(success=True, foto_base64=None), 200
+
+            if isinstance(foto, str) and foto.startswith("data:"):
+                header, _, b64 = foto.partition(",")
+                if "base64" not in header:
+                    return jsonify(error="Formato de imagem inválido"), 400
+                foto = b64
+
+            try:
+                amostra = base64.b64decode(foto[:64])
+            except Exception:
+                return jsonify(error="Imagem inválida"), 400
+            if not (amostra[:4] in (b"\xff\xd8\xff\xe0", b"\xff\xd8\xff\xe1", b"\x89PNG", b"\x47IF8") or amostra[:3] == b"GIF"):
+                return jsonify(error="Apenas imagens PNG/JPG/GIF são suportadas"), 400
+
+            cursor.execute("UPDATE veiculos SET foto_base64 = %s WHERE id = %s AND user_id = %s", (foto, v_id, user_id))
+            conn.commit()
+            return jsonify(success=True, foto_base64=foto), 200
+    except Exception as e:
+        logger.error(f"Erro ao salvar foto do veiculo: {e}")
+        return jsonify(error="Erro ao salvar foto do veículo"), 500
 
 @pages_bp.route("/api/veiculos/<int:v_id>", methods=["PUT"])
 @jwt_required()
@@ -2264,6 +2305,7 @@ def get_chat_history():
     user_id = get_jwt_identity()
     after_id = parse_after_id(request.args.get("after_id"))
     limit = parse_history_limit(request.args.get("limit"))
+    raw_session = request.args.get("session_id")
     try:
         with get_db() as (cursor, conn):
             user = get_user_by_id(cursor, user_id)
@@ -2272,7 +2314,17 @@ def get_chat_history():
 
             order_direction = "ASC" if after_id else "DESC"
             after_filter = "AND id > %s" if after_id else ""
-            params = [user_id]
+            session_clause = ""
+            session_params: list = []
+            if raw_session is not None:
+                if raw_session.strip().lower() == "null":
+                    session_clause = "AND session_id IS NULL"
+                else:
+                    candidate = normalize_chat_session_id(raw_session)
+                    if candidate is not None:
+                        session_clause = "AND session_id = %s"
+                        session_params.append(candidate)
+            params = [user_id, *session_params]
             if after_id:
                 params.append(after_id)
             params.append(limit)
@@ -2282,6 +2334,7 @@ def get_chat_history():
                 SELECT id, session_id, mensagem_usuario, resposta_ia, created_at, videos, links, topic, attachments
                 FROM chats
                 WHERE user_id = %s
+                {session_clause}
                 {after_filter}
                 ORDER BY id {order_direction}
                 LIMIT %s
@@ -2298,6 +2351,77 @@ def get_chat_history():
     except Exception as e:
         logger.error(f"Erro no historico: {e}")
         return jsonify(error="Erro interno"), 500
+
+
+@pages_bp.route("/api/chat/conversations", methods=["GET"])
+@jwt_required()
+def list_chat_conversations():
+    user_id = get_jwt_identity()
+    q = (request.args.get("q") or "").strip()
+    try:
+        with get_db() as (cursor, conn):
+            user = get_user_by_id(cursor, user_id)
+            if not user:
+                return invalid_session_response()
+
+            cursor.execute(
+                """
+                SELECT id, session_id, mensagem_usuario, resposta_ia, topic, created_at
+                FROM chats
+                WHERE user_id = %s
+                ORDER BY id DESC
+                """,
+                (user_id,),
+            )
+            rows = cursor.fetchall()
+
+        groups = {}
+        order = []
+        needle = q.lower()
+        for row in rows:
+            sid = row.get("session_id")
+            key = sid if sid else "__null__"
+            if key not in groups:
+                groups[key] = {
+                    "session_id": sid,
+                    "topic": (row.get("topic") or "").strip(),
+                    "preview": (row.get("mensagem_usuario") or "").strip(),
+                    "updated_at": row.get("created_at"),
+                    "count": 0,
+                    "matches": False,
+                }
+                order.append(key)
+            groups[key]["count"] += 1
+            if needle:
+                hay = " ".join([
+                    row.get("mensagem_usuario") or "",
+                    row.get("resposta_ia") or "",
+                    row.get("topic") or "",
+                ]).lower()
+                if needle in hay:
+                    groups[key]["matches"] = True
+
+        conversations = []
+        for key in order:
+            g = groups[key]
+            if needle and not g["matches"]:
+                continue
+            title = g["topic"] or g["preview"] or "Nova conversa"
+            if key == "__null__" and not g["topic"]:
+                title = "Consultoria geral"
+            updated = g["updated_at"]
+            conversations.append({
+                "session_id": g["session_id"],
+                "title": title[:80],
+                "preview": g["preview"][:140],
+                "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else updated,
+                "count": g["count"],
+            })
+        return jsonify(conversations=conversations), 200
+    except Exception as e:
+        logger.error(f"Erro ao listar conversas: {e}")
+        return jsonify(error="Erro interno"), 500
+
 
 @pages_bp.route("/api/chat/history/<int:chat_id>", methods=["DELETE"])
 @jwt_required()
@@ -2744,8 +2868,8 @@ def handle_voice():
         client_history = []
 
     try:
-        # Converter webm para wav usando pydub
-        audio_segment = AudioSegment.from_file(audio_file, format="webm")
+        # Converter o audio recebido para wav usando pydub (formato detectado automaticamente)
+        audio_segment = AudioSegment.from_file(audio_file)
         wav_io = io.BytesIO()
         audio_segment.export(wav_io, format="wav")
         wav_io.seek(0)

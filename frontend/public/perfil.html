@@ -427,6 +427,34 @@
             color: var(--accent);
             font-size: 16px;
         }
+        .vehicle-item-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+        .vehicle-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-vehicle-photo {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+        .btn-vehicle-photo:hover {
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+        .btn-vehicle-photo-remove:hover {
+            color: var(--danger);
+            background: var(--danger-soft);
+        }
         .vehicle-item-name {
             font-weight: 600;
             font-size: 14px;
@@ -883,8 +911,18 @@
             const freshUser = await Auth.syncUser({ redirectOnInvalid: false });
             if (freshUser) {
                 currentUser = freshUser;
-                if (currentUser.veiculos) {
-                    Auth.Cache.set('autoassist_veiculos_cache', currentUser.veiculos);
+                try {
+                    const vehRes = await Auth.authenticatedFetch('/api/veiculos', { redirectOnInvalid: false });
+                    if (vehRes.ok) {
+                        const vehData = await vehRes.json();
+                        const veiculos = vehData.veiculos || currentUser.veiculos || [];
+                        currentUser.veiculos = veiculos;
+                        Auth.Cache.set('autoassist_veiculos_cache', veiculos);
+                    } else if (currentUser.veiculos) {
+                        Auth.Cache.set('autoassist_veiculos_cache', currentUser.veiculos);
+                    }
+                } catch (vehErr) {
+                    console.error('Erro ao carregar veículos:', vehErr);
                 }
                 renderProfile(currentUser);
                 if (currentUser.is_premium) {
@@ -907,6 +945,14 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }
+
+    function vehiclePhotoSrc(b64) {
+        if (!b64) return null;
+        let mime = 'image/jpeg';
+        if (b64.startsWith('iVBOR')) mime = 'image/png';
+        else if (b64.startsWith('R0lG')) mime = 'image/gif';
+        return `data:${mime};base64,${b64}`;
     }
 
     async function readApiError(res, fallback) {
@@ -1003,16 +1049,24 @@
                 <div class="vehicle-item">
                     <div class="vehicle-item-info">
                         <div class="vehicle-item-icon">
-                            <i class="fas ${iconClass}"></i>
+                            ${v.foto_base64 ? `<img src="${vehiclePhotoSrc(v.foto_base64)}" alt="Foto do veículo" class="vehicle-item-photo">` : `<i class="fas ${iconClass}"></i>`}
                         </div>
                         <div>
                             <div class="vehicle-item-name">${safeMarca} ${safeModelo}</div>
                             <div class="vehicle-item-year">${safeAno} • ${safeKm} km</div>
                         </div>
                     </div>
-                    <button class="btn-delete-vehicle" onclick="deleteVehicle(${v.id})" title="Remover veículo">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <div class="vehicle-item-actions">
+                        <button class="btn-vehicle-photo" onclick="document.getElementById('vehPhotoInput-${v.id}').click()" title="Enviar foto">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <input type="file" id="vehPhotoInput-${v.id}" accept="image/png,image/jpeg,image/gif" hidden
+                            onchange="uploadVehiclePhoto(${v.id}, this)">
+                        ${v.foto_base64 ? `<button class="btn-vehicle-photo btn-vehicle-photo-remove" onclick="removeVehiclePhoto(${v.id})" title="Remover foto"><i class="fas fa-times"></i></button>` : ''}
+                        <button class="btn-delete-vehicle" onclick="deleteVehicle(${v.id})" title="Remover veículo">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -1254,6 +1308,51 @@
         } catch (e) {
             console.error(e);
             alert('Erro ao remover veículo.');
+        }
+    }
+
+    async function uploadVehiclePhoto(id, input) {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        try {
+            const b64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            const res = await Auth.authenticatedFetch(`/api/veiculos/${id}/foto`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ foto: b64 })
+            });
+            if (res.ok) {
+                loadProfile();
+            } else {
+                alert('Erro ao enviar foto do veículo.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao enviar foto do veículo.');
+        }
+    }
+
+    async function removeVehiclePhoto(id) {
+        try {
+            const res = await Auth.authenticatedFetch(`/api/veiculos/${id}/foto`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ foto: '' })
+            });
+            if (res.ok) {
+                loadProfile();
+            } else {
+                alert('Erro ao remover foto do veículo.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao remover foto do veículo.');
         }
     }
 
