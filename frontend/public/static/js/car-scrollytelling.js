@@ -34,6 +34,9 @@
     let width = 1;
     let height = 1;
     let dpr = 1;
+    let bgCanvas = null;
+    let bgCtx = null;
+    let panelCache = [];
 
     const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
     const lerp = (from, to, amount) => from + (to - from) * amount;
@@ -50,10 +53,31 @@
         const bounds = canvas.getBoundingClientRect();
         width = Math.max(1, Math.floor(bounds.width || window.innerWidth));
         height = Math.max(1, Math.floor(bounds.height || window.innerHeight));
-        dpr = Math.min(window.devicePixelRatio || 1, 1.8);
+        // Em telas pequenas usamos DPR 1: o canvas cobre a viewport inteira e
+        // repintar milhões de pixels por frame é o que mais trava em celulares.
+        dpr = width < 700 ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
         canvas.width = Math.floor(width * dpr);
         canvas.height = Math.floor(height * dpr);
         context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        buildStaticBackground();
+    }
+
+    // Fundo plano (slide de PowerPoint): gradiente escuro neutro, sem estrada nem
+    // efeitos. Pré-renderizado uma vez; por frame apenas copiamos o bitmap.
+    function buildStaticBackground() {
+        bgCanvas = document.createElement("canvas");
+        bgCanvas.width = canvas.width;
+        bgCanvas.height = canvas.height;
+        bgCtx = bgCanvas.getContext("2d");
+        if (!bgCtx) return;
+        bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const sky = bgCtx.createLinearGradient(0, 0, 0, height);
+        sky.addColorStop(0, "#080b12");
+        sky.addColorStop(0.42, "#0f172a");
+        sky.addColorStop(1, "#040507");
+        bgCtx.fillStyle = sky;
+        bgCtx.fillRect(0, 0, width, height);
     }
 
     function roundedRect(ctx, x, y, w, h, radius) {
@@ -96,14 +120,9 @@
         ctx.drawImage(image, sx, sy, sw, sh, x, y, w, h);
     }
 
-    function drawBackground(ctx, carouselProgress, elapsed) {
-        const sky = ctx.createLinearGradient(0, 0, 0, height);
-        sky.addColorStop(0, "#080b12");
-        sky.addColorStop(0.42, "#0f172a");
-        sky.addColorStop(1, "#040507");
-        ctx.fillStyle = sky;
-        ctx.fillRect(0, 0, width, height);
-
+    // Apenas as partes que se movem de fato: brilho radial lento + tracejados
+    // da estrada. O resto (céu/estrada/linhas) vem do bgCanvas pré-renderizado.
+    function drawDynamicBackground(ctx, carouselProgress, elapsed) {
         const glowX = width * (0.5 + Math.sin(elapsed * 0.00028) * 0.06);
         const glowY = height * 0.4;
         const glow = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, Math.max(width, height) * 0.68);
@@ -119,27 +138,6 @@
         ctx.save();
         ctx.translate(width / 2, 0);
 
-        const road = ctx.createLinearGradient(0, horizon, 0, height);
-        road.addColorStop(0, "rgba(30, 41, 59, 0.22)");
-        road.addColorStop(1, "rgba(2, 6, 23, 0.96)");
-        ctx.fillStyle = road;
-        ctx.beginPath();
-        ctx.moveTo(-roadTop, horizon);
-        ctx.lineTo(roadTop, horizon);
-        ctx.lineTo(roadBottom, height + 30);
-        ctx.lineTo(-roadBottom, height + 30);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(96, 165, 250, 0.2)";
-        ctx.lineWidth = 1;
-        for (let i = -8; i <= 8; i += 1) {
-            ctx.beginPath();
-            ctx.moveTo(i * 34, horizon);
-            ctx.lineTo(i * 152, height);
-            ctx.stroke();
-        }
-
         for (let i = 0; i < 18; i += 1) {
             const phase = (i / 18 + carouselProgress * 0.5 + elapsed * 0.00008) % 1;
             const y = lerp(horizon + 8, height + 24, phase * phase);
@@ -151,15 +149,6 @@
             ctx.lineTo(half, y);
             ctx.stroke();
         }
-
-        ctx.strokeStyle = "rgba(56, 189, 248, 0.38)";
-        ctx.lineWidth = 2;
-        [-0.12, 0.12].forEach((offset) => {
-            ctx.beginPath();
-            ctx.moveTo(roadTop * offset, horizon);
-            ctx.lineTo(roadBottom * offset, height + 20);
-            ctx.stroke();
-        });
 
         ctx.restore();
     }
@@ -254,8 +243,7 @@
         ctx.restore();
     }
 
-    function getCarouselProgress(elapsed) {
-        const cycle = elapsed % cycleDuration;
+    function getCarouselProgress(elapsed) {        const cycle = elapsed % cycleDuration;
         const currentIndex = Math.floor(elapsed / cycleDuration) % loadedCars.length;
         const nextIndex = (currentIndex + 1) % loadedCars.length;
         const transition = transitionDuration > 0
@@ -269,71 +257,81 @@
         return currentIndex + transition;
     }
 
-    function drawCarCarousel(ctx, elapsed) {
-        const carouselProgress = getCarouselProgress(elapsed);
-        const activeIndex = Math.floor(carouselProgress) % loadedCars.length;
-        const accent = accents[activeIndex] || accents[0];
-        const baseX = width * 0.5;
-        const baseY = height * (width < 700 ? 0.43 : 0.52);
+    function getPanelBaseSize() {
         const baseW = Math.min(width * (width < 700 ? 1.08 : 0.78), 896);
         const baseH = baseW * (width < 700 ? 0.62 : 0.54);
+        return { baseW, baseH };
+    }
 
-        const panels = loadedCars.map((image, index) => {
-            let distance = index - carouselProgress;
-            if (distance < -loadedCars.length / 2) distance += loadedCars.length;
-            if (distance > loadedCars.length / 2) distance -= loadedCars.length;
-            const abs = Math.abs(distance);
-            const depth = 1 - clamp(abs, 0, 2.2) / 2.2;
-            const activeBoost = smoother(depth);
-            return {
-                image,
-                index,
-                distance,
-                abs,
-                depth,
-                activeBoost,
-                scale: lerp(0.5, 1, activeBoost),
-            };
-        }).sort((a, b) => a.scale - b.scale);
-
-        panels.forEach((panel) => {
-            if (panel.abs > 2.4) return;
-            const active = panel.abs < 0.54;
-            const wave = prefersReducedMotion ? 0 : Math.sin(elapsed * 0.0012 + panel.index) * 0.012;
-            const x = baseX + panel.distance * Math.min(width * 0.34, 384);
-            const y = baseY + panel.abs * (width < 700 ? 36 : 46) - panel.activeBoost * 19;
-            const w = baseW * panel.scale;
-            const h = baseH * panel.scale;
-            const rotation = panel.distance * -0.12 + wave;
-            const skew = panel.distance * 0.03;
-            const opacity = clamp(0.18 + panel.depth * 0.9, 0, 1);
-
-            if (active) {
-                drawReflection(ctx, panel.image, x, y + h * 0.82, w * 0.94, h * 0.52, 0.13);
+    // Pré-renderiza cada painel de carro (sombra + moldura + imagem + sombreado)
+    // num bitmap offscreen. Por frame, em vez de recalcular shadowBlur/clip/gradient
+    // para 5 imagens, apenas copiamos o bitmap com drawImage. É o ganho maior de
+    // performance deste canvas.
+    function buildPanelCache() {
+        panelCache = [];
+        const { baseW, baseH } = getPanelBaseSize();
+        loadedCars.forEach((image) => {
+            const c = document.createElement("canvas");
+            c.width = Math.max(1, Math.floor(baseW * dpr));
+            c.height = Math.max(1, Math.floor(baseH * dpr));
+            const cc = c.getContext("2d");
+            if (!cc) {
+                panelCache.push(null);
+                return;
             }
+            cc.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            drawPanel(ctx, panel.image, {
-                x,
-                y,
-                w,
-                h,
-                rotation,
-                skew,
-                opacity,
-                accent,
-                highlight: active,
-            });
+            cc.save();
+            cc.shadowColor = "rgba(0, 0, 0, 0.62)";
+            cc.shadowBlur = 20;
+            cc.shadowOffsetY = 14;
+            roundedRect(cc, -baseW / 2, -baseH / 2, baseW, baseH, 20);
+            cc.fillStyle = "#0f172a";
+            cc.fill();
+            cc.restore();
+
+            cc.save();
+            roundedRect(cc, -baseW / 2, -baseH / 2, baseW, baseH, 20);
+            cc.clip();
+            drawImageCover(cc, image, -baseW / 2, -baseH / 2, baseW, baseH);
+            const shade = cc.createLinearGradient(-baseW / 2, -baseH / 2, baseW / 2, baseH / 2);
+            shade.addColorStop(0, "rgba(255, 255, 255, 0.12)");
+            shade.addColorStop(0.38, "rgba(255, 255, 255, 0)");
+            shade.addColorStop(0.72, "rgba(2, 6, 23, 0.2)");
+            shade.addColorStop(1, "rgba(2, 6, 23, 0.42)");
+            cc.fillStyle = shade;
+            cc.fillRect(-baseW / 2, -baseH / 2, baseW, baseH);
+            cc.restore();
+
+            cc.save();
+            roundedRect(cc, -baseW / 2, -baseH / 2, baseW, baseH, 20);
+            cc.strokeStyle = "rgba(148, 163, 184, 0.28)";
+            cc.lineWidth = 1;
+            cc.stroke();
+            cc.restore();
+
+            panelCache.push({ canvas: c, cssW: baseW, cssH: baseH });
         });
+    }
 
-        ctx.save();
-        ctx.globalCompositeOperation = "screen";
-        const halo = ctx.createRadialGradient(baseX, baseY, 0, baseX, baseY, baseW * 0.68);
-        halo.addColorStop(0, `${accent}3b`);
-        halo.addColorStop(0.5, `${accent}12`);
-        halo.addColorStop(1, "rgba(0, 0, 0, 0)");
-        ctx.fillStyle = halo;
-        ctx.fillRect(baseX - baseW, baseY - baseW * 0.55, baseW * 2, baseW * 1.1);
-        ctx.restore();
+    // Fundo full-bleed tipo PowerPoint: um carro por vez cobrindo todo o canvas
+    // atrás do texto do hero, com cross-fade suave. Sem cards, sombras ou bordas.
+    // Custo por frame: no máximo 2 drawImage.
+    function drawCarCarousel(ctx, elapsed) {
+        const progress = getCarouselProgress(elapsed);
+        const len = loadedCars.length;
+        const idx = ((Math.floor(progress) % len) + len) % len;
+        const frac = progress - Math.floor(progress);
+        const nextIdx = (idx + 1) % len;
+
+        drawImageCover(ctx, loadedCars[idx], 0, 0, width, height);
+
+        if (frac > 0.001) {
+            ctx.save();
+            ctx.globalAlpha = smoother(clamp(frac, 0, 1));
+            drawImageCover(ctx, loadedCars[nextIdx], 0, 0, width, height);
+            ctx.restore();
+        }
     }
 
     function drawDataOverlays(ctx, elapsed) {
@@ -373,9 +371,10 @@
     function draw(elapsed) {
         const carouselProgress = getCarouselProgress(elapsed);
         context.clearRect(0, 0, width, height);
-        drawBackground(context, carouselProgress, elapsed);
-        drawSpeedLines(context, elapsed);
-        drawDataOverlays(context, elapsed);
+
+        if (bgCanvas && bgCtx) {
+            context.drawImage(bgCanvas, 0, 0, width, height);
+        }
         drawCarCarousel(context, elapsed);
 
         const fade = context.createLinearGradient(0, 0, 0, height);
@@ -387,10 +386,15 @@
     }
 
     let isRunning = false;
+    let lastFrame = 0;
+    // Limita a ~30fps. O movimento é suave a 30fps e corta pela metade (ou mais)
+    // o trabalho de CPU/GPU em telas de 60/90/120Hz, eliminando a travada.
+    const FRAME_INTERVAL = 1000 / 30;
 
     function startLoop() {
         if (isRunning) return;
         isRunning = true;
+        lastFrame = 0;
         window.requestAnimationFrame(render);
     }
 
@@ -400,7 +404,10 @@
 
     function render(elapsed) {
         if (!isRunning) return;
-        draw(elapsed);
+        if (elapsed - lastFrame >= FRAME_INTERVAL) {
+            lastFrame = elapsed;
+            draw(elapsed);
+        }
         window.requestAnimationFrame(render);
     }
 

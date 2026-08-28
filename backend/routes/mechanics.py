@@ -19,17 +19,17 @@ logger = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371
 OVERPASS_URLS = [
+    "https://overpass.osm.ch/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
-    "https://overpass.osm.jp/api/interpreter",
-    "https://overpass.typoes.com/api/interpreter",
 ]
 OVERPASS_TIMEOUT = 25
 OVERPASS_TOTAL_BUDGET = 40  # segundos máximos gastos em tentativas contra os mirrors
 OSM_MIN_ELEMENTS_BEFORE_STOP = 40  # para de consultar após esse volume de resultados
-OSM_CACHE_TTL = 3600  # 1 hora
-OSM_FAILURE_CACHE_TTL = 300  # 5 min para falha total
+OSM_CACHE_TTL = 3600  # 1 hora (área realmente vazia)
+OSM_FAILURE_CACHE_TTL = 60  # falha transitória: cache curto p/ não suprimir fontes por 5 min
 PHOTON_REVERSE_URL = "https://photon.komoot.io/reverse"
 REVGEO_CACHE_TTL = 30 * 86400  # 30 dias (endereços mudam pouco)
 REVGEO_BROWSER_UA = (
@@ -192,6 +192,7 @@ def search_osm(user_lat, user_lng, radius, service_type=None):
         deadline = time.time() + OVERPASS_TOTAL_BUDGET
         elements = []
         seen_qids = set()
+        got_success = False
         for elem, query in _build_overpass_queries(user_lat, user_lng, radius_m, osm_tags):
             if time.time() > deadline:
                 break
@@ -202,6 +203,7 @@ def search_osm(user_lat, user_lng, radius, service_type=None):
             raw = _overpass_request(query, deadline)
             if not isinstance(raw, dict):
                 continue
+            got_success = True
             for el in raw.get('elements', []):
                 qid = f"{elem}_{el.get('id')}"
                 if qid in seen_qids:
@@ -210,9 +212,16 @@ def search_osm(user_lat, user_lng, radius, service_type=None):
                 elements.append(el)
 
         if not elements:
-            logger.warning("Overpass sem resultados para %s,%s (raio %skm)",
-                           user_lat, user_lng, radius)
-            cache_set_json(cache_key, [], ttl=OSM_FAILURE_CACHE_TTL)
+            # Distinguir "área realmente vazia" (resposta OK, 0 elementos) de
+            # "todos os mirrors falharam" (transitório): só a 2ª deve ser cacheada
+            # por muito tempo, para não suprimir a fonte por minutos após um erro.
+            if got_success:
+                cache_set_json(cache_key, [], ttl=OSM_CACHE_TTL)
+                logger.info("Overpass: área sem mecânicos para %s,%s (raio %skm)", user_lat, user_lng, radius)
+            else:
+                cache_set_json(cache_key, [], ttl=OSM_FAILURE_CACHE_TTL)
+                logger.warning("Overpass sem resultados (falha dos mirrors) para %s,%s (raio %skm)",
+                               user_lat, user_lng, radius)
             return []
 
         features = _elements_to_geojson(elements)
@@ -448,6 +457,7 @@ def search_mechanics():
         mechanics = []
 
         # 1. MySQL - mecânicos já salvos (favoritados, cadastrados)
+        db_count = 0
         try:
             with get_db() as (cursor, conn):
                 cursor.execute("""
@@ -489,6 +499,7 @@ def search_mechanics():
         except Exception as e:
             logger.error(f"Erro na busca MySQL: {e}")
 
+        db_count = len(mechanics)
         existing_ids = {m.get('id') for m in mechanics}
 
         # 2. OpenStreetMap (Overpass API)
@@ -504,6 +515,8 @@ def search_mechanics():
             except Exception as e:
                 logger.error(f"Erro na busca OSM: {e}")
 
+        osm_count = len(mechanics) - db_count
+
         # 3. Web Scraping (Google Search)
         if len(mechanics) < limit:
             try:
@@ -516,6 +529,8 @@ def search_mechanics():
                             break
             except Exception as e:
                 logger.error(f"Erro na busca web: {e}")
+
+        web_count = len(mechanics) - db_count - osm_count
 
         # Filtro por avaliação mínima
         if min_rating > 0:
@@ -534,6 +549,7 @@ def search_mechanics():
         return jsonify({
             "success": True,
             "count": len(mechanics),
+            "counts": {"db": db_count, "osm": osm_count, "web": web_count},
             "mechanics": mechanics
         }), 200
 
