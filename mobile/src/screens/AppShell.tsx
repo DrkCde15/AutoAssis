@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, Glass, Palette, Shadow, Spacing } from '@/constants/theme';
+import { Drawer, DRAWER_ITEMS } from '@/components/Drawer';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { DashboardScreen } from '@/screens/DashboardScreen';
 import { EventsScreen } from '@/screens/EventsScreen';
@@ -19,14 +20,12 @@ import { ProfileScreen } from '@/screens/ProfileScreen';
 import { RaioXScreen } from '@/screens/RaioXScreen';
 import { SecurityScreen } from '@/screens/SecurityScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
-import { VehiclesScreen } from '@/screens/VehiclesScreen';
 import { VideosScreen } from '@/screens/VideosScreen';
 import { useAuth } from '@/context/auth';
 
 export type AppTab =
   | 'home'
   | 'chat'
-  | 'vehicles'
   | 'maintenance'
   | 'profile'
   | 'raiox'
@@ -42,18 +41,9 @@ export type AppTab =
   | 'security'
   | 'more';
 
-const MAIN_TABS: { key: AppTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'home', label: 'Início', icon: 'home' },
-  { key: 'chat', label: 'NOG', icon: 'chatbubble-ellipses' },
-  { key: 'vehicles', label: 'Meu Carro', icon: 'car-sport' },
-  { key: 'maintenance', label: 'Manut.', icon: 'construct' },
-  { key: 'profile', label: 'Perfil', icon: 'person' },
-];
-
 const TITLES: Record<AppTab, string> = {
   home: 'AutoAssist',
   chat: 'NOG',
-  vehicles: 'Meu Carro',
   maintenance: 'Manutenções',
   profile: 'Perfil',
   raiox: 'Raio-X Mecânico',
@@ -75,17 +65,21 @@ export type Nav = {
   goBack: () => void;
 };
 
+const WIDE_BREAKPOINT = 768;
+
 export function AppShell() {
   const { user, request } = useAuth();
-  const [stack, setStack] = useState<AppTab[]>(['home']);
-  const current = stack[stack.length - 1] ?? 'home';
+  const { width } = useWindowDimensions();
+  const isWide = width >= WIDE_BREAKPOINT;
+
+  const [stack, setStack] = useState<AppTab[]>(['chat']);
+  const current = stack[stack.length - 1] ?? 'chat';
   const canGoBack = stack.length > 1;
 
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const goTo = useCallback((tab: AppTab) => {
-    setStack((prev) => {
-      if (MAIN_TABS.some((t) => t.key === tab)) return [tab];
-      return [...prev, tab];
-    });
+    setStack([tab]);
   }, []);
 
   const goBack = useCallback(() => {
@@ -116,8 +110,6 @@ export function AppShell() {
     switch (current) {
       case 'chat':
         return <ChatScreen nav={nav} />;
-      case 'vehicles':
-        return <VehiclesScreen nav={nav} />;
       case 'maintenance':
         return <MaintenanceScreen nav={nav} />;
       case 'profile':
@@ -155,11 +147,15 @@ export function AppShell() {
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
         <View style={styles.brandRow}>
-          {canGoBack ? (
+          {isWide ? null : canGoBack ? (
             <Pressable onPress={goBack} hitSlop={8} style={styles.backButton}>
               <Ionicons name="arrow-back" size={22} color={Palette.text} />
             </Pressable>
-          ) : null}
+          ) : (
+            <Pressable onPress={() => setDrawerOpen(true)} hitSlop={8} style={styles.backButton}>
+              <Ionicons name="menu" size={22} color={Palette.text} />
+            </Pressable>
+          )}
           <Image source={require('../logo.png')} style={styles.logo} resizeMode="contain" />
           <View style={styles.brandText}>
             <Text style={styles.brandName}>{TITLES[current]}</Text>
@@ -180,22 +176,32 @@ export function AppShell() {
         </View>
       </View>
 
-      <View style={styles.screen}>{screen}</View>
-
-      <View style={styles.tabBar}>
-        {MAIN_TABS.map((item) => {
-          const isActive = item.key === current;
-          return (
-            <Pressable
-              key={item.key}
-              onPress={() => goTo(item.key)}
-              style={[styles.tabButton, isActive ? styles.tabButtonActive : null]}>
-              <Ionicons name={item.icon} size={22} color={isActive ? Palette.primary : Palette.textMuted} />
-              <Text style={[styles.tabLabel, isActive ? styles.tabTextActive : null]}>{item.label}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={[styles.body, isWide ? styles.bodyRow : null]}>
+        {isWide ? (
+          <Drawer
+            variant="persistent"
+            items={DRAWER_ITEMS}
+            active={current}
+            onNavigate={goTo}
+            open={false}
+            onClose={() => {}}
+            userName={user?.nome}
+          />
+        ) : null}
+        <View style={styles.screen}>{screen}</View>
       </View>
+
+      {!isWide ? (
+        <Drawer
+          variant="overlay"
+          items={DRAWER_ITEMS}
+          active={current}
+          onNavigate={goTo}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          userName={user?.nome}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -280,37 +286,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Fonts.sans,
   },
+  body: {
+    flex: 1,
+  },
+  bodyRow: {
+    flexDirection: 'row',
+  },
   screen: {
     flex: 1,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.two,
-    borderTopWidth: 1,
-    borderTopColor: Palette.border,
-    backgroundColor: Glass.tabBar,
-  },
-  tabButton: {
-    flex: 1,
-    minHeight: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    gap: 2,
-  },
-  tabButtonActive: {
-    backgroundColor: Palette.bgAlt,
-  },
-  tabLabel: {
-    color: Palette.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    fontFamily: Fonts.sans,
-  },
-  tabTextActive: {
-    color: Palette.primary,
   },
 });

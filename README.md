@@ -24,7 +24,7 @@ A stack existente foi mantida (não foi reescrita para React Navigation / Zustan
 
 ```
 mobile/
-├── AppShell.tsx              # Navegação: 5 abas + pilha de sub-telas (header com logo + sino + badge)
+├── AppShell.tsx              # Navegação: inicia no NOG + drawer lateral (header com logo + sino + badge)
 ├── app/
 │   ├── _layout.tsx           # Provider de auth + Stack raiz (header oculto)
 │   └── index.tsx             # Entrada: AuthScreen ou AppShell conforme a sessão
@@ -53,7 +53,6 @@ mobile/
     ├── ChatScreen.tsx        # Aba NOG (usa NogInputBar; histórico de conversas por session_id)
     ├── RaioXScreen.tsx       # Raio-X Mecânico (câmera/galeria)
     ├── ModPassportScreen.tsx # Mod Passport (Premium)
-    ├── VehiclesScreen.tsx    # Aba Meu Carro (FIPE + Mod Passport)
     ├── MaintenanceScreen.tsx # Aba Manutenções (Próximas/Atrasadas/Concluídas + lembrete por e-mail)
     ├── ProfileScreen.tsx     # Aba Perfil
     ├── SecurityScreen.tsx    # 2FA (senha secundária) + senha
@@ -112,17 +111,15 @@ O `.env.local` é lido na subida do Expo — reinicie o `npm start` após alter�
 
 ## 🧭 Navegação
 
-`AppShell` implementa uma bottom bar com **5 abas** e uma pilha de sub-telas:
+`AppShell` abre direto no **NOG (chat)** e usa um **drawer (menu lateral)** como hub de navegação — não há mais bottom bar.
 
-| Aba | Tela | Ações de entrada em sub-telas |
-| :-- | :--- | :---------------------------- |
-| **Início** | `HomeScreen` | quick actions → NOG, Raio-X, Mecânico, FIPE |
-| **NOG** | `ChatScreen` | histórico de conversas (busca + nova), foto, voz, PDF (pelo menu de anexos) |
-| **Meu Carro** | `VehiclesScreen` | Mod Passport, ver FIPE, editar/excluir veículo |
-| **Manutenções** | `MaintenanceScreen` | registrar, lembrete por e-mail, abrir checkout Premium |
-| **Perfil** | `ProfileScreen` | Conta, Segurança (2FA), Notificações, Premium, Indicar, Config., Sair |
+- **Tela inicial:** `ChatScreen` (NOG) — a IA é a porta de entrada do app.
+- **Drawer lateral:** aberto pelo botão **☰ menu** no header (ou botão de **voltar** quando há pilha). Lista todas as telas: NOG, Início, Painel, Manutenções, Mecânicos, Raio-X, Mod Passport, Vídeos, Eventos, Planos, Notificações, Perfil, Segurança, Configurações, Feedback e Mais. Cada item navega substituindo a pilha (`nav.goTo`).
+- **Responsivo:** em telas largas (≥ 768px, ex.: tablet/paisagem) o drawer vira uma **sidebar fixa** persistente à esquerda e o botão ☰ some; em celular ele é um **overlay deslizante** com backdrop.
+- Componente: `src/components/Drawer.tsx` (variante `overlay` animada + variante `persistent`); a lista de itens vive em `AppShell` (`DRAWER_ITEMS`).
+- **Sub-telas** (Mod Passport, FIPE, edição, checkout Premium, etc.) são acessadas por `nav.goTo` a partir das telas principais.
 
-O header (presente em todas as telas) traz a **logo da marca** (à esquerda) e o **sino de notificações** (à direita) com **badge de não lidas** (`/api/notifications/unread-count`), que abre `NotificationsScreen`.
+O header (presente em todas as telas) traz a **logo da marca** + saudação (à esquerda) e o **sino de notificações** (à direita) com **badge de não lidas** (`/api/notifications/unread-count`), que abre `NotificationsScreen`.
 
 ---
 
@@ -133,12 +130,12 @@ O header (presente em todas as telas) traz a **logo da marca** (à esquerda) e o
 - **Esqueci a senha / redefinir:** modos `forgot`/`reset` em `AuthScreen` (`/api/auth/forgot-password`, `/api/auth/reset-password`).
 - **Sessão persistida** com `expo-secure-store`, validada no launch — sessão inválida é limpa silenciosamente (sem crash).
 - **Início (copiloto):** "capa" apresentável — hero com saudação, **foto grande** do veículo (editável), link para o **Painel**, anel de **saúde** (`HealthRing`), próxima manutenção e ações rápidas. Suporta **multi-veículo**.
-- **Painel (`DashboardScreen`):** visão unificada de **todos os veículos** — foto, `HealthRing`, FIPE, itens de saúde, estatísticas de uso (manutenções/chats) e próxima manutenção. Reúne as informações do Início + relatório por veículo.
-- **Foto do veículo:** componente `VehiclePhoto` (`câmera/galeria/remover`) reutilizado em **Início** e **Meu Carro**; abre um bottom-sheet (com opção **Cancelar** sempre visível, inclusive com foto) e salva em `POST /api/veiculos/<id>/foto` (base64).
+- **Painel (`DashboardScreen`):** gerenciador único do carro. Reúne a visão unificada de **todos os veículos** (foto, `HealthRing`, FIPE, itens de saúde, estatísticas de uso e próxima manutenção) **com** o gerenciamento da garagem: adicionar/editar/excluir veículo, foto via `VehiclePhoto`, e acesso ao **Mod Passport**. É a tela "Meu Carro" consolidada.
+- **Foto do veículo:** componente `VehiclePhoto` (`câmera/galeria/remover`) reutilizado em **Início** e **Painel**; abre um bottom-sheet (com opção **Cancelar** sempre visível, inclusive com foto) e salva em `POST /api/veiculos/<id>/foto` (base64).
 - **NOG (chat):** barra de entrada componentizada (`components/nog/*`) — campo que cresce, **menu de anexos** (câmera/galeria/documento/PDF), **voz** (`expo-av` → `/api/voice`) e **envio circular**; **histórico de conversas** por `session_id` com busca e "nova conversa".
 - **Raio-X Mecânico:** câmera/galeria → análise com **severidade** (ALTA/MÉDIA/BAIXA) e *disclaimer* de que não substitui inspeção presencial.
 - **Mod Passport (Premium):** registra mods e recalcula o valor FIPE estimado (ajuste conservador, com teto).
-- **Meu Carro:** FIPE inline, saúde, edição e multi-veículo.
+- **Meu Carro (no Painel):** gestão da garagem (adicionar/editar/excluir veículo), FIPE inline, saúde, foto e multi-veículo — tudo dentro do Painel.
 - **Manutenções:** abas **Próximas / Atrasadas / Concluídas**, registro, resumo de gastos (Premium) e **lembrete por e-mail** (Premium).
 - **Mecânicos:** busca de oficinas + **favoritar** (`/api/mechanics/favorites`).
 - **Perfil:** conta, **Segurança/2FA** (`SecurityScreen`), notificações (badge de não lidas), Premium (abrir checkout **e verificar** `/api/pay/confirm`), indicação e logout.

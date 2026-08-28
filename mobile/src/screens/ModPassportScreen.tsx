@@ -132,7 +132,7 @@ export function ModPassportScreen({ nav }: { nav: Nav }) {
         <EmptyState
           title="Nenhum veículo"
           body="Adicione um veículo para usar o Mod Passport."
-          action={{ label: 'Adicionar veículo', onPress: () => nav.goTo('vehicles') }}
+          action={{ label: 'Adicionar veículo', onPress: () => nav.goTo('dashboard') }}
         />
       </ScrollView>
     );

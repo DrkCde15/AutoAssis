@@ -115,7 +115,7 @@ export function HomeScreen({ nav }: NavProps) {
         <Text style={styles.heroSub}>Tudo sobre o seu veículo, em um só lugar.</Text>
 
         {vehicle ? (
-          <Pressable style={styles.heroVehicle} onPress={() => nav.goTo('vehicles')} hitSlop={8}>
+          <Pressable style={styles.heroVehicle} onPress={() => nav.goTo('dashboard')} hitSlop={8}>
             <VehiclePhoto
               vehicle={vehicle}
               request={request}
@@ -144,7 +144,7 @@ export function HomeScreen({ nav }: NavProps) {
           <EmptyState
             title="Nenhum veículo cadastrado"
             body="Adicione seu carro para respostas contextuais da NOG."
-            action={{ label: 'Adicionar veículo', onPress: () => nav.goTo('vehicles') }}
+            action={{ label: 'Adicionar veículo', onPress: () => nav.goTo('dashboard') }}
           />
         )}
       </Card>
@@ -212,7 +212,7 @@ export function HomeScreen({ nav }: NavProps) {
         <QuickAction icon="chatbubble-ellipses" label="Perguntar à NOG" color={Palette.primary} onPress={() => nav.goTo('chat')} />
         <QuickAction icon="scan" label="Raio-X" color={Palette.accent} onPress={() => nav.goTo('raiox')} />
         <QuickAction icon="construct" label="Mecânico" color={Palette.blue} onPress={() => nav.goTo('mechanics')} />
-        <QuickAction icon="cash" label="FIPE" color={Palette.green} onPress={() => nav.goTo('vehicles')} />
+        <QuickAction icon="cash" label="FIPE" color={Palette.green} onPress={() => nav.goTo('dashboard')} />
       </View>
     </ScrollView>
   );

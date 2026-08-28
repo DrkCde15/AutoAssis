@@ -1,62 +1,64 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
+import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
 import { VehiclePhoto } from '@/components/VehiclePhoto';
 import { HealthRing } from '@/components/HealthRing';
-import { Palette, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { formatDate, formatKm } from '@/lib/format';
-import type { MaintenanceAlert } from '@/lib/types';
+import type { MaintenanceAlert, Vehicle } from '@/lib/types';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from './AppShell';
 
-type VehicleInfo = {
-  id: number;
-  tipo?: string;
-  marca?: string;
-  modelo?: string;
-  ano_fabricacao?: number | null;
-  quilometragem?: number | null;
-  foto_base64?: string | null;
-};
-
 type Fipe = { Valor?: string; MesReferencia?: string };
-
 type SaudeItem = { item: string; msg?: string; status?: string };
-
 type Estatisticas = {
   manutencoes_realizadas?: number;
   data_ultima_manutencao?: string | null;
   chats_realizados?: number;
   health_score?: number;
 };
-
 type VehicleDashboard = {
-  veiculo: VehicleInfo;
+  veiculo: Vehicle;
   fipe?: Fipe;
   saude?: SaudeItem[];
   estatisticas_extras?: Estatisticas;
 };
 
 export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
-  const { request, user } = useAuth();
-  const [vehicles, setVehicles] = useState<VehicleDashboard[]>([]);
+  const { request, user, refreshUser } = useAuth();
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [dashboards, setDashboards] = useState<Record<number, VehicleDashboard>>({});
   const [alerts, setAlerts] = useState<MaintenanceAlert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<Vehicle | null>(null);
+  const [tipo, setTipo] = useState('carro');
+  const [marca, setMarca] = useState('');
+  const [modelo, setModelo] = useState('');
+  const [anoFabricacao, setAnoFabricacao] = useState('');
+  const [anoCompra, setAnoCompra] = useState('');
+  const [quilometragem, setQuilometragem] = useState('');
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
-      const [data, alertData] = await Promise.all([
-        request<VehicleDashboard[]>('/api/dashboard'),
+      const [vehicleData, dashData, alertData] = await Promise.all([
+        request<{ veiculos: Vehicle[] }>('/api/veiculos'),
+        request<VehicleDashboard[]>('/api/dashboard').catch(() => [] as VehicleDashboard[]),
         user?.is_premium
           ? request<{ alertas: MaintenanceAlert[] }>('/api/maintenance/alerts').catch(() => ({ alertas: [] }))
           : Promise.resolve({ alertas: [] }),
       ]);
-      setVehicles(Array.isArray(data) ? data : []);
+      const list = vehicleData.veiculos || [];
+      setVehicles(list);
+      const map: Record<number, VehicleDashboard> = {};
+      (Array.isArray(dashData) ? dashData : []).forEach((d) => {
+        if (d.veiculo?.id) map[d.veiculo.id] = d;
+      });
+      setDashboards(map);
       setAlerts(alertData.alertas || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar o painel.');
@@ -67,30 +69,85 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   }, [request, user?.is_premium]);
 
   useEffect(() => {
-    load();
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
   }, [load]);
+
+  function startEdit(v: Vehicle) {
+    setEditing(v);
+    setTipo(v.tipo || 'carro');
+    setMarca(v.marca || '');
+    setModelo(v.modelo || '');
+    setAnoFabricacao(String(v.ano_fabricacao ?? ''));
+    setAnoCompra(String(v.ano_compra ?? ''));
+    setQuilometragem(String(v.quilometragem ?? ''));
+    setError('');
+  }
+
+  function resetForm() {
+    setEditing(null);
+    setTipo('carro');
+    setMarca('');
+    setModelo('');
+    setAnoFabricacao('');
+    setAnoCompra('');
+    setQuilometragem('');
+    setError('');
+  }
+
+  async function save() {
+    if (!marca.trim() || !modelo.trim()) {
+      setError('Informe marca e modelo.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const body = {
+        tipo: tipo.trim() || 'carro',
+        marca: marca.trim(),
+        modelo: modelo.trim(),
+        ano_fabricacao: anoFabricacao.trim() || null,
+        ano_compra: anoCompra.trim() || null,
+        quilometragem: quilometragem.trim() || null,
+      };
+      if (editing) {
+        await request(`/api/veiculos/${editing.id}`, { method: 'PUT', body });
+      } else {
+        await request('/api/veiculos', { method: 'POST', body });
+      }
+      resetForm();
+      await refreshUser();
+      await load();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Erro ao salvar veículo.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function confirmDelete(vehicle: Vehicle) {
+    Alert.alert('Excluir veículo', 'Remover este veículo da sua conta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          await request(`/api/veiculos/${vehicle.id}`, { method: 'DELETE' });
+          await refreshUser();
+          await load();
+        },
+      },
+    ]);
+  }
 
   const nextMaintenance = alerts.find((a) => !/conclu|done|ok/i.test(a.status_code || a.status || '')) ?? alerts[0];
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={Palette.primary} />
+        <Text style={styles.loadingText}>Carregando painel…</Text>
       </View>
-    );
-  }
-
-  if (error) {
-    return <EmptyState title="Erro" message={error} action={{ label: 'Tentar de novo', onPress: load }} />;
-  }
-
-  if (vehicles.length === 0) {
-    return (
-      <EmptyState
-        title="Nenhum veiculo"
-        message="Adicione um veiculo no app para ver o painel de saude."
-        action={{ label: 'Ver meus veiculos', onPress: () => goTo('vehicles') }}
-      />
     );
   }
 
@@ -98,8 +155,9 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>Painel</Text>
       {user && !user.is_premium && (
-        <Pill tone="warn">Recursos avancados disponiveis no plano Premium</Pill>
+        <Pill tone="warn">Recursos avançados disponiveis no plano Premium</Pill>
       )}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {nextMaintenance ? (
         <Card style={styles.nextCard}>
@@ -120,37 +178,43 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
         </Card>
       ) : null}
 
+      {vehicles.length === 0 ? (
+        <EmptyState
+          title="Garagem vazia"
+          message="Adicione seu veículo para ver o painel de saúde e personalizar o app."
+        />
+      ) : null}
+
       {vehicles.map((v) => {
-        const veic = v.veiculo;
-        const stats = v.estatisticas_extras;
+        const dash = dashboards[v.id];
+        const stats = dash?.estatisticas_extras;
         const score = stats?.health_score ?? 0;
         return (
-          <Card key={veic.id} style={styles.card}>
+          <Card key={v.id} style={styles.card}>
             <View style={styles.cardTop}>
               <VehiclePhoto
-                vehicle={{ id: veic.id, foto_base64: veic.foto_base64 }}
+                vehicle={v}
                 request={request}
                 size={64}
+                onUpdated={(foto) => setVehicles((prev) => prev.map((x) => (x.id === v.id ? { ...x, foto_base64: foto } : x)))}
               />
               <View style={styles.cardInfo}>
-                <Text style={styles.vehicleName}>
-                  {[veic.marca, veic.modelo].filter(Boolean).join(' ') || 'Veículo'}
-                </Text>
+                <Text style={styles.vehicleName}>{[v.marca, v.modelo].filter(Boolean).join(' ') || 'Veículo'}</Text>
                 <Text style={styles.vehicleMeta}>
-                  {veic.tipo || '—'} · {veic.ano_fabricacao || '-'} · {formatKm(veic.quilometragem ?? 0)}
+                  {v.tipo || '—'} · {v.ano_fabricacao || '-'} · {formatKm(v.quilometragem ?? 0)}
                 </Text>
-                {v.fipe?.Valor ? (
+                {dash?.fipe?.Valor ? (
                   <Text style={styles.fipe}>
-                    FIPE: {v.fipe.Valor} {v.fipe.MesReferencia ? `(${v.fipe.MesReferencia})` : ''}
+                    FIPE: {dash.fipe.Valor} {dash.fipe.MesReferencia ? `(${dash.fipe.MesReferencia})` : ''}
                   </Text>
                 ) : null}
               </View>
               <HealthRing score={score} size={84} stroke={10} showLabel={false} />
             </View>
 
-            {v.saude && v.saude.length > 0 ? (
+            {dash?.saude && dash.saude.length > 0 ? (
               <View style={styles.saude}>
-                {v.saude.map((s, i) => (
+                {dash.saude.map((s, i) => (
                   <Pill key={i} tone={s.status === 'OK' ? 'good' : 'neutral'}>
                     {s.item}
                   </Pill>
@@ -168,26 +232,68 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
               </View>
             ) : null}
 
-            <AppButton
-              variant="ghost"
-              onPress={() => goTo('chat')}
-              title={`Perguntar sobre ${veic.marca || 'o veículo'} à NOG`}
-            />
+            <View style={styles.actions}>
+              <Pressable onPress={() => startEdit(v)} style={styles.iconBtn}>
+                <Ionicons name="create-outline" size={20} color={Palette.text} />
+              </Pressable>
+              <Pressable onPress={() => confirmDelete(v)} style={styles.iconBtn}>
+                <Ionicons name="trash-outline" size={20} color={Palette.red} />
+              </Pressable>
+              <AppButton title="Mod Passport" variant="secondary" onPress={() => goTo('modpassport')} />
+              <AppButton title="Perguntar à NOG" variant="ghost" onPress={() => goTo('chat')} />
+            </View>
           </Card>
         );
       })}
 
-      <AppButton variant="ghost" onPress={() => goTo('more')}>
-        Voltar
-      </AppButton>
+      <Card style={styles.form}>
+        <Text style={styles.formTitle}>{editing ? 'Editar veículo' : 'Adicionar veículo'}</Text>
+        <Text style={styles.muted}>Esses dados deixam o chat e as previsões mais precisos.</Text>
+        {editing ? <Pill tone="info" label={`Editando: ${editing.marca} ${editing.modelo}`} /> : null}
+        <Field label="Tipo" value={tipo} onChangeText={setTipo} placeholder="carro, moto, pickup" />
+        <Field label="Marca" value={marca} onChangeText={setMarca} placeholder="Toyota" />
+        <Field label="Modelo" value={modelo} onChangeText={setModelo} placeholder="Corolla" />
+        <View style={styles.twoColumns}>
+          <Field
+            label="Ano"
+            value={anoFabricacao}
+            onChangeText={setAnoFabricacao}
+            keyboardType="number-pad"
+            placeholder="2020"
+            style={styles.flexField}
+          />
+          <Field
+            label="Compra"
+            value={anoCompra}
+            onChangeText={setAnoCompra}
+            keyboardType="number-pad"
+            placeholder="2024"
+            style={styles.flexField}
+          />
+        </View>
+        <Field
+          label="Quilometragem"
+          value={quilometragem}
+          onChangeText={setQuilometragem}
+          keyboardType="number-pad"
+          placeholder="65000"
+        />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <View style={styles.formActions}>
+          <AppButton title={editing ? 'Salvar' : 'Adicionar'} onPress={save} loading={saving} />
+          {editing ? <AppButton title="Cancelar" variant="ghost" onPress={resetForm} /> : null}
+        </View>
+      </Card>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg },
+  loadingText: { color: Palette.textMuted },
   container: { padding: Spacing.four, gap: Spacing.three },
-  title: { color: Palette.text, fontSize: 22, fontWeight: '700' },
+  title: { color: Palette.text, fontSize: 22, fontWeight: '700', fontFamily: Fonts.serif },
+  error: { color: Palette.red, lineHeight: 20 },
   nextCard: { gap: Spacing.two },
   nextHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   nextText: { flex: 1, gap: Spacing.one },
@@ -202,4 +308,20 @@ const styles = StyleSheet.create({
   stats: { gap: 2 },
   stat: { color: Palette.textMuted, fontSize: 13 },
   muted: { color: Palette.textMuted, lineHeight: 20 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.two },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.bgAlt,
+    borderWidth: 1,
+    borderColor: Palette.border,
+  },
+  form: { gap: Spacing.two },
+  formTitle: { color: Palette.text, fontSize: 18, fontWeight: '900', fontFamily: Fonts.serif },
+  twoColumns: { flexDirection: 'row', gap: Spacing.two },
+  flexField: { flex: 1 },
+  formActions: { gap: Spacing.two },
 });
