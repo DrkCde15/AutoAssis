@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 
-const PROD_API_URL = 'https://autoassist-l9lr.onrender.com';
+// Em dev o app bate no backend local (mesmo que serve o site), onde o
+// OpenStreetMap responde e a busca de mecânicos traz vários resultados.
+// Para produção (Render), defina EXPO_PUBLIC_API_URL com a URL deployada.
+const LOCAL_DEV_API_URL = 'http://192.168.15.5:5001';
 
 function cleanUrl(value: string | undefined) {
   return (value || '').trim().replace(/\/+$/, '');
@@ -9,7 +12,7 @@ function cleanUrl(value: string | undefined) {
 export const API_BASE_URL =
   cleanUrl(process.env.EXPO_PUBLIC_API_URL) ||
   cleanUrl(process.env.EXPO_PUBLIC_FLASK_URL) ||
-  PROD_API_URL;
+  LOCAL_DEV_API_URL;
 
 export const LOCAL_API_HINT = Platform.select({
   android: 'http://10.0.2.2:5000',

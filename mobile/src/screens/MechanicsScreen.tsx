@@ -25,13 +25,19 @@ type Mechanic = {
   _source?: string;
 };
 
-type MechanicsResponse = { success: boolean; count: number; mechanics: Mechanic[] };
+type MechanicsResponse = {
+  success: boolean;
+  count: number;
+  mechanics: Mechanic[];
+};
 
 const SORT_OPTIONS: { key: string; label: string }[] = [
   { key: 'distance', label: 'Distancia' },
   { key: 'rating', label: 'Avaliacao' },
   { key: 'name', label: 'Nome' },
 ];
+
+const RADIUS_OPTIONS = ['5', '10', '20', '50'];
 
 export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   const { user, request } = useAuth();
@@ -42,7 +48,7 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
 
-  const [radius, setRadius] = useState('10');
+  const [radius, setRadius] = useState('20');
   const [serviceType, setServiceType] = useState('');
   const [sortBy, setSortBy] = useState('distance');
 
@@ -117,6 +123,7 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
         lng: String(coords.lng),
         radius,
         sort_by: sortBy,
+        limit: '50',
       });
       if (serviceType.trim()) params.set('service_type', serviceType.trim());
       const data = await apiRequest<MechanicsResponse>(
@@ -159,12 +166,17 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
       <Text style={styles.title}>Mecanicos proximos</Text>
 
       <Card>
-        <Field
-          label="Raio (km)"
-          value={radius}
-          onChangeText={setRadius}
-          placeholder="10"
-        />
+        <Text style={styles.label}>Raio (km)</Text>
+        <View style={styles.sortRow}>
+          {RADIUS_OPTIONS.map((r) => (
+            <Pressable
+              key={r}
+              onPress={() => setRadius(r)}
+              style={[styles.sortPill, radius === r ? styles.sortPillOn : null]}>
+              <Text style={[styles.sortText, radius === r ? styles.sortTextOn : null]}>{r}</Text>
+            </Pressable>
+          ))}
+        </View>
         <Field
           label="Tipo de servico (opcional)"
           value={serviceType}
@@ -196,7 +208,7 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
       ) : mechanics.length === 0 ? (
         <EmptyState
           title="Nenhum mecanico encontrado"
-          message="Tente aumentar o raio de busca."
+          message="Tente aumentar o raio de busca ou mudar o tipo de servico."
           action={{ label: 'Buscar novamente', onPress: fetchMechanics }}
         />
       ) : (
