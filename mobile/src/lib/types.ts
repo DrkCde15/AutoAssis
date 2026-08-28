@@ -6,6 +6,7 @@ export type Vehicle = {
   ano_fabricacao?: number | null;
   ano_compra?: number | null;
   quilometragem?: number | null;
+  foto_base64?: string | null;
 };
 
 export type User = {

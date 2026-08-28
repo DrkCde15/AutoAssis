@@ -1524,7 +1524,7 @@ def list_veiculos():
             cursor.execute(
                 """
                 SELECT id, tipo, marca, modelo, ano_fabricacao, ano_compra, quilometragem,
-                       fipe_valor, fipe_mes_referencia, modificacoes, fipe_ajustada
+                       fipe_valor, fipe_mes_referencia, modificacoes, fipe_ajustada, foto_base64
                 FROM veiculos
                 WHERE user_id = %s
                 ORDER BY created_at DESC, id DESC
@@ -1567,6 +1567,47 @@ def list_veiculos():
     except Exception as e:
         logger.error(f"Erro ao listar veiculos: {e}")
         return jsonify(error="Erro ao listar veiculos"), 500
+
+@pages_bp.route("/api/veiculos/<int:v_id>/foto", methods=["POST"])
+@jwt_required()
+def upload_veiculo_foto(v_id):
+    """Salva (ou remove) a foto do veículo. Recebe base64 em ``foto``.
+
+    Enviar ``foto`` vazio/nulo limpa a foto atual.
+    """
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    foto = data.get("foto")
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("SELECT id FROM veiculos WHERE id = %s AND user_id = %s", (v_id, user_id))
+            if not cursor.fetchone():
+                return jsonify(error="Veículo não encontrado"), 404
+
+            if not foto:
+                cursor.execute("UPDATE veiculos SET foto_base64 = NULL WHERE id = %s AND user_id = %s", (v_id, user_id))
+                conn.commit()
+                return jsonify(success=True, foto_base64=None), 200
+
+            if isinstance(foto, str) and foto.startswith("data:"):
+                header, _, b64 = foto.partition(",")
+                if "base64" not in header:
+                    return jsonify(error="Formato de imagem inválido"), 400
+                foto = b64
+
+            try:
+                amostra = base64.b64decode(foto[:64])
+            except Exception:
+                return jsonify(error="Imagem inválida"), 400
+            if not (amostra[:4] in (b"\xff\xd8\xff\xe0", b"\xff\xd8\xff\xe1", b"\x89PNG", b"\x47IF8") or amostra[:3] == b"GIF"):
+                return jsonify(error="Apenas imagens PNG/JPG/GIF são suportadas"), 400
+
+            cursor.execute("UPDATE veiculos SET foto_base64 = %s WHERE id = %s AND user_id = %s", (foto, v_id, user_id))
+            conn.commit()
+            return jsonify(success=True, foto_base64=foto), 200
+    except Exception as e:
+        logger.error(f"Erro ao salvar foto do veiculo: {e}")
+        return jsonify(error="Erro ao salvar foto do veículo"), 500
 
 @pages_bp.route("/api/veiculos/<int:v_id>", methods=["PUT"])
 @jwt_required()

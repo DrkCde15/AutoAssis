@@ -11,6 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
+import { VehiclePhoto } from '@/components/VehiclePhoto';
+import { HealthRing } from '@/components/HealthRing';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { formatDate, formatKm } from '@/lib/format';
 import type { MaintenanceAlert, Vehicle } from '@/lib/types';
@@ -100,9 +102,51 @@ export function HomeScreen({ nav }: NavProps) {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
       <Card style={styles.hero}>
-        <Text style={styles.kicker}>Seu copiloto de carro</Text>
-        <Text style={styles.greeting}>Olá, {user?.nome?.split(' ')[0] || 'motorista'}.</Text>
-        <Text style={styles.heroSub}>Tudo sobre o seu veículo, em um só lugar. Toque em uma ação para resolver.</Text>
+        <View style={styles.heroTop}>
+          <View style={{ flexShrink: 1 }}>
+            <Text style={styles.kicker}>Seu copiloto de carro</Text>
+            <Text style={styles.greeting}>Olá, {user?.nome?.split(' ')[0] || 'motorista'}.</Text>
+          </View>
+          <Pressable style={styles.painelLink} onPress={() => nav.goTo('dashboard')} hitSlop={8}>
+            <Text style={styles.painelLinkText}>Painel</Text>
+            <Ionicons name="chevron-forward" size={16} color={Palette.primary} />
+          </Pressable>
+        </View>
+        <Text style={styles.heroSub}>Tudo sobre o seu veículo, em um só lugar.</Text>
+
+        {vehicle ? (
+          <Pressable style={styles.heroVehicle} onPress={() => nav.goTo('vehicles')} hitSlop={8}>
+            <VehiclePhoto
+              vehicle={vehicle}
+              request={request}
+              size={92}
+              onUpdated={(foto) =>
+                setVehicles((prev) => prev.map((x) => (x.id === vehicle.id ? { ...x, foto_base64: foto } : x)))
+              }
+            />
+            <View style={styles.heroVehicleInfo}>
+              <Text style={styles.heroVehicleName}>
+                {[vehicle.marca, vehicle.modelo].filter(Boolean).join(' ') || 'Veículo'}
+              </Text>
+              <Text style={styles.heroVehicleMeta}>
+                {vehicle.ano_fabricacao || '-'} · {formatKm(vehicle.quilometragem)}
+              </Text>
+              {dashboard?.fipe?.Valor ? (
+                <Text style={styles.heroVehicleFipe}>
+                  FIPE {dashboard.fipe.Valor}
+                  {dashboard.fipe.MesReferencia ? ` · ${dashboard.fipe.MesReferencia}` : ''}
+                </Text>
+              ) : null}
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Palette.textMuted} />
+          </Pressable>
+        ) : (
+          <EmptyState
+            title="Nenhum veículo cadastrado"
+            body="Adicione seu carro para respostas contextuais da NOG."
+            action={{ label: 'Adicionar veículo', onPress: () => nav.goTo('vehicles') }}
+          />
+        )}
       </Card>
 
       {offline ? <Pill tone="warn" label="Sem conexão — mostrando dados locais" /> : null}
@@ -125,58 +169,21 @@ export function HomeScreen({ nav }: NavProps) {
         </ScrollView>
       ) : null}
 
-      {vehicle ? (
-        <Card style={styles.vehicleCard}>
-          <View style={styles.vehiclePhoto}>
-            <Ionicons name="car-sport" size={40} color={Palette.primary} />
-          </View>
-          <View style={styles.vehicleInfo}>
-            <Text style={styles.vehicleName}>
-              {[vehicle.marca, vehicle.modelo].filter(Boolean).join(' ') || 'Veículo'}
-            </Text>
-            <Text style={styles.vehicleMeta}>
-              {vehicle.ano_fabricacao || '-'} · {formatKm(vehicle.quilometragem)}
-            </Text>
-            {dashboard?.fipe?.Valor ? (
-              <Text style={styles.vehicleFipe}>
-                FIPE {dashboard.fipe.Valor}
-                {dashboard.fipe.MesReferencia ? ` · ${dashboard.fipe.MesReferencia}` : ''}
-              </Text>
-            ) : null}
-          </View>
-          <Pressable onPress={() => nav.goTo('vehicles')} style={styles.vehicleEdit}>
-            <Ionicons name="chevron-forward" size={20} color={Palette.textMuted} />
-          </Pressable>
-        </Card>
-      ) : (
-        <EmptyState
-          title="Nenhum veículo cadastrado"
-          body="Adicione seu carro para respostas contextuais da NOG."
-          action={{ label: 'Adicionar veículo', onPress: () => nav.goTo('vehicles') }}
-        />
-      )}
-
       <Card style={styles.healthCard}>
-        <View style={styles.healthHeader}>
-          <Text style={styles.sectionTitle}>Saúde do veículo</Text>
-          <Text style={[styles.healthScore, { color: scoreColor(healthScore) }]}>{healthScore}%</Text>
-        </View>
-        <View style={styles.track}>
-          <View
-            style={[
-              styles.fill,
-              { width: `${Math.max(0, Math.min(100, healthScore))}%`, backgroundColor: scoreColor(healthScore) },
-            ]}
-          />
-        </View>
-        <View style={styles.saudeRow}>
-          {saudeItems.length ? (
-            saudeItems.map((s, i) => (
-              <Pill key={i} tone={s.status === 'OK' ? 'good' : 'warn'} label={s.item} />
-            ))
-          ) : (
-            <Text style={styles.muted}>Sem avaliação de itens ainda.</Text>
-          )}
+        <View style={styles.healthBody}>
+          <HealthRing score={healthScore} size={128} stroke={14} />
+          <View style={styles.healthItems}>
+            <Text style={styles.sectionTitle}>Saúde do veículo</Text>
+            {saudeItems.length ? (
+              <View style={styles.saudeRow}>
+                {saudeItems.map((s, i) => (
+                  <Pill key={i} tone={s.status === 'OK' ? 'good' : 'warn'} label={s.item} />
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.muted}>Sem avaliação de itens ainda.</Text>
+            )}
+          </View>
         </View>
       </Card>
 
@@ -232,7 +239,7 @@ function QuickAction({
   );
 }
 
-function scoreColor(score: number) {
+function scoreColor(score: number): string {
   if (score >= 80) return Palette.green;
   if (score >= 50) return Palette.amber;
   return Palette.red;
@@ -242,10 +249,18 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg },
   content: { padding: Spacing.three, gap: Spacing.three },
-  hero: { gap: Spacing.one },
+  hero: { gap: Spacing.three, padding: Spacing.four },
+  heroTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.two },
   kicker: { color: Palette.primary, fontSize: 12, fontFamily: Fonts.serif, fontWeight: '900', textTransform: 'uppercase' },
-  greeting: { color: Palette.text, fontSize: 26, fontFamily: Fonts.serif, fontWeight: '900' },
-  heroSub: { color: Palette.textMuted, lineHeight: 21 },
+  greeting: { color: Palette.text, fontSize: 26, fontFamily: Fonts.serif, fontWeight: '900', marginTop: Spacing.one },
+  heroSub: { color: Palette.textMuted, lineHeight: 21, marginTop: Spacing.one },
+  painelLink: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: Spacing.one },
+  painelLinkText: { color: Palette.primary, fontWeight: '800', fontSize: 14 },
+  heroVehicle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, marginTop: Spacing.two },
+  heroVehicleInfo: { flex: 1, gap: Spacing.one },
+  heroVehicleName: { color: Palette.text, fontSize: 20, fontFamily: Fonts.sans, fontWeight: '900' },
+  heroVehicleMeta: { color: Palette.textMuted },
+  heroVehicleFipe: { color: Palette.accent, fontWeight: '700', fontSize: 13 },
   chips: { gap: Spacing.two, paddingVertical: Spacing.one },
   chip: {
     paddingHorizontal: Spacing.three,
@@ -258,27 +273,11 @@ const styles = StyleSheet.create({
   chipActive: { borderColor: Palette.primary, backgroundColor: 'rgba(124,92,255,0.14)' },
   chipText: { color: Palette.textMuted, fontWeight: '800', fontFamily: Fonts.sans },
   chipTextActive: { color: Palette.primary },
-  vehicleCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  vehiclePhoto: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.md,
-    backgroundColor: Palette.bgAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vehicleInfo: { flex: 1, gap: Spacing.one },
-  vehicleName: { color: Palette.text, fontSize: 18, fontFamily: Fonts.sans, fontWeight: '900' },
-  vehicleMeta: { color: Palette.textMuted },
-  vehicleFipe: { color: Palette.accent, fontWeight: '700', fontSize: 13 },
-  vehicleEdit: { padding: Spacing.one },
   healthCard: { gap: Spacing.two },
-  healthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  healthBody: { flexDirection: 'row', alignItems: 'center', gap: Spacing.four },
+  healthItems: { flex: 1, gap: Spacing.two },
   sectionTitle: { color: Palette.text, fontSize: 18, fontFamily: Fonts.serif, fontWeight: '900' },
-  healthScore: { fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900' },
-  track: { height: 10, borderRadius: 999, backgroundColor: Palette.bgAlt, overflow: 'hidden' },
-  fill: { height: 10, borderRadius: 999 },
-  saudeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  saudeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.one },
   nextCard: { gap: Spacing.two },
   nextBody: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   nextText: { flex: 1, gap: Spacing.one },

@@ -30,6 +30,8 @@ mobile/
 │   └── index.tsx             # Entrada: AuthScreen ou AppShell conforme a sessão
 ├── components/
 │   ├── primitives.tsx        # AppButton, Card, Field, Pill, EmptyState, Loading
+│   ├── VehiclePhoto.tsx       # Foto do veículo (câmera/galeria) — reutilizável
+│   ├── HealthRing.tsx          # Anel de saúde (score) — reutilizável (Home + Painel)
 │   └── nog/                   # Barra de entrada da NOG (UI separada de estado/API)
 │       ├── NogInputBar.tsx    # Barra principal (texto + anexos + voz + enviar), KeyboardAvoiding + Safe Area
 │       ├── AttachmentButton.tsx
@@ -130,7 +132,9 @@ O header (presente em todas as telas) traz a **logo da marca** (à esquerda) e o
 - **Login com Google (OAuth2.0):** botão "Entrar com Google" em `AuthScreen`; o backend faz o handshake e devolve os tokens via redirect para o scheme do app (`autoassist://oauth`). O `GOOGLE_REDIRECT_URI` permanece o de produção (sem alteração).
 - **Esqueci a senha / redefinir:** modos `forgot`/`reset` em `AuthScreen` (`/api/auth/forgot-password`, `/api/auth/reset-password`).
 - **Sessão persistida** com `expo-secure-store`, validada no launch — sessão inválida é limpa silenciosamente (sem crash).
-- **Início (copiloto):** saudação, cartão do veículo, % de saúde, status, próxima manutenção e ações rápidas. Suporta **multi-veículo**.
+- **Início (copiloto):** "capa" apresentável — hero com saudação, **foto grande** do veículo (editável), link para o **Painel**, anel de **saúde** (`HealthRing`), próxima manutenção e ações rápidas. Suporta **multi-veículo**.
+- **Painel (`DashboardScreen`):** visão unificada de **todos os veículos** — foto, `HealthRing`, FIPE, itens de saúde, estatísticas de uso (manutenções/chats) e próxima manutenção. Reúne as informações do Início + relatório por veículo.
+- **Foto do veículo:** componente `VehiclePhoto` (`câmera/galeria/remover`) reutilizado em **Início** e **Meu Carro**; abre um bottom-sheet (com opção **Cancelar** sempre visível, inclusive com foto) e salva em `POST /api/veiculos/<id>/foto` (base64).
 - **NOG (chat):** barra de entrada componentizada (`components/nog/*`) — campo que cresce, **menu de anexos** (câmera/galeria/documento/PDF), **voz** (`expo-av` → `/api/voice`) e **envio circular**; **histórico de conversas** por `session_id` com busca e "nova conversa".
 - **Raio-X Mecânico:** câmera/galeria → análise com **severidade** (ALTA/MÉDIA/BAIXA) e *disclaimer* de que não substitui inspeção presencial.
 - **Mod Passport (Premium):** registra mods e recalcula o valor FIPE estimado (ajuste conservador, com teto).

@@ -3,6 +3,7 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
+import { VehiclePhoto } from '@/components/VehiclePhoto';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { formatKm } from '@/lib/format';
 import type { Vehicle } from '@/lib/types';
@@ -151,9 +152,14 @@ export function VehiclesScreen({ nav }: { nav: Nav }) {
 
       {vehicle ? (
         <Card style={styles.detail}>
-          <View style={styles.photo}>
-            <Ionicons name="car-sport" size={48} color={Palette.primary} />
-          </View>
+          <VehiclePhoto
+            vehicle={vehicle}
+            request={request}
+            size={72}
+            onUpdated={(foto) =>
+              setVehicles((prev) => prev.map((x) => (x.id === vehicle.id ? { ...x, foto_base64: foto } : x)))
+            }
+          />
           <View style={styles.detailInfo}>
             <Text style={styles.detailName}>
               {[vehicle.marca, vehicle.modelo].filter(Boolean).join(' ') || 'Veículo'}
@@ -242,7 +248,9 @@ const styles = StyleSheet.create({
   chipText: { color: Palette.textMuted, fontWeight: '800', fontFamily: Fonts.sans },
   chipTextActive: { color: Palette.primary },
   detail: { gap: Spacing.three },
-  photo: { width: 72, height: 72, borderRadius: Radius.md, backgroundColor: Palette.bgAlt, alignItems: 'center', justifyContent: 'center' },
+  photo: { width: 72, height: 72, borderRadius: Radius.md, backgroundColor: Palette.bgAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  photoImg: { width: 72, height: 72, resizeMode: 'cover' },
+  photoBadge: { position: 'absolute', right: 0, bottom: 0, backgroundColor: Palette.primary, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Palette.bg },
   detailInfo: { gap: Spacing.one },
   detailName: { color: Palette.text, fontSize: 20, fontFamily: Fonts.sans, fontWeight: '900' },
   detailMeta: { color: Palette.textMuted },

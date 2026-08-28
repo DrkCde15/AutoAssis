@@ -1,22 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
 import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
+import { VehiclePhoto } from '@/components/VehiclePhoto';
+import { HealthRing } from '@/components/HealthRing';
 import { Palette, Spacing } from '@/constants/theme';
+import { formatDate, formatKm } from '@/lib/format';
+import type { MaintenanceAlert } from '@/lib/types';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from './AppShell';
 
 type VehicleInfo = {
   id: number;
-  tipo: string;
-  marca: string;
-  modelo: string;
-  ano_fabricacao: number;
-  quilometragem: number;
+  tipo?: string;
+  marca?: string;
+  modelo?: string;
+  ano_fabricacao?: number | null;
+  quilometragem?: number | null;
+  foto_base64?: string | null;
 };
 
 type Fipe = { Valor?: string; MesReferencia?: string };
 
-type SaudeItem = { item: string; msg: string; status: string };
+type SaudeItem = { item: string; msg?: string; status?: string };
 
 type Estatisticas = {
   manutencoes_realizadas?: number;
@@ -29,20 +36,13 @@ type VehicleDashboard = {
   veiculo: VehicleInfo;
   fipe?: Fipe;
   saude?: SaudeItem[];
-  predicao?: Record<string, unknown>;
   estatisticas_extras?: Estatisticas;
 };
-
-function scoreTone(score?: number): 'good' | 'warn' | 'danger' {
-  const s = score ?? 0;
-  if (s >= 80) return 'good';
-  if (s >= 50) return 'warn';
-  return 'danger';
-}
 
 export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   const { request, user } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleDashboard[]>([]);
+  const [alerts, setAlerts] = useState<MaintenanceAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,19 +50,27 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await request<VehicleDashboard[]>('/api/dashboard');
+      const [data, alertData] = await Promise.all([
+        request<VehicleDashboard[]>('/api/dashboard'),
+        user?.is_premium
+          ? request<{ alertas: MaintenanceAlert[] }>('/api/maintenance/alerts').catch(() => ({ alertas: [] }))
+          : Promise.resolve({ alertas: [] }),
+      ]);
       setVehicles(Array.isArray(data) ? data : []);
+      setAlerts(alertData.alertas || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar o painel.');
       setVehicles([]);
     } finally {
       setLoading(false);
     }
-  }, [request]);
+  }, [request, user?.is_premium]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const nextMaintenance = alerts.find((a) => !/conclu|done|ok/i.test(a.status_code || a.status || '')) ?? alerts[0];
 
   if (loading) {
     return (
@@ -93,26 +101,61 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
         <Pill tone="warn">Recursos avancados disponiveis no plano Premium</Pill>
       )}
 
-      {vehicles.map((v) => {
-        const stats = v.estatisticas_extras;
-        return (
-          <Card key={v.veiculo.id}>
-            <Text style={styles.vehicleName}>
-              {v.veiculo.marca} {v.veiculo.modelo}
-            </Text>
-            <Text style={styles.vehicleMeta}>
-              {v.veiculo.tipo} · {v.veiculo.ano_fabricacao} · {v.veiculo.quilometragem.toLocaleString('pt-BR')} km
-            </Text>
+      {nextMaintenance ? (
+        <Card style={styles.nextCard}>
+          <View style={styles.nextHead}>
+            <Ionicons
+              name={/atras|overdue/i.test(nextMaintenance.status_code || '') ? 'warning' : 'time'}
+              size={22}
+              color={/atras|overdue/i.test(nextMaintenance.status_code || '') ? Palette.red : Palette.amber}
+            />
+            <View style={styles.nextText}>
+              <Text style={styles.nextLabel}>{nextMaintenance.maintenance_label || 'Manutenção'}</Text>
+              <Text style={styles.muted}>{nextMaintenance.message || formatDate(nextMaintenance.next_due_date)}</Text>
+            </View>
+          </View>
+          <AppButton variant="ghost" onPress={() => goTo('maintenance')}>
+            Ver manutenções
+          </AppButton>
+        </Card>
+      ) : null}
 
-            <View style={styles.scoreRow}>
-              <Text style={styles.scoreLabel}>Saude</Text>
-              <Pill tone={scoreTone(stats?.health_score)}>{stats?.health_score ?? '—'}</Pill>
+      {vehicles.map((v) => {
+        const veic = v.veiculo;
+        const stats = v.estatisticas_extras;
+        const score = stats?.health_score ?? 0;
+        return (
+          <Card key={veic.id} style={styles.card}>
+            <View style={styles.cardTop}>
+              <VehiclePhoto
+                vehicle={{ id: veic.id, foto_base64: veic.foto_base64 }}
+                request={request}
+                size={64}
+              />
+              <View style={styles.cardInfo}>
+                <Text style={styles.vehicleName}>
+                  {[veic.marca, veic.modelo].filter(Boolean).join(' ') || 'Veículo'}
+                </Text>
+                <Text style={styles.vehicleMeta}>
+                  {veic.tipo || '—'} · {veic.ano_fabricacao || '-'} · {formatKm(veic.quilometragem ?? 0)}
+                </Text>
+                {v.fipe?.Valor ? (
+                  <Text style={styles.fipe}>
+                    FIPE: {v.fipe.Valor} {v.fipe.MesReferencia ? `(${v.fipe.MesReferencia})` : ''}
+                  </Text>
+                ) : null}
+              </View>
+              <HealthRing score={score} size={84} stroke={10} showLabel={false} />
             </View>
 
-            {v.fipe?.Valor ? (
-              <Text style={styles.fipe}>
-                FIPE: {v.fipe.Valor} {v.fipe.MesReferencia ? `(${v.fipe.MesReferencia})` : ''}
-              </Text>
+            {v.saude && v.saude.length > 0 ? (
+              <View style={styles.saude}>
+                {v.saude.map((s, i) => (
+                  <Pill key={i} tone={s.status === 'OK' ? 'good' : 'neutral'}>
+                    {s.item}
+                  </Pill>
+                ))}
+              </View>
             ) : null}
 
             {stats ? (
@@ -125,15 +168,11 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
               </View>
             ) : null}
 
-            {v.saude && v.saude.length > 0 ? (
-              <View style={styles.saude}>
-                {v.saude.map((s, i) => (
-                  <Pill key={i} tone={s.status === 'OK' ? 'good' : 'neutral'}>
-                    {s.item}
-                  </Pill>
-                ))}
-              </View>
-            ) : null}
+            <AppButton
+              variant="ghost"
+              onPress={() => goTo('chat')}
+              title={`Perguntar sobre ${veic.marca || 'o veículo'} à NOG`}
+            />
           </Card>
         );
       })}
@@ -149,12 +188,18 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg },
   container: { padding: Spacing.four, gap: Spacing.three },
   title: { color: Palette.text, fontSize: 22, fontWeight: '700' },
+  nextCard: { gap: Spacing.two },
+  nextHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  nextText: { flex: 1, gap: Spacing.one },
+  nextLabel: { color: Palette.text, fontWeight: '800' },
+  card: { gap: Spacing.three },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  cardInfo: { flex: 1, gap: Spacing.one },
   vehicleName: { color: Palette.text, fontSize: 18, fontWeight: '700' },
-  vehicleMeta: { color: Palette.textMuted, fontSize: 14, marginTop: Spacing.one },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.three },
-  scoreLabel: { color: Palette.text, fontSize: 14, fontWeight: '600' },
-  fipe: { color: Palette.textMuted, fontSize: 14, marginTop: Spacing.two },
-  stats: { marginTop: Spacing.two, gap: 2 },
-  stat: { color: Palette.textSoft, fontSize: 13 },
-  saude: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
+  vehicleMeta: { color: Palette.textMuted, fontSize: 14 },
+  fipe: { color: Palette.textMuted, fontSize: 14 },
+  saude: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  stats: { gap: 2 },
+  stat: { color: Palette.textMuted, fontSize: 13 },
+  muted: { color: Palette.textMuted, lineHeight: 20 },
 });
