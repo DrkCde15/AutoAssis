@@ -143,6 +143,17 @@ def chat_websocket(ws):
             user_data["lat"] = data.get("lat")
             user_data["lng"] = data.get("lng")
 
+            reference_images = []
+            vehicle_id = data.get("vehicle_id")
+            if user_id and vehicle_id and (attachment or image_b64):
+                try:
+                    from routes.database import get_db
+                    from routes.pages import get_vehicle_reference_images
+                    with get_db() as (cur, conn):
+                        reference_images = get_vehicle_reference_images(cur, user_id, vehicle_id)
+                except Exception:
+                    reference_images = []
+
             if attachment or image_b64:
                 from routes.pages import generate_assistant_payload
                 response, videos, links, topic = generate_assistant_payload(
@@ -152,7 +163,16 @@ def chat_websocket(ws):
                     [],
                     image_b64=image_b64,
                     attachment=attachment,
+                    reference_images=reference_images,
                 )
+                if vehicle_id and image_b64:
+                    try:
+                        from routes.database import get_db
+                        from routes.pages import seed_vehicle_photo_if_missing
+                        with get_db() as (cur, conn):
+                            seed_vehicle_photo_if_missing(cur, conn, user_id, vehicle_id, image_b64)
+                    except Exception:
+                        pass
             else:
                 response = gerar_resposta(message, user_id or 0, user_data=user_data)
 

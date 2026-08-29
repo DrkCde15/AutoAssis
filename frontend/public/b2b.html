@@ -136,6 +136,13 @@
       </div>
     </section>
 
+    <section class="card" id="minhaApiCard">
+      <h2>Minha API — consumo</h2>
+      <p style="color:var(--muted);font-size:.85rem;">Acompanhe a cota das suas chaves B2B em tempo real.</p>
+      <button class="btn-primary" id="btnUsage" style="margin-top:6px;">Atualizar consumo</button>
+      <div id="usageList" style="margin-top:12px;"></div>
+    </section>
+
     <section class="card" id="seguranca">
       <h2>Segurança e conformidade (LGPD)</h2>
       <ul style="margin:0;padding:0;list-style:none;display:grid;gap:12px;">
@@ -154,7 +161,35 @@
         <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-file-contract" style="color:var(--accent);margin-top:3px;"></i> Acordo de nível de serviço (SLA) e termo de confidencialidade.</li>
         <li style="display:flex;gap:12px;align-items:flex-start;"><i class="fas fa-headset" style="color:var(--accent);margin-top:3px;"></i> Account manager e onboarding de integração assistido.</li>
       </ul>
-      <a href="#contatoB2B" class="btn-primary" style="text-decoration:none;display:inline-block;">Falar com vendas enterprise →</a>
+       <a href="#contatoB2B" class="btn-primary" style="text-decoration:none;display:inline-block;">Falar com vendas enterprise →</a>
+    </section>
+
+    <section class="card" id="docsApi">
+      <h2>Documentação da API</h2>
+      <p style="color:var(--muted);font-size:.9rem;">Autenticação via header <code>X-API-Key</code>. Base URL: <code>https://api.autoassist.com.br</code> (ou seu domínio). Limites por tier aplicados por chave (volume mensal + taxa por minuto).</p>
+      <h3 style="font-size:1.05rem;margin-top:18px;">Endpoints</h3>
+      <ul style="margin:0;padding:0;list-style:none;display:grid;gap:10px;">
+        <li style="display:flex;gap:10px;align-items:flex-start;"><code>POST /api/b2b/diagnosis</code> <span style="color:var(--muted);font-size:.88rem;">— envia <code>image</code> (base64) + <code>pergunta?</code> + <code>formato?</code> (json|pdf); retorna laudo.</span></li>
+        <li style="display:flex;gap:10px;align-items:flex-start;"><code>POST /api/b2b/self-serve/keys</code> <span style="color:var(--muted);font-size:.88rem;">— cria chave trial (usuário logado).</span></li>
+        <li style="display:flex;gap:10px;align-items:flex-start;"><code>POST /api/b2b/self-serve/checkout</code> <span style="color:var(--muted);font-size:.88rem;">— cria pedido pago (Cakto); chave ativa após pagamento.</span></li>
+        <li style="display:flex;gap:10px;align-items:flex-start;"><code>GET /api/b2b/usage</code> <span style="color:var(--muted);font-size:.88rem;">— retorna consumo da cota por chave (login).</span></li>
+        <li style="display:flex;gap:10px;align-items:flex-start;"><code>POST /api/b2b/webhook/usage</code> <span style="color:var(--muted);font-size:.88rem;">— webhook para parceiros registrarem evento de uso (best-effort).</span></li>
+      </ul>
+      <h3 style="font-size:1.05rem;margin-top:18px;">Exemplo (cURL)</h3>
+      <div class="terminal" aria-hidden="true">
+        <div class="c">curl -X POST https://api.autoassist.com.br/api/b2b/diagnosis \</div>
+        <div class="c">&nbsp;&nbsp;-H "X-API-Key: SUA_CHAVE" \</div>
+        <div class="c">&nbsp;&nbsp;-H "Content-Type: application/json" \</div>
+        <div class="c">&nbsp;&nbsp;-d '{"image":"data:image/jpeg;base64,...","formato":"json"}'</div>
+      </div>
+      <h3 style="font-size:1.05rem;margin-top:18px;">Limites por tier</h3>
+      <ul style="margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:.9rem;">
+        <li><strong>Trial</strong>: 100 chamadas/mês · 10/min · Grátis</li>
+        <li><strong>Pro 1k</strong>: 1.000 chamadas/mês · 30/min · R$ 99,00</li>
+        <li><strong>Pro 5k</strong>: 5.000 chamadas/mês · 60/min · R$ 399,00</li>
+        <li><strong>Pro 20k</strong>: 20.000 chamadas/mês · 120/min · R$ 999,00</li>
+        <li style="color:var(--muted);">Enterprise (20k+): SLA e faturamento mensal — falar com vendas.</li>
+      </ul>
     </section>
 
     <section class="card" id="contatoB2B">
@@ -204,9 +239,9 @@
   <script>
     const PLANS = {
       trial:   { label: "Trial gratuito", limit: 100,   rate: 10,  price: 0 },
-      pro_1k:  { label: "Pro 1k",        limit: 1000,  rate: 30,  price: 49.9 },
-      pro_5k:  { label: "Pro 5k",        limit: 5000,  rate: 60,  price: 149.9 },
-      pro_20k: { label: "Pro 20k",       limit: 20000, rate: 120, price: 399.9 },
+      pro_1k:  { label: "Pro 1k",        limit: 1000,  rate: 30,  price: 99 },
+      pro_5k:  { label: "Pro 5k",        limit: 5000,  rate: 60,  price: 399 },
+      pro_20k: { label: "Pro 20k",       limit: 20000, rate: 120, price: 999 },
     };
     const brl = (v) => v === 0 ? "Grátis" : "R$ " + v.toFixed(2).replace(".", ",") + "/mês";
 
@@ -238,6 +273,7 @@
       const logged = (typeof Auth !== "undefined") && Auth.isAuthenticated && Auth.isAuthenticated();
       document.getElementById("keyArea").classList.toggle("hidden", !logged);
       document.getElementById("loginNeeded").classList.toggle("hidden", logged);
+      if (logged) loadUsage();
     }
 
     async function handlePlanAction(plan) {
@@ -286,6 +322,33 @@
     document.getElementById("btnCreateKey").addEventListener("click", () => {
       handlePlanAction(document.getElementById("keyPlan").value);
     });
+
+    async function loadUsage() {
+      const box = document.getElementById("usageList");
+      if (!box) return;
+      if (!(typeof Auth !== "undefined" && Auth.isAuthenticated && Auth.isAuthenticated())) {
+        box.innerHTML = '<p style="color:var(--muted);font-size:.85rem;">Faça login para ver o consumo.</p>';
+        return;
+      }
+      try {
+        const res = await Auth.authenticatedFetch("/api/b2b/usage", { redirectOnInvalid: false });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { box.innerHTML = '<p style="color:#ff6b6b;font-size:.85rem;">' + (data.error || "Erro") + '</p>'; return; }
+        if (!data.clients || !data.clients.length) { box.innerHTML = '<p style="color:var(--muted);font-size:.85rem;">Nenhuma chave ainda.</p>'; return; }
+        box.innerHTML = data.clients.map(c => {
+          const restante = c.requests_restantes == null ? "ilimitado" : c.requests_restantes.toLocaleString("pt-BR");
+          const ativo = c.is_active ? "ativa" : "inativa";
+          return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:.9rem;">
+              <strong>${c.nome || c.client_id}</strong><span style="color:var(--muted);">${ativo} · ${c.plan}</span>
+            </div>
+            <div style="font-size:.82rem;color:var(--muted);margin-top:4px;">Usado ${c.requests_used.toLocaleString("pt-BR")} / ${(c.requests_limit||0).toLocaleString("pt-BR")} · restante ${restante} · ${c.rate_limit_per_min}/min</div>
+          </div>`;
+        }).join("");
+      } catch (e) { box.innerHTML = '<p style="color:#ff6b6b;font-size:.85rem;">Falha ao carregar.</p>'; }
+    }
+    document.getElementById("btnUsage").addEventListener("click", loadUsage);
+    window.addEventListener("auth:changed", () => { if (typeof Auth !== "undefined" && Auth.isAuthenticated && Auth.isAuthenticated()) loadUsage(); });
 
     document.getElementById("btnLead").addEventListener("click", async () => {
       const msg = document.getElementById("leadMsg");

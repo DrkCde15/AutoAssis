@@ -52,6 +52,62 @@ def _refresh_fipe_sync(vehicle_id, tipo, marca, modelo, ano):
         pass
 
 
+def _resolve_fipe_sync(row):
+    """Resolve a FIPE de forma sincrona quando o valor em cache esta ausente/obsoleto.
+
+    Persiste o resultado no banco (coluna VARCHAR). Nao levanta excecao, para
+    nunca quebrar o dashboard. Mantem o card e o patrimonio sempre com base numerica.
+    """
+    fipe_updated = row.get("fipe_updated_at")
+    stale = (
+        fipe_updated is None
+        or (datetime.now() - fipe_updated) > timedelta(hours=FIPE_CACHE_HOURS)
+    )
+    valor = row.get("fipe_valor")
+    mes = row.get("fipe_mes_referencia")
+    tipo = (row.get("tipo") or "").lower()
+    if (valor is None or stale) and tipo in ("carro", "moto", "caminhao", "carros", "motos", "caminhoes"):
+        try:
+            fipe = get_fipe_value(row["tipo"], row["marca"], row["modelo"], row["ano_fabricacao"])
+            if fipe and "Valor" in fipe:
+                novo = fipe["Valor"]
+                mes = fipe.get("MesReferencia", mes or "---")
+                with get_db() as (cur, conn):
+                    cur.execute(
+                        "UPDATE veiculos SET fipe_valor=%s, fipe_mes_referencia=%s, "
+                        "fipe_updated_at=NOW() WHERE id=%s",
+                        (str(novo), mes, row["id"]),
+                    )
+                    conn.commit()
+                old_valor = row.get("fipe_valor")
+                if old_valor is not None and str(old_valor) != str(novo):
+                    try:
+                        uid = row.get("user_id")
+                        if uid:
+                            from routes.notifications import create_notification
+                            from routes.push import send_push_notification
+                            nome_veic = "{} {}".format(row.get("marca", ""), row.get("modelo", "")).strip()
+                            create_notification(
+                                uid,
+                                "Valor FIPE atualizado",
+                                "O valor FIPE do seu {} foi para {}.".format(nome_veic, novo),
+                                type="fipe",
+                                action_url="dashboard.html",
+                            )
+                            send_push_notification(
+                                uid,
+                                "Valor FIPE atualizado",
+                                "Seu {} agora vale {}.".format(nome_veic, novo),
+                                data={"url": "dashboard.html"},
+                            )
+                    except Exception as notif_err:
+                        logger.warning("Falha ao notificar FIPE: %s", notif_err)
+                valor = novo
+        except Exception:
+            pass
+    return valor, mes
+
+
 def _compute_health_score(row, pred=None):
     current_year = datetime.now().year
     ano_fab = row.get("ano_fabricacao") or current_year
@@ -150,20 +206,12 @@ def _build_vehicle_dashboard(row, health_score, pred):
         "foto_base64": row.get("foto_base64"),
     }
 
-    # FIPE - usa cache se <24h, dispara refresh em background se stale
-    fipe_updated = row.get("fipe_updated_at")
-    fipe_stale = (
-        fipe_updated is None
-        or (datetime.now() - fipe_updated) > timedelta(hours=FIPE_CACHE_HOURS)
-    )
-
-    if fipe_stale:
-        _refresh_fipe(row["id"], row["tipo"], row["marca"], row["modelo"], row["ano_fabricacao"])
-
-    if row.get("fipe_valor"):
+    # FIPE - resolve de forma sincrona quando ausente/obsoleto (popula o banco).
+    valor, mes = _resolve_fipe_sync(row)
+    if valor:
         fipe_info = {
-            "Valor": row["fipe_valor"],
-            "MesReferencia": row.get("fipe_mes_referencia", "---"),
+            "Valor": valor,
+            "MesReferencia": mes or "---",
         }
     else:
         fipe_info = {"Valor": "Não listado na Tabela FIPE", "MesReferencia": "---"}
@@ -221,12 +269,12 @@ def get_dashboard_data():
         with get_db() as (cur, conn):
             # 1) Veículos agregados (1 query)
             cur.execute(
-                """SELECT v.id, v.tipo, v.marca, v.modelo,
+                """SELECT v.id, v.user_id, v.tipo, v.marca, v.modelo,
                           v.ano_fabricacao, v.quilometragem, v.foto_base64,
                           v.fipe_valor, v.fipe_mes_referencia, v.fipe_updated_at,
                           COUNT(mh.id) AS qtde_manutencao,
                           MAX(mh.service_date) AS ultima_manutencao,
-                          (SELECT COUNT(*) FROM chats WHERE user_id=%s) AS qtde_chats
+                          (SELECT COUNT(DISTINCT session_id) FROM chats WHERE user_id=%s) AS qtde_chats
                    FROM veiculos v
                    LEFT JOIN maintenance_history mh ON mh.vehicle_id=v.id
                    WHERE v.user_id=%s

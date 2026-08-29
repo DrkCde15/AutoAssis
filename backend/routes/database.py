@@ -321,6 +321,19 @@ TABLES_SQL = {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_b2b_leads_created (created_at DESC)
     )""",
+    "mod_passport_versions": """CREATE TABLE IF NOT EXISTS mod_passport_versions (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        veiculo_id INT NOT NULL,
+        user_id INT NOT NULL,
+        snapshot JSON NULL,
+        fipe_valor VARCHAR(50) NULL,
+        fipe_ajustada VARCHAR(50) NULL,
+        valor_estimado VARCHAR(50) NULL,
+        share_token VARCHAR(64) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_mpv_veiculo (veiculo_id),
+        INDEX idx_mpv_token (share_token)
+    )""",
     "events": """CREATE TABLE IF NOT EXISTS events (
         id VARCHAR(40) NOT NULL,
         title VARCHAR(200) NOT NULL,

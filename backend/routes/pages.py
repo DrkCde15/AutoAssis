@@ -545,7 +545,8 @@ def generate_assistant_payload(
     historico_recente,
     image_b64=None,
     attachment=None,
-    default_topic="Consultoria Geral"
+    default_topic="Consultoria Geral",
+    reference_images=None,
 ):
     prompt_message = message
     if attachment and attachment["kind"] == "text":
@@ -564,7 +565,7 @@ def generate_assistant_payload(
 
     if image_b64:
         from services.vision_ai import analisar_imagem
-        resposta = analisar_imagem(image_b64, message)
+        resposta = analisar_imagem(image_b64, message, reference_images=reference_images)
         videos, links, topic = [], [], default_topic
         return resposta, videos, links, topic
 
@@ -578,6 +579,49 @@ def generate_assistant_payload(
     videos, links, topic = build_recommendations(message, historico_recente, default_topic)
 
     return resposta, videos, links, topic or default_topic
+
+
+def get_vehicle_reference_images(cursor, user_id, vehicle_id):
+    """Fotos de referência do veículo para diagnóstico visual assistido (memória visual)."""
+    try:
+        vid = int(vehicle_id)
+    except (TypeError, ValueError):
+        return []
+    if vid <= 0:
+        return []
+    try:
+        cursor.execute(
+            "SELECT foto_base64 FROM veiculos WHERE id=%s AND user_id=%s",
+            (vid, user_id),
+        )
+        row = cursor.fetchone()
+    except Exception as exc:
+        logger.warning("Falha ao buscar foto de referência do veículo: %s", exc)
+        return []
+    if not row:
+        return []
+    foto = row.get("foto_base64")
+    if foto and str(foto).strip():
+        return [foto]
+    return []
+
+
+def seed_vehicle_photo_if_missing(cursor, conn, user_id, vehicle_id, image_b64):
+    """Se o veículo ainda não tem foto, usa a imagem do diagnóstico como baseline de memória."""
+    try:
+        vid = int(vehicle_id)
+    except (TypeError, ValueError):
+        return
+    if vid <= 0 or not image_b64:
+        return
+    try:
+        cursor.execute(
+            "UPDATE veiculos SET foto_base64=%s WHERE id=%s AND user_id=%s AND foto_base64 IS NULL",
+            (image_b64, vid, user_id),
+        )
+        conn.commit()
+    except Exception as exc:
+        logger.warning("Falha ao semear foto do veículo: %s", exc)
 
 
 def resolve_recommendations(recommendations_future, default_topic):
@@ -1257,7 +1301,7 @@ def get_user():
             return invalid_session_response()
         user["maintenance_email_last_sent"] = serialize_datetime_field(user.get("maintenance_email_last_sent"))
 
-        cursor.execute("SELECT COUNT(*) AS total FROM chats WHERE user_id = %s", (user_id,))
+        cursor.execute("SELECT COUNT(DISTINCT session_id) AS total FROM chats WHERE user_id = %s", (user_id,))
         total = cursor.fetchone()
 
         cursor.execute("SELECT id, tipo, marca, modelo, ano_fabricacao, ano_compra, quilometragem FROM veiculos WHERE user_id = %s", (user_id,))
@@ -1302,7 +1346,7 @@ def update_user():
             if not user:
                 return invalid_session_response()
 
-            cursor.execute("SELECT COUNT(*) AS total FROM chats WHERE user_id = %s", (user_id,))
+            cursor.execute("SELECT COUNT(DISTINCT session_id) AS total FROM chats WHERE user_id = %s", (user_id,))
             total = cursor.fetchone()
 
             return jsonify({
@@ -1458,6 +1502,67 @@ def calcular_fipe_ajustada(base_valor, modificacoes, mercado=None):
     return (d["valor"], d["pct"], d["extra_abs"])
 
 
+def _salvar_mod_passport_version(cursor, veiculo_id, user_id, modificacoes, fipe_valor, fipe_ajustada):
+    """Persiste um snapshot do Mod Passport para dar continuidade/historico (lock-in de dados)."""
+    try:
+        cursor.execute(
+            """INSERT INTO mod_passport_versions
+               (veiculo_id, user_id, snapshot, fipe_valor, fipe_ajustada, valor_estimado, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, NOW())""",
+            (veiculo_id, user_id, json.dumps(modificacoes or [], ensure_ascii=False),
+             fipe_valor, fipe_ajustada, fipe_ajustada),
+        )
+    except Exception as e:
+        logger.warning("Falha ao versionar Mod Passport: %s", e)
+
+
+def _l1(value):
+    return str(value).encode("latin-1", "ignore").decode("latin-1")
+
+
+def _build_modpassport_pdf(veiculo, snapshot, valor_estimado):
+    """PDF do Mod Passport (ficha tecnica viva do veiculo)."""
+    from fpdf import FPDF
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 15)
+    pdf.set_text_color(59, 130, 246)
+    pdf.cell(0, 10, _l1("AutoAssist IA - Mod Passport"), 0, 1, "C")
+    pdf.ln(4)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, _l1("Veiculo:"), 0, 1)
+    pdf.set_font("Arial", "", 11)
+    nome = "{} {} ({})".format(
+        veiculo.get("marca") or "", veiculo.get("modelo") or "", veiculo.get("ano_fabricacao") or ""
+    )
+    pdf.cell(0, 7, _l1(nome), 0, 1)
+    pdf.cell(0, 7, _l1("Valor FIPE: {}".format(veiculo.get("fipe_valor") or "n/a")), 0, 1)
+    pdf.cell(0, 7, _l1("Valor estimado (c/ mods): {}".format(valor_estimado or "n/a")), 0, 1)
+    pdf.ln(3)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, _l1("Modificacoes registradas:"), 0, 1)
+    pdf.set_font("Arial", "", 10)
+    mods = snapshot or []
+    if not mods:
+        pdf.cell(0, 6, _l1("(nenhuma)"), 0, 1)
+    for m in mods:
+        cat = m.get("categoria") or "outros"
+        desc = m.get("descricao") or m.get("desc") or ""
+        val = m.get("valor")
+        linha = "- {}".format(cat)
+        if desc:
+            linha += ": {}".format(desc)
+        if val:
+            linha += " (R$ {})".format(val)
+        pdf.multi_cell(0, 6, _l1(linha))
+    pdf.ln(8)
+    pdf.set_font("Arial", "I", 9)
+    pdf.set_text_color(200, 50, 50)
+    pdf.multi_cell(0, 5, _l1("AVISO: Mod Passport e uma estimativa gerada por IA. Nao substitui vistoria ou avaliacao profissional."))
+    return pdf.output(dest="S").encode("latin-1")
+
+
 def _require_mod_passport(cursor, user_id):
     """Exige premium ativo para o recurso Mod Passport."""
     cursor.execute("SELECT is_premium, premium_expires_at FROM users WHERE id = %s", (user_id,))
@@ -1495,6 +1600,15 @@ def add_veiculo():
             v_id = cursor.lastrowid
             cursor.execute("UPDATE users SET possui_veiculo = TRUE WHERE id = %s", (user_id,))
 
+            # Popula o valor FIPE na criacao (assincrono via RQ, com fallback sincrono).
+            # Garante que o Patrimonio e o card de FIPE tenham base numerica.
+            try:
+                from routes.dashboard import _refresh_fipe
+                _refresh_fipe(v_id, data.get("tipo"), data.get("marca"),
+                             data.get("modelo"), ano_fab)
+            except Exception as fipe_err:
+                logger.warning(f"Falha ao agendar refresh FIPE na criacao: {fipe_err}")
+
             # Gatilho imediato de e-mail se houver algo crítico
             try:
                 user_row = get_user_by_id(cursor, user_id)
@@ -1510,6 +1624,24 @@ def add_veiculo():
                 logger.warning(f"Falha no gatilho imediato de email: {email_err}")
 
             _invalidate_dashboard_cache_for_user(user_id)
+            try:
+                from routes.notifications import create_notification
+                from routes.push import send_push_notification
+                create_notification(
+                    user_id,
+                    "Veiculo adicionado!",
+                    "Crie o Mod Passport para acompanhar o valor estimado e o historico do seu carro pela IA.",
+                    type="ativo",
+                    action_url="dashboard.html",
+                )
+                send_push_notification(
+                    user_id,
+                    "Bem-vindo ao AutoAssist!",
+                    "Toque para criar o Mod Passport do seu veiculo.",
+                    data={"url": "dashboard.html"},
+                )
+            except Exception as act_err:
+                logger.warning("Falha na notificacao de ativacao: %s", act_err)
             return jsonify(success=True, id=v_id), 201
     except Exception as e:
         logger.error(f"Erro ao adicionar veiculo: {e}")
@@ -1691,6 +1823,7 @@ def set_veiculo_modificacoes(v_id):
                 "UPDATE veiculos SET modificacoes = %s, fipe_ajustada = %s WHERE id = %s AND user_id = %s",
                 (json.dumps(modificacoes, ensure_ascii=False), valor_ajustado, v_id, user_id),
             )
+            _salvar_mod_passport_version(cursor, v_id, user_id, modificacoes, veh.get("fipe_valor"), valor_ajustado)
             _invalidate_dashboard_cache_for_user(user_id)
             return jsonify(
                 success=True,
@@ -1702,6 +1835,173 @@ def set_veiculo_modificacoes(v_id):
             ), 200
     except Exception as e:
         logger.error("Erro ao salvar modificacoes: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@pages_bp.route("/api/veiculos/<int:v_id>/modificacoes/history", methods=["GET"])
+@jwt_required()
+def mod_passport_history(v_id):
+    """Historico versionado do Mod Passport (evolutivo = lock-in de dados)."""
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            ok, err = _require_mod_passport(cursor, user_id)
+            if not ok:
+                return err
+            cursor.execute("SELECT id FROM veiculos WHERE id = %s AND user_id = %s", (v_id, user_id))
+            if not cursor.fetchone():
+                return jsonify(error="Veiculo nao encontrado"), 404
+            cursor.execute(
+                "SELECT id, created_at, fipe_valor, fipe_ajustada, valor_estimado, snapshot "
+                "FROM mod_passport_versions WHERE veiculo_id = %s AND user_id = %s "
+                "ORDER BY created_at DESC LIMIT 50",
+                (v_id, user_id),
+            )
+            rows = cursor.fetchall()
+        out = []
+        for r in rows:
+            snap = r.get("snapshot")
+            if isinstance(snap, str):
+                try:
+                    snap = json.loads(snap)
+                except (ValueError, TypeError):
+                    snap = []
+            out.append({
+                "id": r["id"],
+                "created_at": r["created_at"].isoformat() if r.get("created_at") else None,
+                "fipe_valor": r.get("fipe_valor"),
+                "fipe_ajustada": r.get("fipe_ajustada"),
+                "valor_estimado": r.get("valor_estimado"),
+                "qtd_modificacoes": len(snap) if isinstance(snap, list) else 0,
+            })
+        return jsonify(history=out), 200
+    except Exception as e:
+        logger.error("Erro historico mod passport: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@pages_bp.route("/api/veiculos/<int:v_id>/mod-passport/share", methods=["POST"])
+@jwt_required()
+def share_mod_passport(v_id):
+    """Gera um link publico (token) do Mod Passport para compartilhar/exportar."""
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            ok, err = _require_mod_passport(cursor, user_id)
+            if not ok:
+                return err
+            cursor.execute(
+                "SELECT id, marca, modelo, ano_fabricacao, fipe_valor, fipe_ajustada, modificacoes "
+                "FROM veiculos WHERE id = %s AND user_id = %s",
+                (v_id, user_id),
+            )
+            veh = cursor.fetchone()
+            if not veh:
+                return jsonify(error="Veiculo nao encontrado"), 404
+            mods = veh.get("modificacoes")
+            if isinstance(mods, str):
+                try:
+                    mods = json.loads(mods)
+                except (ValueError, TypeError):
+                    mods = []
+            token = uuid.uuid4().hex
+            cursor.execute(
+                """INSERT INTO mod_passport_versions
+                   (veiculo_id, user_id, snapshot, fipe_valor, fipe_ajustada, valor_estimado, share_token, created_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())""",
+                (v_id, user_id, json.dumps(mods or [], ensure_ascii=False), veh.get("fipe_valor"),
+                 veh.get("fipe_ajustada"), veh.get("fipe_ajustada"), token),
+            )
+            try:
+                conn.commit()
+            except Exception:
+                pass
+            _invalidate_dashboard_cache_for_user(user_id)
+        base = request.host_url.rstrip("/")
+        url = "{}/api/public/mod-passport/{}".format(base, token)
+        return jsonify(success=True, share_token=token, share_url=url), 200
+    except Exception as e:
+        logger.error("Erro compartilhar mod passport: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@pages_bp.route("/api/public/mod-passport/<token>", methods=["GET"])
+def public_mod_passport(token):
+    """Acesso publico, somente leitura, do Mod Passport compartilhado."""
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                """SELECT v.marca, v.modelo, v.ano_fabricacao, v.foto_base64,
+                          m.snapshot, m.fipe_valor, m.fipe_ajustada, m.valor_estimado, m.created_at
+                   FROM mod_passport_versions m
+                   JOIN veiculos v ON v.id = m.veiculo_id
+                   WHERE m.share_token = %s LIMIT 1""",
+                (token,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            return jsonify(error="Mod Passport nao encontrado ou expirou."), 404
+        snap = row.get("snapshot")
+        if isinstance(snap, str):
+            try:
+                snap = json.loads(snap)
+            except (ValueError, TypeError):
+                snap = []
+        return jsonify({
+            "veiculo": {
+                "marca": row.get("marca"),
+                "modelo": row.get("modelo"),
+                "ano_fabricacao": row.get("ano_fabricacao"),
+                "foto_base64": row.get("foto_base64"),
+            },
+            "fipe_valor": row.get("fipe_valor"),
+            "valor_estimado": row.get("valor_estimado") or row.get("fipe_ajustada"),
+            "modificacoes": snap or [],
+            "criado_em": row["created_at"].isoformat() if row.get("created_at") else None,
+            "aviso": "Estimativa gerada por IA. Nao substitui vistoria.",
+        }), 200
+    except Exception as e:
+        logger.error("Erro public mod passport: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@pages_bp.route("/api/public/mod-passport/<token>/pdf", methods=["GET"])
+def public_mod_passport_pdf(token):
+    """Exporta o Mod Passport compartilhado em PDF."""
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                """SELECT v.marca, v.modelo, v.ano_fabricacao, v.fipe_valor,
+                          m.snapshot, m.fipe_ajustada, m.valor_estimado
+                   FROM mod_passport_versions m
+                   JOIN veiculos v ON v.id = m.veiculo_id
+                   WHERE m.share_token = %s LIMIT 1""",
+                (token,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            return jsonify(error="Mod Passport nao encontrado ou expirou."), 404
+        snap = row.get("snapshot")
+        if isinstance(snap, str):
+            try:
+                snap = json.loads(snap)
+            except (ValueError, TypeError):
+                snap = []
+        veiculo = {
+            "marca": row.get("marca"),
+            "modelo": row.get("modelo"),
+            "ano_fabricacao": row.get("ano_fabricacao"),
+            "fipe_valor": row.get("fipe_valor"),
+        }
+        pdf_bytes = _build_modpassport_pdf(veiculo, snap, row.get("valor_estimado") or row.get("fipe_ajustada"))
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name="mod_passport.pdf",
+        )
+    except Exception as e:
+        logger.error("Erro pdf mod passport: %s", e, exc_info=True)
         return jsonify(error="Erro interno."), 500
 
 
@@ -2715,6 +3015,7 @@ def chat():
     session_id = normalize_chat_session_id(data.get("session_id"))
     img_b64 = data.get("image")
     req_anonymous_id = (data.get("anonymous_id") or "").strip()[:80] or None
+    vehicle_id = data.get("vehicle_id")
     try:
         attachment = parse_chat_attachment(data)
     except ValueError as exc:
@@ -2777,6 +3078,10 @@ def chat():
                 ignore_global_history,
             )
 
+            reference_images = []
+            if user_id and vehicle_id:
+                reference_images = get_vehicle_reference_images(cursor, user_id, vehicle_id)
+
         if user_lat is not None and user_lng is not None:
             user["lat"] = user_lat
             user["lng"] = user_lng
@@ -2789,6 +3094,7 @@ def chat():
             image_b64=img_b64,
             attachment=attachment,
             default_topic="Consultoria Geral",
+            reference_images=reference_images,
         )
 
         stored_message = msg
@@ -2818,6 +3124,8 @@ def chat():
                     )
                 )
                 chat_id = cursor.lastrowid
+                if vehicle_id and img_b64:
+                    seed_vehicle_photo_if_missing(cursor, conn, user_id, vehicle_id, img_b64)
 
         response_payload = dict(
             response=resposta,

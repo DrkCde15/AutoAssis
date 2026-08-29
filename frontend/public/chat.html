@@ -680,6 +680,10 @@
         gap: 6px;
         padding: 8px 10px;
       }
+      .chat-vehicle-bar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 10px 14px 0; font-size: 0.82rem; color: var(--muted, #a1a1aa); }
+      .chat-vehicle-bar label { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--text, #f4f4f5); font-weight: 600; }
+      .chat-vehicle-bar select { background: var(--surface-2, #16161a); color: var(--text, #f4f4f5); border: 1px solid var(--line, #27272a); border-radius: 8px; padding: 0.35rem 0.5rem; }
+      .chat-vehicle-hint { opacity: 0.85; }
       input#messageInput {
         flex: 1;
         padding: 12px 10px;
@@ -892,6 +896,12 @@
     <footer>
       <input type="file" id="fileInput" style="display: none" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,text/markdown,application/json,.txt,.md,.csv,.json,.pdf" />
       
+      <div class="chat-vehicle-bar" id="chatVehicleBar" style="display:none;">
+        <label for="chatVehicle"><i class="fas fa-car"></i> Veículo (comparação visual)</label>
+        <select id="chatVehicle"><option value="">Nenhum (diagnóstico avulso)</option></select>
+        <span class="chat-vehicle-hint">Compara a foto enviada com a foto cadastrada do veículo.</span>
+      </div>
+
       <div class="chat-input-wrapper">
         <div id="imagePreviewContainer" class="image-preview-container"></div>
         
@@ -988,6 +998,7 @@
       let currentThreadHistory = [];
       let userLat = null;
       let userLng = null;
+      let currentVehicleId = "";
 
       // Obtém localização do usuário para contexto de mecânicos no chat
       const saved = localStorage.getItem("autoassist_location");
@@ -1014,6 +1025,30 @@
           { timeout: 5000, enableHighAccuracy: false }
         );
       }
+
+      // Seletor de veículo para diagnóstico visual assistido (memória visual)
+      (function loadChatVehicles() {
+        if (!isAuthenticated || typeof Auth === "undefined" || !Auth.authenticatedFetch) return;
+        const bar = document.getElementById("chatVehicleBar");
+        const sel = document.getElementById("chatVehicle");
+        if (!bar || !sel) return;
+        Auth.authenticatedFetch("/api/veiculos")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            const veiculos = (data && data.veiculos) || [];
+            if (!veiculos.length) return;
+            veiculos.forEach((v) => {
+              const label = [v.marca, v.modelo, v.ano_fabricacao].filter(Boolean).join(" ") || ("Veículo #" + v.id);
+              const opt = document.createElement("option");
+              opt.value = v.id;
+              opt.textContent = label;
+              sel.appendChild(opt);
+            });
+            bar.style.display = "flex";
+            sel.addEventListener("change", () => { currentVehicleId = sel.value || ""; });
+          })
+          .catch(() => {});
+      })();
 
       configureAccessControls();
       updateGuestNotice();
@@ -2017,6 +2052,7 @@
             session_id: currentSessionId,
           };
           if (attachmentPayload) payload.attachment = attachmentPayload;
+          if (currentVehicleId) payload.vehicle_id = currentVehicleId;
           if (!isAuthenticated && guestId) payload.guest_id = guestId;
           if (guestTurnstileToken) payload.turnstile_token = guestTurnstileToken;
           if (userLat !== null && userLng !== null) {
@@ -2300,6 +2336,73 @@
                 });
             }
         })();
+    </script>
+
+  <style>
+    .concierge-fab { position: fixed; right: 18px; bottom: 18px; z-index: 9000; display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.7rem 0.95rem; border-radius: 999px; border: none; background: var(--accent, #3b82f6); color: #fff; font-weight: 600; font-size: 0.85rem; box-shadow: 0 12px 30px rgba(59,130,246,0.35); cursor: pointer; }
+    .concierge-fab:hover { filter: brightness(1.08); }
+    .mechanics-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; max-height: 60vh; overflow-y: auto; }
+    .mech-item { border: 1px solid var(--line, #27272a); border-radius: 12px; padding: 0.7rem 0.85rem; }
+    .mech-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+    .mech-head strong { font-size: 0.95rem; }
+    .mech-dist { color: var(--accent, #3b82f6); font-size: 0.8rem; white-space: nowrap; }
+    .mech-meta { color: var(--muted, #a1a1aa); font-size: 0.82rem; margin-top: 2px; }
+    .mech-esp { color: var(--muted, #a1a1aa); font-size: 0.78rem; margin-top: 4px; }
+    .mech-actions { margin-top: 6px; }
+  </style>
+
+    <!-- Concierge: busca de oficinas proximas -->
+    <button id="conciergeFab" class="concierge-fab" title="Buscar oficinas próximas"><i class="fas fa-map-marker-alt"></i> Oficinas</button>
+    <div class="modal-overlay" id="mechanicsModal">
+      <div class="modal-box" style="max-width:560px;">
+        <h3>Oficinas próximas</h3>
+        <p class="modal-sub" id="mechanicsSub">Usamos sua localização para buscar oficinas perto de você.</p>
+        <div id="mechanicsList" class="mechanics-list"></div>
+        <div class="mod-modal-actions">
+          <button class="btn-action" id="mechanicsClose" style="background:rgba(255,255,255,0.08);">Fechar</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+        function openMechanics() {
+          var modal = document.getElementById('mechanicsModal');
+          var list = document.getElementById('mechanicsList');
+          var sub = document.getElementById('mechanicsSub');
+          list.innerHTML = 'Obtendo localização...';
+          modal.classList.add('open');
+          if (!navigator.geolocation) { sub.textContent = 'Geolocalização não suportada neste navegador.'; list.innerHTML=''; return; }
+          navigator.geolocation.getCurrentPosition(function (pos) {
+            var lat = pos.coords.latitude, lng = pos.coords.longitude;
+            sub.textContent = 'Buscando oficinas próximas...';
+            fetch('/api/mechanics/search?lat=' + lat + '&lng=' + lng + '&limit=15')
+              .then(function(r){ return r.json(); })
+              .then(function(data){
+                if (!data.mechanics || !data.mechanics.length) { list.innerHTML = '<p class="modp-aviso">Nenhuma oficina encontrada por perto.</p>'; return; }
+                list.innerHTML = data.mechanics.map(function(m){
+                  var dist = m.distance_km != null ? m.distance_km + ' km' : '';
+                  var tel = m.telefone ? '<a href="tel:' + esc(m.telefone) + '" class="btn-action" style="font-size:.75rem;">Ligar</a>' : '';
+                  var esp = (m.especialidades && m.especialidades.length) ? m.especialidades.slice(0,3).join(', ') : '';
+                  return '<div class="mech-item"><div class="mech-head"><strong>' + esc(m.nome||'Oficina') + '</strong><span class="mech-dist">' + esc(dist) + '</span></div>'
+                    + '<div class="mech-meta">' + esc([m.cidade,m.estado].filter(Boolean).join(' - ')) + '</div>'
+                    + (esp ? '<div class="mech-esp">' + esc(esp) + '</div>' : '')
+                    + (tel ? '<div class="mech-actions">' + tel + '</div>' : '') + '</div>';
+                }).join('');
+              })
+              .catch(function(){ list.innerHTML = '<p class="modp-aviso">Erro ao buscar oficinas.</p>'; });
+          }, function () {
+            sub.textContent = 'Permita a localização para buscar oficinas próximas.';
+            list.innerHTML = '';
+          }, { enableHighAccuracy: false, timeout: 8000 });
+        }
+        var fab = document.getElementById('conciergeFab');
+        if (fab) fab.addEventListener('click', openMechanics);
+        var closeBtn = document.getElementById('mechanicsClose');
+        if (closeBtn) closeBtn.addEventListener('click', function(){ document.getElementById('mechanicsModal').classList.remove('open'); });
+        var mmodal = document.getElementById('mechanicsModal');
+        if (mmodal) mmodal.addEventListener('click', function(e){ if (e.target.id === 'mechanicsModal') mmodal.classList.remove('open'); });
+      })();
     </script>
 
   <script src="static/js/analytics-consent.js"></script>

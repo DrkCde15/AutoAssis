@@ -232,9 +232,9 @@ Content-Type: application/json
       <thead><tr><th>Plano</th><th>Chamadas/mês</th><th>Taxa (req/min)</th><th>Preço</th></tr></thead>
       <tbody>
         <tr><td><code>trial</code></td><td>100</td><td>10</td><td>Grátis</td></tr>
-        <tr><td><code>pro_1k</code></td><td>1.000</td><td>30</td><td>R$ 49,90/mês</td></tr>
-        <tr><td><code>pro_5k</code></td><td>5.000</td><td>60</td><td>R$ 149,90/mês</td></tr>
-        <tr><td><code>pro_20k</code></td><td>20.000</td><td>120</td><td>R$ 399,90/mês</td></tr>
+        <tr><td><code>pro_1k</code></td><td>1.000</td><td>30</td><td>R$ 99,00/mês</td></tr>
+        <tr><td><code>pro_5k</code></td><td>5.000</td><td>60</td><td>R$ 399,00/mês</td></tr>
+        <tr><td><code>pro_20k</code></td><td>20.000</td><td>120</td><td>R$ 999,00/mês</td></tr>
       </tbody>
     </table>
     <p>Ao exceder a taxa por minuto ou a cota mensal, o endpoint retorna <code class="inline">429</code>. Volumes maiores: fale com o time B2B via <code class="inline">/api/b2b/leads</code>.</p>
@@ -257,6 +257,32 @@ curl -X POST https://api.autoassist.com.br/api/b2b/diagnosis \
       <strong>Interface interativa:</strong> a especificação OpenAPI está disponível em
       <code class="inline">/api/docs</code> e o Swagger UI em <code class="inline">/api/swagger-ui</code>.
     </div>
+
+    <h2>SDK / Exemplos de código</h2>
+    <p>Coleção oficial do Postman (todas as rotas B2B) e exemplos prontos para integração:</p>
+    <p><a class="btn-primary" href="static/b2b-postman.json" download style="text-decoration:none;display:inline-block;">Baixar Postman Collection</a></p>
+
+    <h3>Python</h3>
+    <pre><code>import requests
+
+url = "https://api.autoassist.com.br/api/b2b/diagnosis"
+headers = {"X-API-Key": "aa_xxxx", "Content-Type": "application/json"}
+payload = {"image": "data:image/jpeg;base64,/9j/...", "formato": "json"}
+r = requests.post(url, json=payload, headers=headers)
+print(r.json())</code></pre>
+
+    <h3>JavaScript</h3>
+    <pre><code>const res = await fetch("https://api.autoassist.com.br/api/b2b/diagnosis", {
+  method: "POST",
+  headers: { "X-API-Key": "aa_xxxx", "Content-Type": "application/json" },
+  body: JSON.stringify({ image: "data:image/jpeg;base64,/9j/...", formato: "json" })
+});
+const data = await res.json();
+console.log(data.laudo);</code></pre>
+
+    <h3>Verificar consumo da cota</h3>
+    <pre><code>curl https://api.autoassist.com.br/api/b2b/usage \
+  -H "X-API-Key: aa_xxxx"</code></pre>
   </div>
 
   <script src="static/js/config.js"></script>

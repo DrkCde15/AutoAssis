@@ -41,6 +41,14 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 - A **base do valor** é a **Tabela FIPE** (referência oficial) ou, quando há amostra confiável, a **mediana de anúncios reais** (Mercado Livre, via `get_market_price_estimate` em `services/web_scraping.py`).
 - O ajuste por mods é **conservador e transparente**: pesos por categoria (turbo 5%, motor 4%, som 0,5%…) com teto de **12%**, mais qualquer valor em R$ informado por modificação (`_calcular_detalhe` em `routes/pages.py`).
 - O painel exibe o valor FIPE base versus o valor estimado, a **fonte** utilizada e um **aviso** de que não é avaliação oficial (não substitui perícia para venda/seguro/financiamento).
+- **Histórico e compartilhamento (lock-in de dados):** cada alteração de mods gera uma **versão** (`mod_passport_versions`) com snapshot do veículo, valor FIPE e valor estimado. O usuário pode ver o histórico (`GET /api/veiculos/<id>/modificacoes/history`, JWT), gerar um **link público** (`POST /api/veiculos/<id>/mod-passport/share`, JWT) e abrir/baixar o Mod Passport em **PDF** (`GET /api/public/mod-passport/<token>` e `.../pdf`) — sem login. Ações disponíveis no `dashboard.html` (Histórico / Compartilhar / Exportar PDF).
+
+### **Diferenciais de Retenção e Experiência**
+
+- **Diagnóstico Visual Assistido (memória visual):** no chat (`chat.html`), o usuário seleciona um veículo e a NOG **compara a foto enviada com a foto cadastrada** daquele veículo (`veiculos.foto_base64`), apontando o que é novo, piorou ou melhorou ao longo do tempo. Se o veículo ainda não tem foto, a própria imagem do diagnóstico vira o *baseline* de memória. Diferencial direto contra LLMs genéricos ("a IA lembra do seu carro"). Funciona tanto via REST (`/api/chat`) quanto via WebSocket (`/ws/chat`) — basta enviar `vehicle_id`.
+- **Concierge de Oficinas:** botão flutuante "Oficinas" no `dashboard.html` e no `chat.html` que usa a geolocalização do navegador e lista oficinas reais próximas (`GET /api/mechanics/search?lat&lng`), com distância, cidade, especialidades e botão de ligar — fechando o ciclo diagnosticar → encontrar mecânico.
+- **Badge de Confiança:** banner "Seu carro, lembrado pela IA" no topo do dashboard, reforçando o moat de dados do Mod Passport + FIPE + histórico.
+- **Ativação e Retenção:** ao adicionar o primeiro veículo, o usuário recebe notificação in-app + push de boas-vindas (direcionando ao Mod Passport); quando o valor FIPE de um veículo é **atualizado** no dashboard, o dono é notificado + recebe push com o novo valor.
 
 ### **Dashboard - Modais de Detalhes do Veículo**
 
@@ -260,7 +268,7 @@ Sem Redis, o cache recai sobre memória local (por processo) e as filas RQ não 
 
 ## 🤝 API B2B (Diagnóstico por Foto como Serviço)
 
-API assinável para clientes corporativos enviarem fotos de defeitos e receberem um laudo técnico (JSON ou PDF) gerado por IA. Autenticação via header `X-API-Key` (chave criada em `POST /api/b2b/keys`, protegido por `B2B_ADMIN_SECRET`). A chave é exibida **uma vez**; no banco fica só o hash SHA-256, com comparação em tempo constante. Rate limit por cliente (Redis, com fallback local). Planos/tiers (`B2B_PLANS`: trial/pro_1k/pro_5k/pro_20k) definem a cota de requisições (`requests_limit`/`requests_used` na tabela `api_clients`); ultrapassar retorna `429`. Clientes podem gerar sua própria chave via `POST /api/b2b/self-serve/keys` (JWT do usuário logado).
+API assinável para clientes corporativos enviarem fotos de defeitos e receberem um laudo técnico (JSON ou PDF) gerado por IA. Autenticação via header `X-API-Key` (chave criada em `POST /api/b2b/keys`, protegido por `B2B_ADMIN_SECRET`). A chave é exibida **uma vez**; no banco fica só o hash SHA-256, com comparação em tempo constante. Rate limit por cliente (Redis, com fallback local). Planos/tiers (`B2B_PLANS`: **trial (grátis), pro_1k (R$ 99/mês), pro_5k (R$ 399/mês), pro_20k (R$ 999/mês)**) definem a cota de requisições (`requests_limit`/`requests_used` na tabela `api_clients`); ultrapassar retorna `429`. Clientes podem gerar sua própria chave via `POST /api/b2b/self-serve/keys` (JWT do usuário logado) e acompanhar o consumo em `GET /api/b2b/usage`. Webhook `POST /api/b2b/webhook/usage` permite a AutoAssist marcar uso apócrifo/externo (idempotente por par `client_key_hash`+`evento_ref`). SDK/Postman e exemplos (Python/JS/cURL) em `frontend/public/docs.html` + collection em `frontend/public/static/b2b-postman.json`.
 
 ### Endpoints
 
@@ -269,6 +277,8 @@ API assinável para clientes corporativos enviarem fotos de defeitos e receberem
 | `POST` | `/api/b2b/keys` | `X-Admin-Secret` = `B2B_ADMIN_SECRET` | Cria um cliente e retorna a `api_key` (uso único). Body: `{ "nome", "rate_limit_per_min"? }`. |
 | `POST` | `/api/b2b/self-serve/keys` | JWT (usuário logado) | Usuário cria sua própria API key B2B (plano/tier definido por `B2B_PLANS`). |
 | `POST` | `/api/b2b/diagnosis` | `X-API-Key` | Diagnóstico por foto. Body: `{ "image": <base64>, "pergunta"?, "formato"?: "json"\|"pdf" }`. |
+| `GET`  | `/api/b2b/usage` | `X-API-Key` | Consumo da cota do cliente (usado/restante, janela de rate). |
+| `POST` | `/api/b2b/webhook/usage` | `X-API-Key` | Registra uso externo/idempotente (body: `{ "evento_ref", "increment"?: 1 }`). |
 | `POST` | `/api/b2b/leads` | público | Captura lead do formulário B2B. Body: `{ "nome", "email", "empresa"?, "telefone"?, "mensagem"? }`. |
 | `GET`  | `/api/admin/b2b/leads` | JWT admin | Lista os leads capturados. |
 
@@ -351,6 +361,13 @@ Cobertura de `test_b2b.py` (11 testes, todos passando):
 ## 📋 Alterações Recentes
 
 Registro das mudanças feitas nesta sessão de desenvolvimento:
+
+### Vantagem competitiva (Mod Passport, B2B, retenção, concierge, visão)
+- **Mod Passport (lock-in de dados):** nova tabela `mod_passport_versions` (`backend/routes/database.py`); cada alteração de mods gera versão com snapshot + valores. Endpoints `GET /api/veiculos/<id>/modificacoes/history` (JWT), `POST /api/veiculos/<id>/mod-passport/share` (JWT) e `GET /api/public/mod-passport/<token>` + `.../pdf` (públicos), em `backend/routes/pages.py` (helper `_salvar_mod_passport_version`, `_build_modpassport_pdf`); UI Histórico/Compartilhar/Exportar PDF no `dashboard.html`.
+- **API B2B:** preços ajustados para **R$ 99 / 399 / 999 por mês** (`B2B_PLANS` em `backend/routes/b2b.py`, `PLANS` em `b2b.html`, tabela em `docs.html`); novo `GET /api/b2b/usage` e `POST /api/b2b/webhook/usage` (idempotente); seção de documentação + SDK/Postman em `frontend/public/docs.html` e collection `frontend/public/static/b2b-postman.json`.
+- **Diagnóstico Visual Assistido (memória visual):** `/api/chat` e `/ws/chat` aceitam `vehicle_id`; `backend/services/vision_ai.py` (`analisar_imagem`/`build_vision_messages`) envia a foto do veículo (`veiculos.foto_base64`) como referência para o modelo comparar com a foto atual; `get_vehicle_reference_images`/`seed_vehicle_photo_if_missing` em `pages.py`. `chat.html` ganha seletor de veículo que envia `vehicle_id`.
+- **Concierge de Oficinas + Badge de Confiança:** botão flutuante "Oficinas" (geolocalização → `GET /api/mechanics/search`) em `chat.html` e `dashboard.html`; banner "Seu carro, lembrado pela IA" no topo do dashboard.
+- **Ativação e Retenção:** `add_veiculo` (`pages.py`) dispara notificação in-app + push de boas-vindas; `_resolve_fipe_sync` (`dashboard.py`) notifica + push o dono quando o valor FIPE muda.
 
 ### Fotos dos veículos + sessões de chat
 - **Backend (`backend/routes/database.py`):** nova coluna `foto_base64 MEDIUMTEXT` na tabela `veiculos` (criada por `init_db()` e via `ALTER TABLE` de migração).
