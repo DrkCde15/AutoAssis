@@ -1,6 +1,6 @@
 """
 Eventos API - Varredura de eventos automotivos
-Fontes: NFeiras.com, Sindirepa Brasil, Diretriz, Shopping Interlagos, Google (Sympla)
+Fontes: NFeiras.com, Sindirepa Brasil, Diretriz, Shopping Interlagos, SerpApi (Google, via SERPAPI_KEY), Google (Sympla)
 """
 import logging
 import os

@@ -12,7 +12,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from routes.database import get_db
 from utils.cache import cache_get_json, cache_set_json
-from services.web_scraping import search_mechanics_web
+from services.web_scraping import search_mechanics_serpapi
 
 mechanics_bp = Blueprint('mechanics', __name__)
 logger = logging.getLogger(__name__)
@@ -517,20 +517,22 @@ def search_mechanics():
 
         osm_count = len(mechanics) - db_count
 
-        # 3. Web Scraping (Google Search)
+        # 3. SerpApi (Google Maps) — fonte confiável em produção (datacenter).
+        # Substitui o antigo scraping do Google, que gerava coordenadas falsas
+        # e falhava em IPs de servidor.
         if len(mechanics) < limit:
             try:
-                web_results = search_mechanics_web(user_lat, user_lng, radius, service_type)
-                for web_m in web_results:
-                    if web_m['id'] not in existing_ids:
-                        mechanics.append(web_m)
-                        existing_ids.add(web_m['id'])
+                serp_results = search_mechanics_serpapi(user_lat, user_lng, radius, service_type)
+                for serp_m in serp_results:
+                    if serp_m['id'] not in existing_ids:
+                        mechanics.append(serp_m)
+                        existing_ids.add(serp_m['id'])
                         if len(mechanics) >= limit:
                             break
             except Exception as e:
-                logger.error(f"Erro na busca web: {e}")
+                logger.error(f"Erro na busca SerpApi: {e}")
 
-        web_count = len(mechanics) - db_count - osm_count
+        serpapi_count = len(mechanics) - db_count - osm_count
 
         # Filtro por avaliação mínima
         if min_rating > 0:
@@ -549,7 +551,7 @@ def search_mechanics():
         return jsonify({
             "success": True,
             "count": len(mechanics),
-            "counts": {"db": db_count, "osm": osm_count, "web": web_count},
+            "counts": {"db": db_count, "osm": osm_count, "serpapi": serpapi_count},
             "mechanics": mechanics
         }), 200
 

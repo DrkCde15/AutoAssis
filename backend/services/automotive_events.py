@@ -6,6 +6,8 @@ Fontes por web scraping:
   - sindirepabrasil.org.br/eventos (feiras e eventos da reparação)
   - diretriz.com.br (promotora de feiras - Autopar, Minasparts, ...)
   - interlagos.com.br (Shopping Interlagos - apenas itens automotivos)
+  - SerpApi (Google, via SERPAPI_KEY) - busca web estruturada e confiável
+    (funciona de qualquer IP, inclusive datacenter; reforça o canal "web")
   - Google Search (fallback + eventos Sympla via site:sympla.com.br,
     além de busca geral por feiras/encontros/exposições automotivas)
 
@@ -219,6 +221,7 @@ CONFIDENCE_BY_SOURCE = {
     "sindirepa": 0.90,
     "diretriz": 0.90,
     "interlagos": 0.90,
+    "serpapi": 0.72,
     "web": 0.40,
 }
 
@@ -994,6 +997,115 @@ def _scrape_web_events():
     return _scrape_web_playwright()
 
 
+SERPAPI_EVENTS_URL = "https://serpapi.com/search"
+
+# Queries automotivas nacionais para a busca web estruturada da SerpApi.
+SERPAPI_EVENT_QUERIES = [
+    "eventos automotivos",
+    "encontro de carros",
+    "feira de autopeças",
+    "salão do automóvel",
+    "feira de carros",
+    "expo automotiva",
+    "leilão de carros",
+    "encontro de motos",
+    "rally de carros",
+    "encontro de carros antigos",
+]
+
+
+def _scrape_serpapi_events():
+    """Busca eventos via SerpApi (engine=google, resultados orgânicos).
+
+    Fonte de busca web estruturada e confiável: a SerpApi devolve JSON estável
+    (título, link, snippet) funciona de qualquer IP - inclusive datacenter, ao
+    contrário do scraping de SERPs (Bing/Google) que costuma ser bloqueado em
+    produção. Substitui/reforça o canal "web" com dados mais limpos. Requer
+    SERPAPI_KEY no ambiente; se ausente, a fonte é pulada silenciosamente.
+
+    Obs.: o engine dedicado `google_events` não está disponível no plano desta
+    chave, por isso usamos os resultados orgânicos do `engine=google`.
+    """
+    api_key = os.getenv("SERPAPI_KEY")
+    if not api_key:
+        logger.debug("[Events] SERPAPI_KEY ausente - fonte SerpApi pulada.")
+        return []
+
+    def _search(query):
+        try:
+            resp = requests.get(
+                SERPAPI_EVENTS_URL,
+                params={
+                    "api_key": api_key,
+                    "engine": "google",
+                    "q": query,
+                    "hl": "pt-br",
+                    "gl": "br",
+                    "google_domain": "google.com.br",
+                },
+                headers=HEADERS,
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code != 200:
+                logger.warning("SerpApi status %s para '%s'", resp.status_code, query)
+                return []
+            data = resp.json() or {}
+        except Exception as e:
+            logger.debug("SerpApi falhou (%s): %s", query, e)
+            return []
+
+        results = []
+        for item in data.get("organic_results") or []:
+            try:
+                url = (item.get("link") or "").strip()
+                if not url.startswith("http"):
+                    continue
+                if _is_blocked_domain(url):
+                    continue
+                titulo = _clean_text(item.get("title", ""))
+                if not titulo or len(titulo) < 3:
+                    continue
+                snippet = _clean_text(item.get("snippet", "") or item.get("rich_snippet", ""))
+                raw = f"{titulo} | {snippet}"
+                if not _is_automotive(raw):
+                    continue
+                cidade, uf, local = _extract_city_uf(snippet) if snippet else ("", "", "")
+                inicio = _parse_iso_date(item.get("date")) or _parse_br_dates(raw)[0]
+                # Evento de verdade tem data; plataformas de evento são isentas.
+                if not _is_event_domain(url) and inicio is None:
+                    continue
+                results.append(_make_event(
+                    titulo=titulo,
+                    url=url,
+                    data_inicio=inicio,
+                    data_fim=None,
+                    cidade=cidade,
+                    uf=uf,
+                    local=local,
+                    descricao=snippet,
+                    fonte="serpapi",
+                    fonte_nome="SerpApi (Google)",
+                ))
+            except Exception:
+                continue
+        return results
+
+    events = []
+    seen = set()
+    with ThreadPoolExecutor(max_workers=min(len(SERPAPI_EVENT_QUERIES), 8)) as pool:
+        futures = [pool.submit(_search, q) for q in SERPAPI_EVENT_QUERIES]
+        for fut in as_completed(futures):
+            for item in fut.result() or []:
+                key = item["url"] or item["titulo"].lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                events.append(item)
+                if len(events) >= MAX_GOOGLE_EVENTS:
+                    break
+    return events
+
+
 # ─────────────────────────── orquestrador / API ───────────────────────────
 
 SOURCE_RUNNERS = [
@@ -1001,6 +1113,7 @@ SOURCE_RUNNERS = [
     ("sindirepa", "Sindirepa Brasil", _scrape_sindirepa),
     ("diretriz", "Diretriz Feiras", _scrape_diretriz),
     ("interlagos", "Shopping Interlagos", _scrape_interlagos),
+    ("serpapi", "SerpApi (Google Events)", _scrape_serpapi_events),
     ("web", "Busca Web", _scrape_web_events),
 ]
 

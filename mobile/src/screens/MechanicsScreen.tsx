@@ -14,22 +14,41 @@ type Mechanic = {
   endereco?: string;
   cidade?: string;
   estado?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   telefone?: string;
   website?: string;
+  email?: string;
   avaliacao_media?: number | null;
   total_avaliacoes?: number;
   especialidades?: string[];
+  horario_funcionamento?: Record<string, string> | null;
+  is_verified?: boolean;
+  foto_url?: string | null;
   distance_km?: number;
-  _source?: string;
+  _source?: 'db' | 'osm' | 'serpapi' | string;
 };
+
+type MechanicsCounts = { db: number; osm: number; serpapi: number };
 
 type MechanicsResponse = {
   success: boolean;
   count: number;
+  counts?: MechanicsCounts;
   mechanics: Mechanic[];
 };
+
+function ensureHttp(url?: string): string {
+  if (!url) return '';
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+function sourceLabel(source?: string): string {
+  if (source === 'db') return 'Banco';
+  if (source === 'osm') return 'OpenStreetMap';
+  if (source === 'serpapi') return 'Google';
+  return source || '';
+}
 
 const SORT_OPTIONS: { key: string; label: string }[] = [
   { key: 'distance', label: 'Distancia' },
@@ -47,6 +66,7 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  const [counts, setCounts] = useState<MechanicsCounts | null>(null);
 
   const [radius, setRadius] = useState('20');
   const [serviceType, setServiceType] = useState('');
@@ -85,7 +105,23 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
         if (isFav) {
           await request(`/api/mechanics/${id}/favorite`, { method: 'DELETE' });
         } else {
-          await request(`/api/mechanics/${id}/favorite`, { method: 'POST' });
+          // Mecânicos externos (osm_/serpapi_) precisam dos dados no corpo para
+          // o backend registrá-los antes de favoritar.
+          const isExternal = !/^\d+$/.test(id);
+          const body: Record<string, unknown> = isExternal
+            ? {
+                nome: m.nome,
+                latitude: m.latitude,
+                longitude: m.longitude,
+                ...(m.endereco ? { endereco: m.endereco } : {}),
+                ...(m.cidade ? { cidade: m.cidade } : {}),
+                ...(m.estado ? { estado: m.estado } : {}),
+                ...(m.telefone ? { telefone: m.telefone } : {}),
+                ...(m.website ? { website: m.website } : {}),
+                ...(m.especialidades ? { especialidades: m.especialidades } : {}),
+              }
+            : {};
+          await request(`/api/mechanics/${id}/favorite`, { method: 'POST', body });
         }
       } catch {
         setFavIds(prev);
@@ -130,6 +166,7 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
         `/api/mechanics/search?${params.toString()}`,
       );
       setMechanics(data.mechanics || []);
+      setCounts(data.counts ?? null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao buscar mecanicos.');
       setMechanics([]);
@@ -164,6 +201,11 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>Mecanicos proximos</Text>
+      {counts ? (
+        <Text style={styles.meta}>
+          Fontes: {counts.db} banco · {counts.osm} OpenStreetMap · {counts.serpapi} Google
+        </Text>
+      ) : null}
 
       <Card>
         <Text style={styles.label}>Raio (km)</Text>
@@ -220,11 +262,15 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
               {[m.cidade, m.estado].filter(Boolean).join(' · ')}
               {typeof m.distance_km === 'number' ? ` · ${m.distance_km.toFixed(1)} km` : ''}
             </Text>
-            {typeof m.avaliacao_media === 'number' ? (
-              <Pill tone="warn">★ {m.avaliacao_media.toFixed(1)} ({m.total_avaliacoes ?? 0})</Pill>
-            ) : (
-              <Pill tone="neutral">Sem avaliacao</Pill>
-            )}
+            <View style={styles.tags}>
+              {typeof m.avaliacao_media === 'number' ? (
+                <Pill tone="warn">★ {m.avaliacao_media.toFixed(1)} ({m.total_avaliacoes ?? 0})</Pill>
+              ) : (
+                <Pill tone="neutral">Sem avaliacao</Pill>
+              )}
+              {m.is_verified ? <Pill tone="good">Verificado</Pill> : null}
+              {m._source ? <Pill tone="info">{sourceLabel(m._source)}</Pill> : null}
+            </View>
 
             {m.especialidades && m.especialidades.length > 0 ? (
               <View style={styles.tags}>
@@ -237,21 +283,25 @@ export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
             ) : null}
 
             <View style={styles.actions}>
-              {typeof m.id === 'number' ? (
-                <Pressable onPress={() => toggleFavorite(m)} style={styles.link}>
-                  <Ionicons
-                    name={favIds.has(String(m.id)) ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color={favIds.has(String(m.id)) ? Palette.red : Palette.primary}
-                  />
-                  <Text style={[styles.linkText, favIds.has(String(m.id)) ? styles.favOn : null]}>
-                    {favIds.has(String(m.id)) ? 'Favorito' : 'Favoritar'}
-                  </Text>
-                </Pressable>
-              ) : null}
+              <Pressable onPress={() => toggleFavorite(m)} style={styles.link}>
+                <Ionicons
+                  name={favIds.has(String(m.id)) ? 'heart' : 'heart-outline'}
+                  size={18}
+                  color={favIds.has(String(m.id)) ? Palette.red : Palette.primary}
+                />
+                <Text style={[styles.linkText, favIds.has(String(m.id)) ? styles.favOn : null]}>
+                  {favIds.has(String(m.id)) ? 'Favorito' : 'Favoritar'}
+                </Text>
+              </Pressable>
               {m.telefone ? (
                 <Pressable onPress={() => Linking.openURL(`tel:${m.telefone}`)} style={styles.link}>
                   <Text style={styles.linkText}>Ligar</Text>
+                </Pressable>
+              ) : null}
+              {m.website ? (
+                <Pressable onPress={() => Linking.openURL(ensureHttp(m.website))} style={styles.link}>
+                  <Ionicons name="globe-outline" size={16} color={Palette.primary} />
+                  <Text style={styles.linkText}>Site</Text>
                 </Pressable>
               ) : null}
             </View>
