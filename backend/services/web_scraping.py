@@ -131,185 +131,6 @@ def get_market_price_estimate(make, model, year):
         return None
 
 
-def search_mechanics_web(user_lat, user_lng, radius, service_type=None):
-    """Busca oficinas mecânicas via scraping do Google Search.
-
-    Usa busca local do Google ('mecânico perto de mim') como fonte adicional
-    além do OpenStreetMap. Resultados são cacheados por 24h.
-    """
-    cache_key = f"web_mechanics:{user_lat:.4f}:{user_lng:.4f}:{radius}:{service_type or ''}"
-    cached = cache_get_json(cache_key)
-    if cached is not None:
-        return cached
-
-    try:
-        results = _scrape_google_maps(user_lat, user_lng, radius)
-        _record_source_health("google_web", True)
-        cache_set_json(cache_key, results, ttl=GOOGLE_CACHE_TTL)
-        return results
-    except Exception as e:
-        _record_source_health("google_web", False)
-        logger.warning("Google scraping indisponivel: %s", e)
-        return []
-
-
-def _scrape_google_maps(user_lat, user_lng, radius):
-    """Scrape Google Search for local mechanics near coordinates."""
-    lat_str = f"{user_lat:.4f}"
-    lng_str = f"{user_lng:.4f}"
-
-    queries = [
-        f"oficina+mecânica+próximo+a+{lat_str}+{lng_str}",
-        f"mecânico+de+carros+perto+de+mim",
-    ]
-
-    seen_names = set()
-    results = []
-
-    for query in queries:
-        try:
-            params = {
-                "q": query.replace("+", " "),
-                "hl": "pt-BR",
-                "gl": "br",
-                "uule": f"w+CAIQICIN{lat_str},{lng_str}",
-            }
-            resp = requests.get(
-                GOOGLE_SEARCH_URL,
-                params=params,
-                headers=HEADERS,
-                timeout=6,
-            )
-            if resp.status_code != 200:
-                continue
-
-            soup = BeautifulSoup(resp.text, "html.parser")
-
-            # Tenta extrair resultados do pacote local (Google Local Pack)
-            businesses = _extract_local_pack(soup, user_lat, user_lng)
-            for b in businesses:
-                name = b.get("nome", "").lower().strip()
-                if not name or name in seen_names:
-                    continue
-                seen_names.add(name)
-                if b.get("distance_km", 999) <= radius:
-                    results.append(b)
-
-            # Se a primeira query já rendeu o suficiente, não consulta de novo
-            if results:
-                break
-        except Exception as e:
-            logger.debug("Erro na query '%s': %s", query, e)
-            continue
-
-    results.sort(key=lambda m: m["distance_km"])
-    return results
-
-
-def _extract_local_pack(soup, user_lat, user_lng):
-    """Extrai estabelecimentos do pacote local do Google."""
-    results = []
-    EARTH_RADIUS_KM = 6371
-
-    # O Google renderiza resultados locais em diversas estruturas
-    selectors = [
-        "div.VkpGBb",          # Local pack container
-        "div[data-local-attribute]",  # Business cards
-        "div.dbg0pd",          # Search result business
-        "div[role='heading']",  # Generic
-    ]
-
-    found_elements = []
-    for sel in selectors:
-        found_elements = soup.select(sel)
-        if found_elements:
-            break
-
-    if not found_elements:
-        found_elements = soup.find_all("div", class_=re.compile(r"(Vkp|dbg|local)"))
-
-    for el in found_elements:
-        try:
-            nome_el = el.find(["h3", "span", "div"], class_=re.compile(r"(title|name|heading|font)"))
-            nome = ""
-            if nome_el:
-                nome = nome_el.get_text(strip=True)
-            if not nome:
-                nome = el.get("aria-label", "")
-
-            if not nome or len(nome) < 3:
-                continue
-
-            endereco_el = el.find("div", class_=re.compile(r"(address|locality|street|adr)"))
-            endereco = endereco_el.get_text(strip=True) if endereco_el else ""
-
-            rating_el = el.find("span", class_=re.compile(r"(rating|stars|score)"))
-            rating_text = rating_el.get_text(strip=True) if rating_el else ""
-            rating_match = re.search(r"([\d.]+)", rating_text)
-            avaliacao = float(rating_match.group(1)) if rating_match else None
-
-            reviews_el = el.find("span", class_=re.compile(r"(review|vote|count)"))
-            reviews_text = reviews_el.get_text(strip=True) if reviews_el else ""
-            reviews_match = re.search(r"(\d+)", reviews_text)
-            total_reviews = int(reviews_match.group(1)) if reviews_match else 0
-
-            phone_el = el.find("a", href=re.compile(r"tel:"))
-            telefone = phone_el.get_text(strip=True) if phone_el else ""
-
-            website_el = el.find("a", href=re.compile(r"^https?://(?!maps\.google)"))
-            website = website_el.get("href", "") if website_el else ""
-
-            city = "São Paulo"
-            state = "SP"
-            if endereco:
-                parts = [p.strip() for p in endereco.split(",")]
-                if len(parts) >= 2:
-                    uf_match = re.search(r"([A-Z]{2})$", parts[-1])
-                    if uf_match:
-                        state = uf_match.group(1)
-                    city = parts[-2] if len(parts) >= 2 else city
-
-            # Como o Google não expõe coordenadas, estimamos pela distância
-            # A busca já é local, então usamos coordenadas aproximadas
-            distance_km = round(_estimate_distance_from_city(user_lat, user_lng, city, state), 1)
-
-            web_lat = user_lat + math.degrees(distance_km / EARTH_RADIUS_KM)
-            web_lng = user_lng + math.degrees(distance_km / EARTH_RADIUS_KM)
-            results.append({
-                "id": f"web_{re.sub(r'[^a-zA-Z0-9]', '', nome)[:20]}_{int(distance_km)}",
-                "nome": nome,
-                "endereco": endereco,
-                "cidade": city,
-                "estado": state,
-                "latitude": web_lat,
-                "longitude": web_lng,
-                "geometry": {"type": "Point", "coordinates": [web_lng, web_lat]},
-                "telefone": telefone,
-                "website": website,
-                "descricao": "",
-                "especialidades": ["troca_oleo"],
-                "servicos": [],
-                "horario_funcionamento": None,
-                "avaliacao_media": avaliacao,
-                "total_avaliacoes": total_reviews,
-                "foto_url": None,
-                "is_verified": False,
-                "distance_km": distance_km,
-                "_source": "web",
-            })
-        except Exception:
-            continue
-
-    return results
-
-
-def _estimate_distance_from_city(lat1, lng1, city, state):
-    """Estima distância baseada em cidade aproximada."""
-    import hashlib
-    h = hashlib.md5(f"{city}-{state}".encode()).hexdigest()
-    # Retorna distância determinística baseada no nome da cidade
-    return 1.0 + (int(h[:8], 16) % 100) / 10
-
 # ───────────────────── saúde das fontes + fallback SerpApi ─────────────────────
 
 SOURCE_HEALTH = {}
@@ -337,32 +158,145 @@ def dead_sources():
     return [n for n, st in SOURCE_HEALTH.items() if st["dead"]]
 
 
+def _radius_to_zoom(radius):
+    """Converte raio em km num zoom do Google Maps (~alcance da busca).
+
+    O engine google_maps não aceita 'radius'; o vão é aproximado via zoom.
+    """
+    try:
+        r = float(radius)
+    except (TypeError, ValueError):
+        r = 10
+    if r <= 5:
+        return 14
+    if r <= 10:
+        return 13
+    if r <= 20:
+        return 12
+    if r <= 50:
+        return 11
+    return 10
+
+
+_SERVICE_QUERY = {
+    "troca_oleo": "troca de oleo",
+    "freios": "freios",
+    "suspensao": "suspensao",
+    "arrefecimento": "arrefecimento",
+    "eletrica": "eletrica",
+    "pneus": "pneus",
+    "motor": "motor",
+}
+
+
+def _serpapi_query(service_type):
+    extra = _SERVICE_QUERY.get(service_type)
+    return f"oficina mecanica {extra}" if extra else "oficina mecanica"
+
+
+_SERPAPI_DAY_MAP = {
+    "segunda-feira": "seg", "terca-feira": "ter", "terça-feira": "ter",
+    "quarta-feira": "qua", "quinta-feira": "qui", "sexta-feira": "sex",
+    "sabado": "sab", "sábado": "sab", "domingo": "dom",
+}
+
+
+def _parse_operating_hours(oh):
+    """Converte operating_hours do SerpApi (PT, nomes completos) para o formato
+    do app (chaves seg/ter/qua/qui/sex/sab/dom, hífens normais)."""
+    if not isinstance(oh, dict):
+        return None
+    result = {}
+    for full, short in _SERPAPI_DAY_MAP.items():
+        val = oh.get(full)
+        if not val:
+            continue
+        val = val.replace("–", "-").replace("—", "-").strip()
+        result[short] = val
+    if not result:
+        return None
+    for d in ["seg", "ter", "qua", "qui", "sex", "sab", "dom"]:
+        result.setdefault(d, "fechado")
+    return result
+
+
+def _parse_address_br(address):
+    """Extrai (endereco_rua, cidade, estado) de um endereço BR.
+
+    Aceita 'Rua X, 242 - Bairro, Cidade - UF, CEP'.
+    """
+    if not address:
+        return "", "", ""
+    parts = [p.strip() for p in address.split(",")]
+    street, cidade, estado = parts, "", ""
+    for i, p in enumerate(parts):
+        if " - " in p:
+            cidade, _, uf = p.rpartition(" - ")
+            if len(uf) == 2 and uf.isalpha():
+                cidade = cidade.strip()
+                estado = uf.upper()
+                street = parts[:i]
+                break
+    return ", ".join(street), cidade, estado
+
+
+def _serpapi_specialties(types, service_type):
+    """Mapeia 'types' do SerpApi (PT) para o enum de especialidades do app."""
+    mapping = {
+        "oleo": "troca_oleo",
+        "freio": "freios",
+        "suspensao": "suspensao",
+        "arrefecimento": "arrefecimento",
+        "eletrica": "eletrica",
+        "eletrico": "eletrica",
+        "pneu": "pneus",
+        "motor": "motor",
+    }
+    found = set()
+    for t in (types or []):
+        tl = (t or "").lower()
+        for k, v in mapping.items():
+            if k in tl:
+                found.add(v)
+    if service_type:
+        found.add(service_type)
+    if not found:
+        found.add("troca_oleo")
+    return sorted(found)
+
+
 def search_mechanics_serpapi(user_lat, user_lng, radius, service_type=None):
     """Fallback de busca de oficinas via SerpApi (Google Maps).
 
-    Só é usado quando OSM e o scraping do Google nao retornam resultados.
+    Funciona de qualquer IP (inclusive producao em datacenter) pois usa a API
+    oficial da SerpApi com SERPAPI_KEY e retorna coordenadas GPS reais.
     Requer a variavel de ambiente SERPAPI_KEY; sem ela retorna [] (sem custo).
     """
     api_key = os.getenv("SERPAPI_KEY")
     if not api_key:
         return []
+
     cache_key = f"serpapi_mechanics:{user_lat:.4f}:{user_lng:.4f}:{radius}:{service_type or ''}"
     cached = cache_get_json(cache_key)
     if cached is not None:
         return cached
+
+    zoom = _radius_to_zoom(radius)
+    query = _serpapi_query(service_type)
+
     try:
         resp = requests.get(
             "https://serpapi.com/search.json",
             params={
                 "engine": "google_maps",
-                "q": "oficina mecanica",
-                "ll": f"@{user_lat:.6f},{user_lng:.6f},-{int(radius)}z",
+                "q": query,
+                "ll": f"@{user_lat:.6f},{user_lng:.6f},{zoom}z",
                 "type": "search",
                 "hl": "pt-br",
                 "gl": "br",
                 "api_key": api_key,
             },
-            timeout=8,
+            timeout=10,
         )
         resp.raise_for_status()
         data = resp.json() or {}
@@ -370,7 +304,7 @@ def search_mechanics_serpapi(user_lat, user_lng, radius, service_type=None):
         results = []
         for item in local:
             try:
-                nome = (item.get("name") or "").strip()
+                nome = (item.get("title") or "").strip()
                 if not nome:
                     continue
                 geo = item.get("gps_coordinates") or {}
@@ -381,25 +315,28 @@ def search_mechanics_serpapi(user_lat, user_lng, radius, service_type=None):
                     continue
                 rating = item.get("rating")
                 reviews = item.get("reviews") or 0
+                address = item.get("address", "")
+                endereco, cidade, estado = _parse_address_br(address)
+                place_id = item.get("place_id") or re.sub(r"[^a-zA-Z0-9]", "", nome)[:20]
                 results.append({
-                    "id": f"serpapi_{item.get('place_id', re.sub(r'[^a-zA-Z0-9]', '', nome)[:20])}",
+                    "id": f"serpapi_{place_id}",
                     "nome": nome,
-                    "endereco": item.get("address", ""),
-                    "cidade": (item.get("city") or ""),
-                    "estado": (item.get("state") or ""),
+                    "endereco": endereco,
+                    "cidade": cidade,
+                    "estado": estado,
                     "latitude": lat,
                     "longitude": lng,
                     "geometry": {"type": "Point", "coordinates": [lng, lat]},
                     "telefone": item.get("phone", ""),
                     "website": item.get("website", ""),
-                    "descricao": "",
-                    "especialidades": [service_type] if service_type else ["troca_oleo"],
+                    "descricao": item.get("description", "") or "",
+                    "especialidades": _serpapi_specialties(item.get("types"), service_type),
                     "servicos": [],
-                    "horario_funcionamento": item.get("hours"),
+                    "horario_funcionamento": _parse_operating_hours(item.get("operating_hours")),
                     "avaliacao_media": float(rating) if rating else None,
                     "total_avaliacoes": int(reviews) if reviews else 0,
-                    "foto_url": None,
-                    "is_verified": bool(item.get("claimed")),
+                    "foto_url": item.get("serpapi_thumbnail") or item.get("thumbnail"),
+                    "is_verified": False,
                     "distance_km": distance_km,
                     "_source": "serpapi",
                 })

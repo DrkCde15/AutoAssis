@@ -748,14 +748,10 @@ def search_nearby_mechanics(lat=None, lng=None, radius=10, limit=5, service_type
         from routes.mechanics import search_osm
         osm_results = search_osm(lat, lng, radius, service_type)[:limit]
 
-        try:
-            from services.web_scraping import search_mechanics_web
-            web_results = search_mechanics_web(lat, lng, radius, service_type)[:limit]
-        except Exception:
-            web_results = []
+        sources = list(osm_results)
 
-        sources = osm_results + web_results
-        # Fallback SerpApi quando OSM + scraping do Google nao retornam nada
+        # Fallback SerpApi quando OSM nao retorna nada (substitui o antigo
+        # scraping do Google, que gerava coordenadas falsas)
         if not sources:
             try:
                 from services.web_scraping import search_mechanics_serpapi
