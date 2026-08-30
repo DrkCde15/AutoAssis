@@ -22,7 +22,7 @@ export function VoiceRecorder({ seconds, waveform }: VoiceRecorderProps) {
     <View style={styles.container}>
       <View style={styles.wave}>
         {waveform.map((value, index) => (
-          <View key={index} style={[styles.bar, { height: Math.max(4, value * 28) }]} />
+          <View key={index} style={[styles.bar, { height: Math.max(3, value * 24) }]} />
         ))}
       </View>
       <Text style={styles.timer}>{formatTime(seconds)}</Text>
@@ -42,20 +42,21 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 2,
     overflow: 'hidden',
   },
   bar: {
-    width: 3,
+    width: 2.5,
     borderRadius: 999,
     backgroundColor: Palette.primary,
   },
   timer: {
     color: Palette.text,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     fontFamily: Fonts.sans,
-    minWidth: 42,
+    minWidth: 40,
     textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
 });

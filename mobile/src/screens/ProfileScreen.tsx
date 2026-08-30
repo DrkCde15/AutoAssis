@@ -1,173 +1,100 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton, Card, Pill } from '@/components/primitives';
-import { Fonts, Palette, Spacing } from '@/constants/theme';
-import { ApiError } from '@/lib/api';
+import { AppButton, Card, Field, Pill, SectionTitle } from '@/components/primitives';
+import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { Nav } from '@/screens/AppShell';
 
-type ProfileItem = { icon: string; label: string; sub?: string; onPress: () => void; danger?: boolean };
-
 export function ProfileScreen({ nav }: { nav: Nav }) {
-  const { user, logout, refreshUser, request } = useAuth();
-  const isPremium = !!user?.is_premium;
+  const { user, request, logout } = useAuth();
+  const [nome, setNome] = useState(user?.nome || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [paymentMsg, setPaymentMsg] = useState('');
-
-  async function openCheckout() {
-    setPaymentMsg('');
+  async function save() {
+    setSaving(true);
+    setMessage('');
     try {
-      const data = await request<{ checkout_url?: string; data?: { checkout_url?: string } }>('/api/pay/preference', {
-        method: 'POST',
-        body: {},
-      });
-      const checkoutUrl = data.checkout_url || data.data?.checkout_url;
-      if (checkoutUrl) await Linking.openURL(checkoutUrl);
-      else setPaymentMsg('Nao foi possivel abrir o checkout no momento.');
-    } catch (error) {
-      setPaymentMsg(error instanceof ApiError || error instanceof Error ? error.message : 'Falha ao abrir o checkout.');
-    }
-  }
-
-  async function verifyPayment() {
-    setCheckingPayment(true);
-    setPaymentMsg('Verificando pagamento...');
-    try {
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const result = await request<{ success: boolean; is_premium: boolean; message?: string }>('/api/pay/confirm', {
-          method: 'POST',
-          body: {},
-        });
-        if (result.is_premium) {
-          await refreshUser();
-          setPaymentMsg('Pagamento confirmado! Plano Premium ativo.');
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 3000));
-      }
-      setPaymentMsg('Pagamento ainda nao confirmado. Aguarde o processamento e tente novamente.');
-    } catch (error) {
-      setPaymentMsg(
-        error instanceof ApiError || error instanceof Error ? error.message : 'Falha ao verificar o pagamento.',
-      );
+      await request('/api/user/profile', { method: 'PUT', body: { nome: nome.trim(), email: email.trim() } });
+      setMessage('Perfil atualizado com sucesso.');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Erro ao salvar.');
     } finally {
-      setCheckingPayment(false);
+      setSaving(false);
     }
   }
-
-  const items: ProfileItem[] = [
-    { icon: 'person', label: 'Minha conta', sub: 'Dados pessoais', onPress: () => nav.goTo('settings') },
-    { icon: 'shield-checkmark', label: 'Segurança', sub: '2FA e senha', onPress: () => nav.goTo('security') },
-    { icon: 'ribbon', label: 'Indique amigos', sub: 'Ganhe 1 mês Premium', onPress: () => nav.goTo('plans') },
-    { icon: 'library', label: 'Biblioteca NOG', sub: 'Vídeos e links', onPress: () => nav.goTo('videos') },
-    { icon: 'calendar', label: 'Eventos', sub: 'Agenda automotiva', onPress: () => nav.goTo('events') },
-    { icon: 'construct', label: 'Mecânicos', sub: 'Oficinas próximas', onPress: () => nav.goTo('mechanics') },
-    { icon: 'settings', label: 'Configurações', sub: 'Preferências do app', onPress: () => nav.goTo('settings') },
-  ];
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <Card style={styles.profile}>
+      <SectionTitle kicker="Conta" title="Meu Perfil" />
+
+      <Card style={styles.header}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(user?.nome || 'A').slice(0, 1).toUpperCase()}</Text>
+          <Ionicons name="person" size={28} color={Palette.primary} />
         </View>
-        <Text style={styles.name}>{user?.nome || 'Usuário AutoAssist'}</Text>
-        <Text style={styles.email}>{user?.email || 'Sessão mobile'}</Text>
-        <Pill tone={isPremium ? 'good' : 'neutral'} label={isPremium ? 'Premium ativo' : 'Plano gratuito'} />
+        <View>
+          <Text style={styles.name}>{user?.nome || 'Usuário'}</Text>
+          <Text style={styles.email}>{user?.email || 'email@exemplo.com'}</Text>
+        </View>
+        {user?.is_premium ? <Pill tone="good" label="Premium" /> : <Pill tone="neutral" label="Grátis" />}
       </Card>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Conta</Text>
-        <Info label="Consultas" value={String(user?.total_consultas ?? 0)} />
-        <Info label="Veículos" value={String(user?.veiculos?.length ?? 0)} />
-        <Info label="Teste restante" value={`${user?.trial_days_remaining ?? 0} dias`} />
-      </View>
-
-      <Card style={styles.list}>
-        {items.map((item, i) => (
-          <View key={item.label}>
-            {i > 0 ? <View style={styles.sep} /> : null}
-            <Pressable onPress={item.onPress} style={styles.item}>
-              <View style={styles.itemIcon}>
-                <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={20} color={Palette.primary} />
-              </View>
-              <View style={styles.itemText}>
-                <Text style={styles.itemLabel}>{item.label}</Text>
-                {item.sub ? <Text style={styles.itemSub}>{item.sub}</Text> : null}
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Palette.textSoft} />
-            </Pressable>
-          </View>
-        ))}
+      <Card style={styles.form}>
+        <Field label="Nome" value={nome} onChangeText={setNome} placeholder="Seu nome" />
+        <Field label="E-mail" value={email} onChangeText={setEmail} placeholder="email@exemplo.com" keyboardType="email-address" />
+        {message ? <Text style={styles.message}>{message}</Text> : null}
+        <AppButton title="Salvar" onPress={save} loading={saving} />
       </Card>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Premium</Text>
-        {!isPremium ? (
-          <>
-            <AppButton title="Assinar Premium" onPress={openCheckout} />
-            <AppButton title="Ja paguei — verificar" variant="secondary" onPress={verifyPayment} loading={checkingPayment} />
-          </>
-        ) : (
-          <AppButton title="Gerenciar assinatura" variant="secondary" onPress={() => nav.goTo('plans')} />
-        )}
-        {paymentMsg ? <Text style={styles.paymentMsg}>{paymentMsg}</Text> : null}
-      </View>
+      <Card style={styles.menuCard}>
+        <MenuItem icon="shield-checkmark" label="Segurança" onPress={() => nav.goTo('security')} />
+        <View style={styles.divider} />
+        <MenuItem icon="notifications" label="Notificações" onPress={() => nav.goTo('notifications')} />
+        <View style={styles.divider} />
+        <MenuItem icon="settings" label="Configurações" onPress={() => nav.goTo('settings')} />
+      </Card>
 
-      <View style={styles.actions}>
-        <AppButton title="Atualizar dados" variant="ghost" onPress={refreshUser} />
-        <AppButton title="Sair" variant="danger" onPress={logout} />
-      </View>
+      <AppButton title="Sair da conta" variant="ghost" onPress={logout} />
     </ScrollView>
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function MenuItem({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
+    <Pressable style={styles.menuItem} onPress={onPress}>
+      <Ionicons name={icon} size={20} color={Palette.textMuted} />
+      <Text style={styles.menuLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={16} color={Palette.textSoft} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: Spacing.three, gap: Spacing.three },
-  profile: { alignItems: 'center', gap: Spacing.two },
+  content: { padding: Spacing.four, gap: Spacing.four },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.four },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: Palette.surfaceStrong,
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: Palette.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { color: Palette.white, fontSize: 32, fontFamily: Fonts.serif, fontWeight: '900' },
-  name: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900', textAlign: 'center' },
-  email: { color: Palette.textMuted },
-  section: { gap: Spacing.two },
-  sectionTitle: { color: Palette.text, fontSize: 18, fontFamily: Fonts.serif, fontWeight: '900' },
-  infoRow: { borderTopWidth: 1, borderTopColor: Palette.border, paddingTop: Spacing.two, gap: Spacing.one },
-  infoLabel: { color: Palette.textMuted, fontWeight: '800', fontSize: 12, textTransform: 'uppercase' },
-  infoValue: { color: Palette.text, lineHeight: 20 },
-  list: { gap: Spacing.one, paddingVertical: Spacing.one },
-  item: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.two },
-  itemIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: 'rgba(124,92,255,0.14)',
+  name: { color: Palette.text, fontSize: 17, fontWeight: '700' },
+  email: { color: Palette.textMuted, fontSize: 13 },
+  form: { gap: Spacing.three },
+  message: { color: Palette.primary, fontSize: 13, fontWeight: '600' },
+  menuCard: { gap: Spacing.zero },
+  menuItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
   },
-  itemText: { flex: 1, gap: 1 },
-  itemLabel: { color: Palette.text, fontWeight: '800', fontFamily: Fonts.sans },
-  itemSub: { color: Palette.textMuted, fontSize: 12 },
-  sep: { height: 1, backgroundColor: Palette.border },
-  actions: { gap: Spacing.two },
-  paymentMsg: { color: Palette.primary, fontSize: 13, fontFamily: Fonts.sans },
+  menuLabel: { flex: 1, color: Palette.text, fontSize: 15, fontWeight: '600' },
+  divider: { height: 1, backgroundColor: Palette.border },
 });

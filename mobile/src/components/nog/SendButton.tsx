@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Palette, Shadow } from '@/constants/theme';
+import { Palette } from '@/constants/theme';
 
 type SendButtonProps = {
   onPress: () => void;
@@ -24,7 +24,7 @@ export function SendButton({ onPress, disabled, loading }: SendButtonProps) {
       {loading ? (
         <ActivityIndicator size="small" color={Palette.white} />
       ) : (
-        <Ionicons name="arrow-up" size={22} color={Palette.white} />
+        <Ionicons name="arrow-up" size={20} color={Palette.white} />
       )}
     </Pressable>
   );
@@ -32,26 +32,23 @@ export function SendButton({ onPress, disabled, loading }: SendButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   enabled: {
     backgroundColor: Palette.primary,
-    borderWidth: 1,
-    borderColor: Palette.primary,
-    ...Shadow.md,
   },
   disabled: {
-    backgroundColor: Palette.bgAlt,
+    backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
-    opacity: 0.6,
+    opacity: 0.5,
   },
   pressed: {
-    transform: [{ scale: 0.94 }],
-    opacity: 0.9,
+    transform: [{ scale: 0.92 }],
+    opacity: 0.85,
   },
 });

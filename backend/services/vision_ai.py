@@ -35,37 +35,50 @@ Regras de formatação (obrigatórias):
 """
 
 
-def analisar_imagem(image_b64: str, pergunta: str | None = None) -> str:
+def analisar_imagem(image_b64: str, pergunta: str | None = None, reference_images=None) -> str:
     try:
         data_url = _normalize_image_data_url(image_b64)
+        reference_images = [r for r in (reference_images or []) if r]
 
-        cache_key = make_cache_key("groq:vision", image_b64, pergunta or "", vision_model())
-        cached = cache_get_json(cache_key)
-        if cached is not None:
-            logger.info("CACHE HIT groq:vision %s", cache_key)
-            return cached
-        logger.info("Groq Vision: analisando imagem.")
-        logger.info("CACHE MISS groq:vision %s", cache_key)
+        # Diagnóstico visual assistido: a comparação depende da foto de
+        # referência, então não faz sentido cachear por apenas a imagem atual.
+        cached = None
+        if not reference_images:
+            cache_key = make_cache_key("groq:vision", image_b64, pergunta or "", vision_model())
+            cached = cache_get_json(cache_key)
+            if cached is not None:
+                logger.info("CACHE HIT groq:vision %s", cache_key)
+                return cached
+            logger.info("Groq Vision: analisando imagem.")
+            logger.info("CACHE MISS groq:vision %s", cache_key)
 
         result = chat_completion(
-            build_vision_messages(data_url, pergunta),
+            build_vision_messages(data_url, pergunta, reference_images),
             primary_model=vision_model(),
             fallback_models=vision_fallback_models(),
             temperature=0.2,
             log_context="Groq Vision",
         )
-        cache_set_json(
-            cache_key,
-            result,
-            ttl=int(os.getenv("GROQ_VISION_CACHE_TTL_SECONDS", "86400")),
-        )
+        if not reference_images:
+            cache_set_json(
+                cache_key,
+                result,
+                ttl=int(os.getenv("GROQ_VISION_CACHE_TTL_SECONDS", "86400")),
+            )
         return result
     except Exception as exc:
         logger.error("Erro na análise de visão Groq: %s", exc, exc_info=True)
         return "❌ O NOG não conseguiu analisar esta imagem no momento."
 
 
-def build_vision_messages(data_url: str, pergunta: str | None = None) -> list[dict]:
+def build_vision_messages(data_url: str, pergunta: str | None = None, reference_images=None) -> list[dict]:
+    reference_images = [r for r in (reference_images or []) if r]
+    content = [{"type": "text", "text": _build_image_prompt(pergunta)}]
+    if reference_images:
+        content.append({"type": "text", "text": _build_reference_prompt(len(reference_images))})
+    content.append({"type": "image_url", "image_url": {"url": data_url}})
+    for ref in reference_images:
+        content.append({"type": "image_url", "image_url": {"url": ref}})
     return [
         {
             "role": "system",
@@ -73,10 +86,7 @@ def build_vision_messages(data_url: str, pergunta: str | None = None) -> list[di
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "text": _build_image_prompt(pergunta)},
-                {"type": "image_url", "image_url": {"url": data_url}},
-            ],
+            "content": content,
         },
     ]
 
@@ -88,6 +98,16 @@ def _build_image_prompt(pergunta: str | None = None) -> str:
     return (
         "A imagem está anexada no item image_url. Analise a imagem diretamente. "
         f"Pergunta específica do usuário: {question}"
+    )
+
+
+def _build_reference_prompt(qtd: int) -> str:
+    return (
+        f"A(s) próxima(s) {qtd} imagem(ns) pertence(m) ao MESMO veículo, registrada(s) "
+        "anteriormente pelo proprietário (memória visual do veículo). Compare com a imagem "
+        "principal enviada agora: aponte o que é novo, o que piorou, o que melhorou ou se está "
+        "de acordo com o estado anterior. Use essa comparação para enriquecer o veredito e a "
+        "estimativa de valor, sem inventar dados que não estejam nas imagens."
     )
 
 

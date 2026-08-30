@@ -12,7 +12,7 @@ export function MessageTextInput({ value, onChangeText, ...props }: MessageTextI
     <TextInput
       value={value}
       onChangeText={onChangeText}
-      placeholder="Digite sua pergunta..."
+      placeholder="Pergunte sobre seu carro..."
       placeholderTextColor={Palette.textSoft}
       multiline
       textAlignVertical="top"
@@ -25,15 +25,13 @@ export function MessageTextInput({ value, onChangeText, ...props }: MessageTextI
 const styles = StyleSheet.create({
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 132,
-    borderRadius: Radius.md,
+    minHeight: 36,
+    maxHeight: 120,
     color: Palette.text,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: Fonts.sans,
-    paddingTop: 12,
-    paddingBottom: 12,
-    paddingHorizontal: Spacing.two,
-    lineHeight: 21,
+    paddingTop: 8,
+    paddingBottom: 8,
+    lineHeight: 20,
   },
 });

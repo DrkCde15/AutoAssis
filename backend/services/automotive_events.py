@@ -1213,7 +1213,7 @@ def _event_db_row(ev):
         "venue_name": ev.get("venue_name") or None,
         "address": ev.get("address") or None,
         "city": ev.get("cidade") or None,
-        "state": ev.get("uf") or None,
+        "state": (ev.get("uf") or "")[:2] or None,
         "country": ev.get("country") or "BR",
         "latitude": ev.get("latitude"),
         "longitude": ev.get("longitude"),

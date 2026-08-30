@@ -38,9 +38,9 @@ MAX_IMAGE_B64 = 15 * 1024 * 1024  # 15 MB base64 (~11 MB binário)
 # requests_limit == 0 significa ilimitado (chaves criadas via admin).
 B2B_PLANS = {
     "trial":   {"requests_limit": 100,   "rate_limit_per_min": 10,  "label": "Trial gratuito", "amount": 0,     "currency": "BRL", "interval": "month"},
-    "pro_1k":  {"requests_limit": 1000,  "rate_limit_per_min": 30,  "label": "Pro 1k",         "amount": 49.90, "currency": "BRL", "interval": "month"},
-    "pro_5k":  {"requests_limit": 5000,  "rate_limit_per_min": 60,  "label": "Pro 5k",         "amount": 149.90, "currency": "BRL", "interval": "month"},
-    "pro_20k": {"requests_limit": 20000, "rate_limit_per_min": 120, "label": "Pro 20k",        "amount": 399.90, "currency": "BRL", "interval": "month"},
+    "pro_1k":  {"requests_limit": 1000,  "rate_limit_per_min": 30,  "label": "Pro 1k",         "amount": 99.00, "currency": "BRL", "interval": "month"},
+    "pro_5k":  {"requests_limit": 5000,  "rate_limit_per_min": 60,  "label": "Pro 5k",         "amount": 399.00, "currency": "BRL", "interval": "month"},
+    "pro_20k": {"requests_limit": 20000, "rate_limit_per_min": 120, "label": "Pro 20k",        "amount": 999.00, "currency": "BRL", "interval": "month"},
 }
 # URLs de checkout Cakto por tier (Opção A: preço distinto por plano).
 # Prioriza variaveis de ambiente; fallback para os links cadastrados em producao.
@@ -519,3 +519,60 @@ def list_b2b_leads():
     except Exception as e:
         logger.error("Erro ao listar leads B2B: %s", e, exc_info=True)
         return jsonify(error="Erro interno."), 500
+
+
+@b2b_bp.route("/api/b2b/usage", methods=["GET"])
+@jwt_required()
+def b2b_usage():
+    """Uso da API B2B do usuario logado (quota por tier)."""
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute(
+                "SELECT id, nome, plan, requests_limit, requests_used, rate_limit_per_min, "
+                "is_active, last_used_at FROM api_clients WHERE user_id = %s ORDER BY id DESC LIMIT 20",
+                (user_id,),
+            )
+            clients = cursor.fetchall()
+        out = []
+        for c in clients:
+            limit = c.get("requests_limit") or 0
+            used = c.get("requests_used") or 0
+            out.append({
+                "client_id": c.get("id"),
+                "nome": c.get("nome"),
+                "plan": c.get("plan"),
+                "requests_limit": limit,
+                "requests_used": used,
+                "requests_restantes": (limit - used) if limit else None,
+                "rate_limit_per_min": c.get("rate_limit_per_min"),
+                "is_active": c.get("is_active"),
+                "last_used_at": c.get("last_used_at").isoformat() if c.get("last_used_at") else None,
+            })
+        return jsonify(clients=out), 200
+    except Exception as e:
+        logger.error("Erro usage B2B: %s", e, exc_info=True)
+        return jsonify(error="Erro interno."), 500
+
+
+@b2b_bp.route("/api/b2b/webhook/usage", methods=["POST"])
+def b2b_webhook_usage():
+    """Webhook para receber eventos de uso de integracoes externas (best-effort).
+
+    Corpo esperado: {"api_key": "...", "endpoint": "...", "status": 200}
+    Apenas registra o uso; nao altera quota (quota e controlada na chamada real).
+    """
+    data = request.get_json(silent=True) or {}
+    raw_key = (data.get("api_key") or "").strip()
+    if not raw_key:
+        return jsonify(error="api_key obrigatorio."), 400
+    endpoint = (data.get("endpoint") or "/webhook").strip()
+    status = int(data.get("status") or 200)
+    client = authenticate_api_key()
+    if not client:
+        return jsonify(error="api_key invalida."), 401
+    try:
+        log_usage(client["id"], endpoint, status)
+    except Exception as e:
+        logger.warning("Webhook usage falhou: %s", e)
+    return jsonify(success=True), 200

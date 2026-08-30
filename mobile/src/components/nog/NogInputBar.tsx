@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { AttachmentButton, type NogImage } from './AttachmentButton';
 export type { NogImage } from './AttachmentButton';
 import { AttachmentMenu } from './AttachmentMenu';
@@ -112,7 +112,7 @@ export function NogInputBar({
   }
 
   return (
-    <View style={[styles.root, { paddingBottom: insets.bottom + Spacing.two }]}>
+    <View style={[styles.root, { paddingBottom: insets.bottom + Spacing.one }]}>
       <AttachmentMenu
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -138,11 +138,11 @@ export function NogInputBar({
         {recording ? (
           <>
             <Pressable onPress={() => void finishRecording(false)} hitSlop={6} style={styles.roundButton}>
-              <Ionicons name="close" size={22} color={Palette.text} />
+              <Ionicons name="close" size={20} color={Palette.textMuted} />
             </Pressable>
             <VoiceRecorder seconds={seconds} waveform={waveform} />
             <Pressable onPress={() => void finishRecording(true)} hitSlop={6} style={[styles.roundButton, styles.roundButtonStop]}>
-              <Ionicons name="stop" size={20} color={Palette.white} />
+              <Ionicons name="stop" size={18} color={Palette.white} />
             </Pressable>
           </>
         ) : (
@@ -153,7 +153,7 @@ export function NogInputBar({
                 <View style={styles.thumbWrap}>
                   <Image source={{ uri: pickedImage.uri }} style={styles.thumb} />
                   <Pressable onPress={onRemoveImage} hitSlop={6} style={styles.thumbRemove}>
-                    <Ionicons name="close" size={14} color={Palette.white} />
+                    <Ionicons name="close" size={10} color={Palette.white} />
                   </Pressable>
                 </View>
               ) : null}
@@ -172,10 +172,9 @@ const styles = StyleSheet.create({
   root: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    backgroundColor: 'rgba(9,9,11,0.82)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(124,92,255,0.25)',
-    ...Shadow.lg,
+    backgroundColor: Palette.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Palette.border,
   },
   bar: {
     flexDirection: 'row',
@@ -184,48 +183,46 @@ const styles = StyleSheet.create({
   },
   field: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Radius.md,
-    backgroundColor: 'rgba(24,24,27,0.72)',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.xl,
+    backgroundColor: Palette.surface,
     borderWidth: 1,
-    borderColor: 'rgba(124,92,255,0.25)',
+    borderColor: Palette.border,
   },
   thumbWrap: {
     position: 'relative',
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: Radius.sm,
     overflow: 'hidden',
     marginVertical: 4,
   },
   thumb: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
   },
   thumbRemove: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 18,
-    height: 18,
+    top: -3,
+    right: -3,
+    width: 16,
+    height: 16,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Palette.red,
-    borderWidth: 1.5,
-    borderColor: Palette.bg,
   },
   roundButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.surfaceStrong,
+    backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
   },

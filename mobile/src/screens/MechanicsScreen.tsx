@@ -1,338 +1,188 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
-import { ApiError, apiRequest } from '@/lib/api';
-import { useAuth } from '@/context/auth';
 import * as Location from 'expo-location';
-import type { AppTab } from './AppShell';
+
+import { AppButton, Card, EmptyState, Pill, SectionTitle } from '@/components/primitives';
+import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth';
+import type { AppTab } from '@/screens/AppShell';
 
 type Mechanic = {
-  id: string | number;
+  id: number;
   nome: string;
-  endereco?: string;
-  cidade?: string;
-  estado?: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  telefone?: string;
-  website?: string;
-  email?: string;
-  avaliacao_media?: number | null;
-  total_avaliacoes?: number;
+  reputacao?: string;
+  avaliacao_media?: number;
   especialidades?: string[];
-  horario_funcionamento?: Record<string, string> | null;
-  is_verified?: boolean;
-  foto_url?: string | null;
+  endereco?: string;
+  telefone?: string;
+  latitude?: number;
+  longitude?: number;
   distance_km?: number;
-  _source?: 'db' | 'osm' | 'serpapi' | string;
+  _source?: string;
 };
-
-type MechanicsCounts = { db: number; osm: number; serpapi: number };
-
-type MechanicsResponse = {
-  success: boolean;
-  count: number;
-  counts?: MechanicsCounts;
-  mechanics: Mechanic[];
-};
-
-function ensureHttp(url?: string): string {
-  if (!url) return '';
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
-
-function sourceLabel(source?: string): string {
-  if (source === 'db') return 'Banco';
-  if (source === 'osm') return 'OpenStreetMap';
-  if (source === 'serpapi') return 'Google';
-  return source || '';
-}
-
-const SORT_OPTIONS: { key: string; label: string }[] = [
-  { key: 'distance', label: 'Distancia' },
-  { key: 'rating', label: 'Avaliacao' },
-  { key: 'name', label: 'Nome' },
-];
-
-const RADIUS_OPTIONS = ['5', '10', '20', '50'];
 
 export function MechanicsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
-  const { user, request } = useAuth();
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locError, setLocError] = useState<string | null>(null);
+  const { request } = useAuth();
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [favIds, setFavIds] = useState<Set<string>>(new Set());
-  const [counts, setCounts] = useState<MechanicsCounts | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'ok' | 'denied'>('idle');
 
-  const [radius, setRadius] = useState('20');
-  const [serviceType, setServiceType] = useState('');
-  const [sortBy, setSortBy] = useState('distance');
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    setError('');
+    setLocationStatus('loading');
 
-  useEffect(() => {
-    if (!user || !request) return;
-    let active = true;
-    void (async () => {
-      try {
-        const data = await request<{ favorites: Mechanic[] }>('/api/mechanics/favorites');
-        if (!active) return;
-        setFavIds(new Set((data.favorites || []).map((f) => String(f.id))));
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [user, request]);
-
-  const toggleFavorite = useCallback(
-    async (m: Mechanic) => {
-      if (!request) return;
-      const id = String(m.id);
-      const isFav = favIds.has(id);
-      const prev = favIds;
-      setFavIds((s) => {
-        const next = new Set(s);
-        if (isFav) next.delete(id);
-        else next.add(id);
-        return next;
-      });
-      try {
-        if (isFav) {
-          await request(`/api/mechanics/${id}/favorite`, { method: 'DELETE' });
-        } else {
-          // Mecânicos externos (osm_/serpapi_) precisam dos dados no corpo para
-          // o backend registrá-los antes de favoritar.
-          const isExternal = !/^\d+$/.test(id);
-          const body: Record<string, unknown> = isExternal
-            ? {
-                nome: m.nome,
-                latitude: m.latitude,
-                longitude: m.longitude,
-                ...(m.endereco ? { endereco: m.endereco } : {}),
-                ...(m.cidade ? { cidade: m.cidade } : {}),
-                ...(m.estado ? { estado: m.estado } : {}),
-                ...(m.telefone ? { telefone: m.telefone } : {}),
-                ...(m.website ? { website: m.website } : {}),
-                ...(m.especialidades ? { especialidades: m.especialidades } : {}),
-              }
-            : {};
-          await request(`/api/mechanics/${id}/favorite`, { method: 'POST', body });
-        }
-      } catch {
-        setFavIds(prev);
-      }
-    },
-    [request, favIds],
-  );
-
-  const requestLocation = useCallback(async () => {
-    setLocError(null);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setLocError('Permissao de localizacao negada. Nao e possivel buscar oficinas proximas.');
+        setLocationStatus('denied');
+        setError('Permissão de localização necessária para encontrar mecânicos próximos.');
+        setRefreshing(false);
+        setLoading(false);
         return;
       }
-      const pos = await Location.getCurrentPositionAsync({});
-      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    } catch {
-      setLocError('Nao foi possivel obter sua localizacao.');
-    }
-  }, []);
 
-  useEffect(() => {
-    requestLocation();
-  }, [requestLocation]);
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLocationStatus('ok');
 
-  const fetchMechanics = useCallback(async () => {
-    if (!coords) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        lat: String(coords.lat),
-        lng: String(coords.lng),
-        radius,
-        sort_by: sortBy,
-        limit: '50',
-      });
-      if (serviceType.trim()) params.set('service_type', serviceType.trim());
-      const data = await apiRequest<MechanicsResponse>(
-        `/api/mechanics/search?${params.toString()}`,
+      const data = await request<{ mechanics: Mechanic[] }>(
+        `/api/mechanics/search?lat=${loc.coords.latitude}&lng=${loc.coords.longitude}&radius=20&limit=20`
       );
       setMechanics(data.mechanics || []);
-      setCounts(data.counts ?? null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Falha ao buscar mecanicos.');
+      setError(err instanceof Error ? err.message : 'Erro ao carregar mecânicos.');
       setMechanics([]);
     } finally {
+      setRefreshing(false);
       setLoading(false);
     }
-  }, [coords, radius, serviceType, sortBy]);
+  }, [request]);
 
   useEffect(() => {
-    if (coords) fetchMechanics();
-  }, [coords, fetchMechanics]);
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
-  if (locError) {
-    return (
-      <EmptyState
-        title="Localizacao"
-        message={locError}
-        action={{ label: 'Tentar de novo', onPress: requestLocation }}
-      />
-    );
+  function openMaps(m: Mechanic) {
+    const q = m.latitude && m.longitude
+      ? `${m.latitude},${m.longitude}`
+      : encodeURIComponent(m.endereco || m.nome);
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`).catch(() => {});
   }
 
-  if (!coords) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Palette.primary} />
-        <Text style={styles.loadingText}>Obtendo sua localizacao...</Text>
-      </View>
-    );
+  function call(m: Mechanic) {
+    if (m.telefone) Linking.openURL(`tel:${m.telefone}`).catch(() => {});
+  }
+
+  function askNog(m: Mechanic) {
+    goTo('chat');
+  }
+
+  function rating(m: Mechanic): string {
+    const num = Number(m.avaliacao_media);
+    if (!Number.isNaN(num) && num > 0) return num.toFixed(1);
+    if (m.reputacao) return String(m.reputacao);
+    return '';
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>Mecanicos proximos</Text>
-      {counts ? (
-        <Text style={styles.meta}>
-          Fontes: {counts.db} banco · {counts.osm} OpenStreetMap · {counts.serpapi} Google
-        </Text>
-      ) : null}
-
-      <Card>
-        <Text style={styles.label}>Raio (km)</Text>
-        <View style={styles.sortRow}>
-          {RADIUS_OPTIONS.map((r) => (
-            <Pressable
-              key={r}
-              onPress={() => setRadius(r)}
-              style={[styles.sortPill, radius === r ? styles.sortPillOn : null]}>
-              <Text style={[styles.sortText, radius === r ? styles.sortTextOn : null]}>{r}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <Field
-          label="Tipo de servico (opcional)"
-          value={serviceType}
-          onChangeText={setServiceType}
-          placeholder="ex.: eletrica"
-        />
-        <Text style={styles.label}>Ordenar por</Text>
-        <View style={styles.sortRow}>
-          {SORT_OPTIONS.map((o) => (
-            <Pressable
-              key={o.key}
-              onPress={() => setSortBy(o.key)}
-              style={[styles.sortPill, sortBy === o.key ? styles.sortPillOn : null]}>
-              <Text style={[styles.sortText, sortBy === o.key ? styles.sortTextOn : null]}>
-                {o.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <AppButton variant="secondary" onPress={fetchMechanics} disabled={loading}>
-          {loading ? 'Buscando...' : 'Buscar'}
-        </AppButton>
-      </Card>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
+      <SectionTitle
+        kicker="Oficinas"
+        title="Mecânicos próximos"
+        subtitle="Encontre profissionais confiáveis para seu veículo."
+      />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {loading ? (
-        <ActivityIndicator color={Palette.primary} />
-      ) : mechanics.length === 0 ? (
+      {locationStatus === 'denied' ? (
+        <Card style={styles.promptCard}>
+          <Ionicons name="location-outline" size={28} color={Palette.amber} />
+          <Text style={styles.promptText}>
+            Ative a localização para encontrar mecânicos perto de você.
+          </Text>
+          <AppButton title="Abrir configurações" variant="secondary" onPress={() => Linking.openSettings()} />
+        </Card>
+      ) : null}
+
+      {!loading && mechanics.length === 0 && locationStatus !== 'denied' ? (
         <EmptyState
-          title="Nenhum mecanico encontrado"
-          message="Tente aumentar o raio de busca ou mudar o tipo de servico."
-          action={{ label: 'Buscar novamente', onPress: fetchMechanics }}
+          title="Nenhuma oficina encontrada"
+          body="Amplie o raio de busca ou tente mais tarde."
+          action={{ label: 'Tentar novamente', onPress: load }}
         />
-      ) : (
-        mechanics.map((m) => (
-          <Card key={String(m.id)}>
-            <Text style={styles.name}>{m.nome}</Text>
-            {m.endereco ? <Text style={styles.meta}>{m.endereco}</Text> : null}
-            <Text style={styles.meta}>
-              {[m.cidade, m.estado].filter(Boolean).join(' · ')}
-              {typeof m.distance_km === 'number' ? ` · ${m.distance_km.toFixed(1)} km` : ''}
-            </Text>
-            <View style={styles.tags}>
-              {typeof m.avaliacao_media === 'number' ? (
-                <Pill tone="warn">★ {m.avaliacao_media.toFixed(1)} ({m.total_avaliacoes ?? 0})</Pill>
-              ) : (
-                <Pill tone="neutral">Sem avaliacao</Pill>
-              )}
-              {m.is_verified ? <Pill tone="good">Verificado</Pill> : null}
-              {m._source ? <Pill tone="info">{sourceLabel(m._source)}</Pill> : null}
+      ) : null}
+
+      {mechanics.map((m) => {
+        const r = rating(m);
+        return (
+          <Card key={m.id} style={styles.card}>
+            <View style={styles.topRow}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="construct" size={20} color={Palette.primary} />
+              </View>
+              <View style={styles.info}>
+                <Text style={styles.name}>{m.nome}</Text>
+                {m.endereco ? <Text style={styles.address} numberOfLines={1}>{m.endereco}</Text> : null}
+                {r ? (
+                  <View style={styles.rating}>
+                    <Ionicons name="star" size={13} color={Palette.amber} />
+                    <Text style={styles.ratingText}>{r}</Text>
+                  </View>
+                ) : null}
+              </View>
+              {m.distance_km != null ? (
+                <Pill tone="info" size="sm" label={`${m.distance_km} km`} />
+              ) : null}
             </View>
 
             {m.especialidades && m.especialidades.length > 0 ? (
-              <View style={styles.tags}>
-                {m.especialidades.map((s, i) => (
-                  <Pill key={i} tone="info">
-                    {s}
-                  </Pill>
+              <View style={styles.specialties}>
+                {m.especialidades.map((e, i) => (
+                  <Pill key={i} size="sm" tone="neutral" label={e} />
                 ))}
               </View>
             ) : null}
 
             <View style={styles.actions}>
-              <Pressable onPress={() => toggleFavorite(m)} style={styles.link}>
-                <Ionicons
-                  name={favIds.has(String(m.id)) ? 'heart' : 'heart-outline'}
-                  size={18}
-                  color={favIds.has(String(m.id)) ? Palette.red : Palette.primary}
-                />
-                <Text style={[styles.linkText, favIds.has(String(m.id)) ? styles.favOn : null]}>
-                  {favIds.has(String(m.id)) ? 'Favorito' : 'Favoritar'}
-                </Text>
-              </Pressable>
-              {m.telefone ? (
-                <Pressable onPress={() => Linking.openURL(`tel:${m.telefone}`)} style={styles.link}>
-                  <Text style={styles.linkText}>Ligar</Text>
-                </Pressable>
-              ) : null}
-              {m.website ? (
-                <Pressable onPress={() => Linking.openURL(ensureHttp(m.website))} style={styles.link}>
-                  <Ionicons name="globe-outline" size={16} color={Palette.primary} />
-                  <Text style={styles.linkText}>Site</Text>
-                </Pressable>
-              ) : null}
+              <AppButton title="NOG" variant="ghost" size="sm" onPress={() => askNog(m)} />
+              {m.telefone ? <AppButton title="Ligar" variant="secondary" size="sm" onPress={() => call(m)} /> : null}
+              <AppButton title="Maps" variant="primary" size="sm" onPress={() => openMaps(m)} />
             </View>
           </Card>
-        ))
-      )}
-
-      <AppButton variant="ghost" onPress={() => goTo('more')}>
-        Voltar
-      </AppButton>
+        );
+      })}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg, gap: Spacing.two },
-  loadingText: { color: Palette.textMuted, fontSize: 14 },
-  container: { padding: Spacing.four, gap: Spacing.three },
-  title: { color: Palette.text, fontSize: 22, fontWeight: '700' },
-  label: { color: Palette.text, fontSize: 14, fontWeight: '600', marginTop: Spacing.two, marginBottom: Spacing.one },
-  sortRow: { flexDirection: 'row', gap: Spacing.two, marginBottom: Spacing.three },
-  sortPill: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: Palette.surfaceStrong },
-  sortPillOn: { backgroundColor: Palette.primary },
-  sortText: { color: Palette.textMuted, fontSize: 13, fontWeight: '600' },
-  sortTextOn: { color: Palette.white },
-  name: { color: Palette.text, fontSize: 17, fontWeight: '700' },
-  meta: { color: Palette.textMuted, fontSize: 14, marginTop: Spacing.one },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
-  actions: { flexDirection: 'row', gap: Spacing.four, marginTop: Spacing.two },
-  link: { paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  linkText: { color: Palette.primary, fontSize: 14, fontWeight: '600' },
-  favOn: { color: Palette.red },
-  error: { color: Palette.red, fontSize: 14 },
+  root: { flex: 1 },
+  content: { padding: Spacing.four, gap: Spacing.four },
+  error: { color: Palette.red, lineHeight: 20, fontSize: 13 },
+  promptCard: { gap: Spacing.three, alignItems: 'center' },
+  promptText: { color: Palette.text, fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  card: { gap: Spacing.three },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: Palette.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  info: { flex: 1, gap: Spacing.one },
+  name: { color: Palette.text, fontSize: 16, fontWeight: '700' },
+  address: { color: Palette.textMuted, fontSize: 13 },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ratingText: { color: Palette.amber, fontSize: 12, fontWeight: '700' },
+  specialties: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  actions: { flexDirection: 'row', gap: Spacing.two },
 });

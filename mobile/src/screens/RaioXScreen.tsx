@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
+import { AppButton, Card, EmptyState, Pill, SectionTitle } from '@/components/primitives';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { stripMarkdown } from '@/lib/format';
 import type { Nav } from '@/screens/AppShell';
@@ -115,16 +115,15 @@ export function RaioXScreen({ nav }: { nav: Nav }) {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <Card style={styles.intro}>
-        <Text style={styles.title}>Raio-X Mecânico</Text>
-        <Text style={styles.muted}>
-          Use a câmera para diagnosticar visualmente problemas do seu veículo com a NOG.
-        </Text>
-      </Card>
+      <SectionTitle
+        kicker="Diagnóstico visual"
+        title="Raio-X Mecânico"
+        subtitle="Envie uma foto do problema para análise da NOG."
+      />
 
       {!image && !result ? (
         <View style={styles.picker}>
-          <AppButton title="📷  Abrir câmera" onPress={() => pick('camera')} />
+          <AppButton title="Tirar foto" onPress={() => pick('camera')} />
           <AppButton title="Escolher da galeria" variant="secondary" onPress={() => pick('library')} />
         </View>
       ) : null}
@@ -133,7 +132,7 @@ export function RaioXScreen({ nav }: { nav: Nav }) {
         <Card style={styles.previewCard}>
           <Image source={{ uri: image.uri }} style={styles.preview} contentFit="cover" />
           <View style={styles.previewActions}>
-            <AppButton title="Analisar imagem" onPress={analyze} />
+            <AppButton title="Analisar" onPress={analyze} />
             <AppButton title="Trocar" variant="ghost" onPress={() => setImage(null)} />
           </View>
         </Card>
@@ -176,7 +175,7 @@ export function RaioXScreen({ nav }: { nav: Nav }) {
 
       {history.length ? (
         <View style={styles.history}>
-          <Text style={styles.sectionTitle}>Histórico</Text>
+          <SectionTitle title="Histórico" />
           {history.map((item) => (
             <Pressable
               key={item.id}
@@ -198,7 +197,7 @@ export function RaioXScreen({ nav }: { nav: Nav }) {
       ) : null}
 
       {!image && !result && history.length === 0 ? (
-        <EmptyState title="Nenhuma análise ainda" body="Tire uma foto de um vazamento, barulho ou peça para a NOG avaliar." />
+        <EmptyState title="Nenhuma análise ainda" body="Tire uma foto de um problema para a NOG avaliar." />
       ) : null}
 
       <Pressable style={styles.help} onPress={() => Alert.alert('Sobre o Raio-X', DISCLAIMER)}>
@@ -212,35 +211,46 @@ void Linking;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: Spacing.three, gap: Spacing.three },
-  intro: { gap: Spacing.one },
-  title: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900' },
-  muted: { color: Palette.textMuted, lineHeight: 20 },
+  content: { padding: Spacing.four, gap: Spacing.four },
   picker: { gap: Spacing.two },
-  previewCard: { gap: Spacing.two },
-  preview: { width: '100%', height: 220, borderRadius: Radius.md },
-  previewActions: { gap: Spacing.two },
-  analyzing: { gap: Spacing.two, alignItems: 'center' },
-  analyzingText: { color: Palette.text, fontWeight: '800' },
-  track: { width: '100%', height: 8, borderRadius: 999, backgroundColor: Palette.bgAlt, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 999, backgroundColor: Palette.primary },
-  progressText: { color: Palette.textMuted, fontWeight: '800' },
-  result: { gap: Spacing.two },
-  resultImage: { width: '100%', height: 180, borderRadius: Radius.md },
+  previewCard: { gap: Spacing.three },
+  preview: { width: '100%', height: 200, borderRadius: Radius.lg },
+  previewActions: { flexDirection: 'row', gap: Spacing.two },
+  analyzing: { gap: Spacing.three, alignItems: 'center' },
+  analyzingText: { color: Palette.text, fontWeight: '700', fontSize: 15 },
+  track: { width: '100%', height: 6, borderRadius: 999, backgroundColor: Palette.bgAlt, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 999, backgroundColor: Palette.primary },
+  progressText: { color: Palette.textMuted, fontWeight: '700', fontSize: 13 },
+  result: { gap: Spacing.three },
+  resultImage: { width: '100%', height: 160, borderRadius: Radius.lg },
   severityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  severityLabel: { color: Palette.text, fontWeight: '800' },
-  resultText: { color: Palette.text, lineHeight: 21 },
-  disclaimer: { flexDirection: 'row', gap: Spacing.one, alignItems: 'flex-start', backgroundColor: 'rgba(245,158,11,0.10)', borderRadius: Radius.sm, padding: Spacing.two },
+  severityLabel: { color: Palette.text, fontWeight: '700' },
+  resultText: { color: Palette.text, lineHeight: 22, fontSize: 15 },
+  disclaimer: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderRadius: Radius.md,
+    padding: Spacing.three,
+  },
   disclaimerText: { flex: 1, color: Palette.amber, fontSize: 12, lineHeight: 17 },
   resultActions: { gap: Spacing.two },
-  error: { color: Palette.red, lineHeight: 20 },
-  history: { gap: Spacing.two },
-  sectionTitle: { color: Palette.text, fontSize: 18, fontFamily: Fonts.serif, fontWeight: '900' },
-  historyItem: { flexDirection: 'row', gap: Spacing.two, backgroundColor: Palette.surface, borderWidth: 1, borderColor: Palette.border, borderRadius: Radius.md, padding: Spacing.two },
-  historyThumb: { width: 56, height: 56, borderRadius: Radius.sm },
+  error: { color: Palette.red, lineHeight: 20, fontSize: 13 },
+  history: { gap: Spacing.three },
+  historyItem: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    backgroundColor: Palette.surface,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    borderRadius: Radius.lg,
+    padding: Spacing.three,
+  },
+  historyThumb: { width: 52, height: 52, borderRadius: Radius.md },
   historyText: { flex: 1, gap: Spacing.one },
-  historySnippet: { color: Palette.text, lineHeight: 18 },
+  historySnippet: { color: Palette.text, lineHeight: 18, fontSize: 13 },
   historyDate: { color: Palette.textMuted, fontSize: 12 },
-  help: { alignItems: 'center', paddingVertical: Spacing.two },
-  helpText: { color: Palette.primary, fontWeight: '800', textDecorationLine: 'underline' },
+  help: { alignItems: 'center', paddingVertical: Spacing.three },
+  helpText: { color: Palette.primary, fontWeight: '700', fontSize: 13, textDecorationLine: 'underline' },
 });

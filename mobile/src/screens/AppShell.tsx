@@ -3,13 +3,13 @@ import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Fonts, Glass, Palette, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, Glass, Palette, Radius, Spacing } from '@/constants/theme';
+import { AmbientGlow } from '@/components/primitives';
 import { Drawer, DRAWER_ITEMS } from '@/components/Drawer';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { DashboardScreen } from '@/screens/DashboardScreen';
 import { EventsScreen } from '@/screens/EventsScreen';
 import { FeedbackScreen } from '@/screens/FeedbackScreen';
-import { HomeScreen } from '@/screens/HomeScreen';
 import { MaintenanceScreen } from '@/screens/MaintenanceScreen';
 import { MechanicsScreen } from '@/screens/MechanicsScreen';
 import { ModPassportScreen } from '@/screens/ModPassportScreen';
@@ -24,7 +24,6 @@ import { VideosScreen } from '@/screens/VideosScreen';
 import { useAuth } from '@/context/auth';
 
 export type AppTab =
-  | 'home'
   | 'chat'
   | 'maintenance'
   | 'profile'
@@ -42,27 +41,27 @@ export type AppTab =
   | 'more';
 
 const TITLES: Record<AppTab, string> = {
-  home: 'AutoAssist',
   chat: 'NOG',
   maintenance: 'Manutenções',
   profile: 'Perfil',
-  raiox: 'Raio-X Mecânico',
+  raiox: 'Raio-X',
   modpassport: 'Mod Passport',
-  videos: 'Biblioteca NOG',
+  videos: 'Biblioteca',
   events: 'Eventos',
-  plans: 'Planos & Indicação',
+  plans: 'Planos',
   notifications: 'Notificações',
   settings: 'Configurações',
   feedback: 'Feedback',
   dashboard: 'Painel',
   mechanics: 'Mecânicos',
   security: 'Segurança',
-  more: 'Mais recursos',
+  more: 'Mais',
 };
 
 export type Nav = {
   goTo: (tab: AppTab) => void;
   goBack: () => void;
+  openDrawer: () => void;
 };
 
 const WIDE_BREAKPOINT = 768;
@@ -86,7 +85,7 @@ export function AppShell() {
     setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
-  const nav: Nav = useMemo(() => ({ goTo, goBack }), [goTo, goBack]);
+  const nav: Nav = useMemo(() => ({ goTo, goBack, openDrawer: () => setDrawerOpen(true) }), [goTo, goBack]);
 
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -139,42 +138,44 @@ export function AppShell() {
       case 'more':
         return <MoreScreen goTo={nav.goTo} />;
       default:
-        return <HomeScreen nav={nav} />;
+        return <ChatScreen nav={nav} />;
     }
   }, [current, nav]);
 
+  const showHeader = current !== 'chat';
+
   return (
     <SafeAreaView style={styles.root}>
-      <View style={styles.header}>
-        <View style={styles.brandRow}>
-          {isWide ? null : canGoBack ? (
-            <Pressable onPress={goBack} hitSlop={8} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={22} color={Palette.text} />
+      <AmbientGlow />
+      {showHeader ? (
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            {isWide ? null : canGoBack ? (
+              <Pressable onPress={goBack} hitSlop={10} style={styles.iconBtn}>
+                <Ionicons name="chevron-back" size={22} color={Palette.text} />
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => setDrawerOpen(true)} hitSlop={10} style={styles.iconBtn}>
+                <Ionicons name="menu" size={20} color={Palette.text} />
+              </Pressable>
+            )}
+            <Image source={require('../logo.png')} style={styles.logo} resizeMode="contain" />
+            <View style={styles.brandText}>
+              <Text style={styles.screenTitle}>{TITLES[current]}</Text>
+            </View>
+          </View>
+          <View style={styles.headerRight}>
+            <Pressable onPress={() => nav.goTo('notifications')} hitSlop={10} style={styles.iconBtn}>
+              <Ionicons name="notifications-outline" size={20} color={Palette.textMuted} />
+              {unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
+                </View>
+              ) : null}
             </Pressable>
-          ) : (
-            <Pressable onPress={() => setDrawerOpen(true)} hitSlop={8} style={styles.backButton}>
-              <Ionicons name="menu" size={22} color={Palette.text} />
-            </Pressable>
-          )}
-          <Image source={require('../logo.png')} style={styles.logo} resizeMode="contain" />
-          <View style={styles.brandText}>
-            <Text style={styles.brandName}>{TITLES[current]}</Text>
-            <Text style={styles.userLine}>
-              {user?.nome ? `Olá, ${user.nome.split(' ')[0]}` : 'Seu copiloto de carro'}
-            </Text>
           </View>
         </View>
-        <View style={styles.bellWrap}>
-          <Pressable onPress={() => nav.goTo('notifications')} hitSlop={8} style={styles.bellButton}>
-            <Ionicons name="notifications-outline" size={22} color={Palette.text} />
-          </Pressable>
-          {unreadCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
+      ) : null}
 
       <View style={[styles.body, isWide ? styles.bodyRow : null]}>
         {isWide ? (
@@ -216,75 +217,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.two,
-    borderBottomWidth: 1,
+    height: 56,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Palette.border,
     backgroundColor: Glass.header,
-    ...Shadow.sm,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+    flex: 1,
   },
-  backButton: {
+  iconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.bgAlt,
   },
-  bellButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  logo: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+  },
+  brandText: {
+    flex: 1,
+  },
+  screenTitle: {
+    color: Palette.text,
+    fontSize: 17,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    letterSpacing: -0.2,
+  },
+  headerRight: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Palette.bgAlt,
-  },
-  bellWrap: {
-    position: 'relative',
+    gap: Spacing.one,
   },
   badge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
-    borderRadius: 9,
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Palette.red,
-    borderWidth: 2,
-    borderColor: Palette.surface,
   },
   badgeText: {
     color: Palette.white,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
-  },
-  logo: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-  },
-  brandText: {
-    gap: 1,
-  },
-  brandName: {
-    color: Palette.text,
-    fontSize: 17,
-    fontWeight: '900',
-    fontFamily: Fonts.serif,
-    letterSpacing: 0.2,
-  },
-  userLine: {
-    color: Palette.textMuted,
-    fontSize: 12,
-    fontFamily: Fonts.sans,
   },
   body: {
     flex: 1,

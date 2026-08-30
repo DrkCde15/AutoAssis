@@ -1,163 +1,141 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
-import { Palette, Spacing } from '@/constants/theme';
+import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+import { AppButton, Card, EmptyState, Pill, SectionTitle } from '@/components/primitives';
+import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { formatDate } from '@/lib/format';
 import { useAuth } from '@/context/auth';
-import type { AppTab } from './AppShell';
+import type { AppTab } from '@/screens/AppShell';
 
-type AppNotification = {
-  id: number;
-  title: string;
-  body: string;
-  type: string;
-  action_url: string | null;
-  is_read: boolean;
-  created_at: string;
-};
-
-const TYPE_TONE: Record<string, 'info' | 'good' | 'warn' | 'danger' | 'neutral'> = {
-  info: 'info',
-  success: 'good',
-  warning: 'warn',
-  error: 'danger',
-  alert: 'danger',
+type Notification = {
+  id: string | number;
+  titulo?: string;
+  titulo_notificacao?: string;
+  mensagem?: string;
+  mensagem_notificacao?: string;
+  criada_em?: string;
+  data_criacao?: string;
+  lida?: boolean;
+  type?: string;
+  action_url?: string;
 };
 
 export function NotificationsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   const { request } = useAuth();
-  const [items, setItems] = useState<AppNotification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setRefreshing(true);
+    setError('');
     try {
-      const data = await request<AppNotification[]>('/api/notifications');
-      setItems(Array.isArray(data) ? data : []);
+      const data = await request<{ notificacoes: Notification[] }>('/api/notifications');
+      setNotifications(data.notificacoes || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao carregar notificacoes.');
-      setItems([]);
+      setError(err instanceof Error ? err.message : 'Erro ao carregar notificações.');
     } finally {
+      setRefreshing(false);
       setLoading(false);
     }
   }, [request]);
 
   useEffect(() => {
-    load();
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
   }, [load]);
 
-  const markRead = useCallback(
-    async (id: number) => {
-      try {
-        await request(`/api/notifications/${id}/read`, { method: 'POST' });
-        setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-      } catch {
-        /* silencioso */
-      }
-    },
-    [request],
-  );
-
-  const markAll = useCallback(async () => {
+  async function markRead(n: Notification) {
+    if (n.lida) return;
     try {
-      await request('/api/notifications/read-all', { method: 'POST' });
-      setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    } catch (err) {
-      Alert.alert('Erro', err instanceof Error ? err.message : 'Nao foi possivel marcar todas.');
+      await request(`/api/notifications/${n.id}/read`, { method: 'PUT' });
+      setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, lida: true } : x)));
+    } catch {
+      // ignore
     }
-  }, [request]);
-
-  const remove = useCallback(
-    async (id: number) => {
-      try {
-        await request(`/api/notifications/${id}`, { method: 'DELETE' });
-        setItems((prev) => prev.filter((n) => n.id !== id));
-      } catch {
-        /* silencioso */
-      }
-    },
-    [request],
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Palette.primary} />
-      </View>
-    );
   }
 
-  if (error) {
-    return <EmptyState title="Erro" message={error} action={{ label: 'Tentar de novo', onPress: load }} />;
+  function handleAction(n: Notification) {
+    markRead(n);
+    if (n.action_url) {
+      Linking.openURL(n.action_url).catch(() => {});
+    }
   }
 
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        title="Nenhuma notificacao"
-        message="Voce nao tem alertas por aqui ainda."
-        action={{ label: 'Atualizar', onPress: load }}
-      />
-    );
-  }
-
-  const unread = items.filter((n) => !n.is_read).length;
+  const unread = notifications.filter((n) => !n.lida).length;
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Notificacoes</Text>
-        {unread > 0 && <Pill tone="info">{unread} nova(s)</Pill>}
-      </View>
-      {unread > 0 && (
-        <AppButton variant="secondary" onPress={markAll}>
-          Marcar todas como lidas
-        </AppButton>
-      )}
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
+      <SectionTitle
+        kicker="Alertas"
+        title="Notificações"
+        subtitle={unread > 0 ? `${unread} não lida${unread > 1 ? 's' : ''}` : 'Tudo em dia'}
+      />
 
-      {items.map((n) => (
-        <Card key={n.id}>
-          <View style={styles.rowBetween}>
-            <Pill tone={TYPE_TONE[n.type] || 'neutral'}>{n.type || 'info'}</Pill>
-            {!n.is_read && <View style={styles.dot} />}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {!loading && notifications.length === 0 ? (
+        <EmptyState title="Sem notificações" body="Aqui aparecerão alertas de manutenção e novidades." />
+      ) : null}
+
+      {notifications.map((n) => (
+        <Pressable key={n.id} onPress={() => handleAction(n)} style={[styles.card, !n.lida ? styles.cardUnread : null]}>
+          <View style={styles.iconWrap}>
+            <Ionicons
+              name={n.type === 'maintenance' ? 'time' : n.action_url ? 'open' : 'notifications'}
+              size={18}
+              color={!n.lida ? Palette.primary : Palette.textMuted}
+            />
           </View>
-          <Text style={styles.notifTitle}>{n.title}</Text>
-          {n.body ? <Text style={styles.body}>{n.body}</Text> : null}
-          <Text style={styles.time}>{formatDate(n.created_at)}</Text>
-          <View style={styles.actions}>
-            {!n.is_read && (
-              <Pressable onPress={() => markRead(n.id)} style={styles.link}>
-                <Text style={styles.linkText}>Marcar como lida</Text>
-              </Pressable>
-            )}
-            <Pressable onPress={() => remove(n.id)} style={styles.link}>
-              <Text style={[styles.linkText, styles.danger]}>Remover</Text>
-            </Pressable>
+          <View style={styles.info}>
+            <Text style={styles.title} numberOfLines={1}>{n.titulo || n.titulo_notificacao || 'Notificação'}</Text>
+            <Text style={styles.body} numberOfLines={3}>{n.mensagem || n.mensagem_notificacao || ''}</Text>
+            <Text style={styles.date}>{formatDate(n.criada_em || n.data_criacao)}</Text>
           </View>
-        </Card>
+          {!n.lida && <View style={styles.dot} />}
+        </Pressable>
       ))}
-
-      <AppButton variant="ghost" onPress={() => goTo('home')}>
-        Voltar ao inicio
-      </AppButton>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg },
-  container: { padding: Spacing.four, gap: Spacing.three },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { color: Palette.text, fontSize: 22, fontWeight: '700' },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Palette.blue },
-  notifTitle: { color: Palette.text, fontSize: 16, fontWeight: '600', marginTop: Spacing.two },
-  body: { color: Palette.textMuted, fontSize: 14, marginTop: Spacing.one },
-  time: { color: Palette.textSoft, fontSize: 12, marginTop: Spacing.two },
-  actions: { flexDirection: 'row', gap: Spacing.four, marginTop: Spacing.two },
-  link: { paddingVertical: 4 },
-  linkText: { color: Palette.primary, fontSize: 14, fontWeight: '600' },
-  danger: { color: Palette.red },
+  root: { flex: 1 },
+  content: { padding: Spacing.four, gap: Spacing.two },
+  error: { color: Palette.red, fontSize: 13 },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+    backgroundColor: Palette.surface,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    borderRadius: Radius.lg,
+    padding: Spacing.four,
+  },
+  cardUnread: { borderColor: `${Palette.primary}40`, backgroundColor: Palette.primaryMuted },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: Palette.bgAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  info: { flex: 1, gap: Spacing.one },
+  title: { color: Palette.text, fontSize: 14, fontWeight: '700' },
+  body: { color: Palette.textMuted, fontSize: 13, lineHeight: 18 },
+  date: { color: Palette.textSoft, fontSize: 11 },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: Palette.primary,
+    marginTop: 4,
+  },
 });

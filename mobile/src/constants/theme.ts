@@ -6,7 +6,7 @@ export const Palette = {
   bg: '#09090B',
   bgAlt: '#18181B',
   surface: '#1C1C1F',
-  surfaceStrong: '#1F1F25',
+  surfaceStrong: '#232329',
   border: '#27272A',
   borderStrong: '#3F3F46',
   text: '#FAFAFA',
@@ -14,6 +14,7 @@ export const Palette = {
   textSoft: '#71717A',
   primary: '#7C5CFF',
   primaryDark: '#5B3FE0',
+  primaryMuted: 'rgba(124,92,255,0.14)',
   accent: '#A78BFA',
   blue: '#3B82F6',
   cyan: '#22D3EE',
@@ -72,45 +73,58 @@ export const Spacing = {
   half: 2,
   one: 4,
   two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  three: 12,
+  four: 16,
+  five: 24,
+  six: 32,
+  eight: 48,
+  ten: 64,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
 export const Radius = {
   sm: 8,
   md: 12,
   lg: 16,
+  xl: 20,
+  full: 999,
 } as const;
 
 export const Glass = {
   header: 'rgba(9, 9, 11, 0.82)',
   tabBar: 'rgba(9, 9, 11, 0.9)',
+  surface: 'rgba(28, 28, 31, 0.6)',
 } as const;
 
 export const Shadow = {
   sm: {
     shadowColor: '#000000',
-    shadowOpacity: 0.45,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
   md: {
     shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   lg: {
-    shadowColor: '#7C5CFF',
-    shadowOpacity: 0.22,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 14,
+    shadowColor: '#000000',
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  primary: {
+    shadowColor: Palette.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
 } as const;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
+import { AppButton, Card, EmptyState, Field, Pill, SectionTitle } from '@/components/primitives';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { ApiError } from '@/lib/api';
 import { formatCurrency, formatDate, formatKm } from '@/lib/format';
@@ -152,10 +152,9 @@ export function MaintenanceScreen({ nav }: { nav: Nav }) {
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
         <Card style={styles.lockedCard}>
           <Pill label="Premium" tone="info" />
-          <Text style={styles.title}>Histórico e alertas premium</Text>
+          <SectionTitle title="Histórico e alertas premium" />
           <Text style={styles.muted}>
-            No app mobile, as anotações de manutenção usam a mesma API do site e liberam previsão de vencimento,
-            alertas e resumo de gastos.
+            As anotações de manutenção liberam previsão de vencimento, alertas e resumo de gastos.
           </Text>
           <View style={styles.actions}>
             <AppButton title="Ativar Premium" onPress={openCheckout} />
@@ -173,7 +172,7 @@ export function MaintenanceScreen({ nav }: { nav: Nav }) {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
       <Card style={styles.form}>
-        <Text style={styles.title}>Registrar manutenção</Text>
+        <SectionTitle title="Registrar manutenção" />
         <Text style={styles.muted}>
           Escreva de forma natural, por exemplo: troquei o óleo hoje com 65000 km por 280 reais.
         </Text>
@@ -186,12 +185,12 @@ export function MaintenanceScreen({ nav }: { nav: Nav }) {
           style={styles.description}
         />
         {message ? <Text style={styles.error}>{message}</Text> : null}
-        <AppButton title="Salvar anotação" onPress={saveMaintenance} loading={saving} />
+        <AppButton title="Salvar" onPress={saveMaintenance} loading={saving} />
       </Card>
 
       <Card style={styles.emailCard}>
-        <Text style={styles.title}>Lembretes por e-mail</Text>
-        <Text style={styles.muted}>Receba alertas de manutenção vencendo direto no seu e-mail.</Text>
+        <SectionTitle title="Lembretes por e-mail" />
+        <Text style={styles.muted}>Receba alertas de manutenção vencendo no seu e-mail.</Text>
         <View style={styles.emailRow}>
           <Text style={styles.emailLabel}>Ativar lembretes</Text>
           <Switch
@@ -251,7 +250,7 @@ export function MaintenanceScreen({ nav }: { nav: Nav }) {
 
       {(tab === 'concluidas' ? history.length : tab === 'atrasadas' ? atrasadas.length : proximas.length) === 0 ? (
         <EmptyState
-          title={tab === 'concluidas' ? 'Sem anotações' : tab === 'atrasadas' ? 'Nada atrasado 🎉' : 'Nada pendente'}
+          title={tab === 'concluidas' ? 'Sem anotações' : tab === 'atrasadas' ? 'Nada atrasado' : 'Nada pendente'}
           body="Registre a primeira manutenção para iniciar o histórico."
         />
       ) : null}
@@ -308,21 +307,20 @@ function PressableTab({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: Spacing.three, gap: Spacing.three },
-  lockedCard: { gap: Spacing.two },
-  title: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900' },
-  muted: { color: Palette.textMuted, lineHeight: 20 },
+  content: { padding: Spacing.four, gap: Spacing.four },
+  lockedCard: { gap: Spacing.three },
+  muted: { color: Palette.textMuted, lineHeight: 18, fontSize: 13 },
   actions: { gap: Spacing.two },
-  error: { color: Palette.red, lineHeight: 20 },
-  form: { gap: Spacing.two },
-  emailCard: { gap: Spacing.two },
-  emailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.one },
-  emailLabel: { color: Palette.text, fontWeight: '700', fontSize: 15 },
-  description: { minHeight: 96, textAlignVertical: 'top', paddingTop: 12 },
+  error: { color: Palette.red, lineHeight: 20, fontSize: 13 },
+  form: { gap: Spacing.three },
+  emailCard: { gap: Spacing.three },
+  emailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  emailLabel: { color: Palette.text, fontWeight: '700', fontSize: 14 },
+  description: { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 },
   grid: { flexDirection: 'row', gap: Spacing.two },
   stat: { flex: 1, gap: Spacing.one },
-  statValue: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900' },
-  statLabel: { color: Palette.textMuted, fontWeight: '800' },
+  statValue: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '800' },
+  statLabel: { color: Palette.textMuted, fontWeight: '600', fontSize: 12 },
   tabs: { flexDirection: 'row', gap: Spacing.two },
   tab: {
     flex: 1,
@@ -336,23 +334,23 @@ const styles = StyleSheet.create({
     borderColor: Palette.border,
     backgroundColor: Palette.surface,
   },
-  tabActive: { borderColor: Palette.primary, backgroundColor: 'rgba(124,92,255,0.14)' },
-  tabDanger: { borderColor: 'rgba(239,68,68,0.5)' },
-  tabLabel: { color: Palette.textMuted, fontWeight: '800', fontFamily: Fonts.sans },
+  tabActive: { borderColor: Palette.primary, backgroundColor: Palette.primaryMuted },
+  tabDanger: { borderColor: 'rgba(239,68,68,0.4)' },
+  tabLabel: { color: Palette.textMuted, fontWeight: '700', fontFamily: Fonts.sans, fontSize: 13 },
   tabLabelActive: { color: Palette.primary },
   tabCount: {
-    minWidth: 22,
-    paddingHorizontal: 6,
-    height: 22,
-    borderRadius: 11,
+    minWidth: 20,
+    paddingHorizontal: 5,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: Palette.bgAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabCountActive: { backgroundColor: Palette.primary },
-  tabCountDanger: { backgroundColor: 'rgba(239,68,68,0.2)' },
-  tabCountText: { color: Palette.text, fontWeight: '900', fontSize: 12 },
-  card: { gap: Spacing.one },
+  tabCountDanger: { backgroundColor: 'rgba(239,68,68,0.15)' },
+  tabCountText: { color: Palette.text, fontWeight: '800', fontSize: 11 },
+  card: { gap: Spacing.two },
   row: { flexDirection: 'row' },
-  itemTitle: { color: Palette.text, fontSize: 16, fontFamily: Fonts.serif, fontWeight: '900' },
+  itemTitle: { color: Palette.text, fontSize: 15, fontWeight: '700' },
 });

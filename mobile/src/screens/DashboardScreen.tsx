@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton, Card, EmptyState, Field, Pill } from '@/components/primitives';
+import { AppButton, Card, EmptyState, Field, LoadingView, Pill, SectionTitle, Stat } from '@/components/primitives';
 import { VehiclePhoto } from '@/components/VehiclePhoto';
 import { HealthRing } from '@/components/HealthRing';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
@@ -144,19 +144,17 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
   const nextMaintenance = alerts.find((a) => !/conclu|done|ok/i.test(a.status_code || a.status || '')) ?? alerts[0];
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.loadingText}>Carregando painel…</Text>
-      </View>
-    );
+    return <LoadingView label="Carregando painel..." />;
   }
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>Painel</Text>
-      {user && !user.is_premium && (
-        <Pill tone="warn">Recursos avançados disponiveis no plano Premium</Pill>
-      )}
+      <SectionTitle kicker="Garagem" title="Meu Carro" subtitle="Gerencie seus veículos e acompanhe a saúde." />
+
+      {user && !user.is_premium ? (
+        <Pill tone="warn" label="Recursos avançados no plano Premium" />
+      ) : null}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {nextMaintenance ? (
@@ -164,7 +162,7 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
           <View style={styles.nextHead}>
             <Ionicons
               name={/atras|overdue/i.test(nextMaintenance.status_code || '') ? 'warning' : 'time'}
-              size={22}
+              size={20}
               color={/atras|overdue/i.test(nextMaintenance.status_code || '') ? Palette.red : Palette.amber}
             />
             <View style={styles.nextText}>
@@ -172,7 +170,7 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
               <Text style={styles.muted}>{nextMaintenance.message || formatDate(nextMaintenance.next_due_date)}</Text>
             </View>
           </View>
-          <AppButton variant="ghost" onPress={() => goTo('maintenance')}>
+          <AppButton variant="ghost" size="sm" onPress={() => goTo('maintenance')}>
             Ver manutenções
           </AppButton>
         </Card>
@@ -181,7 +179,7 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
       {vehicles.length === 0 ? (
         <EmptyState
           title="Garagem vazia"
-          message="Adicione seu veículo para ver o painel de saúde e personalizar o app."
+          body="Adicione seu veículo para ver o painel de saúde."
         />
       ) : null}
 
@@ -190,32 +188,32 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
         const stats = dash?.estatisticas_extras;
         const score = stats?.health_score ?? 0;
         return (
-          <Card key={v.id} style={styles.card}>
-            <View style={styles.cardTop}>
+          <Card key={v.id} style={styles.vehicleCard}>
+            <View style={styles.vehicleTop}>
               <VehiclePhoto
                 vehicle={v}
                 request={request}
-                size={64}
+                size={72}
                 onUpdated={(foto) => setVehicles((prev) => prev.map((x) => (x.id === v.id ? { ...x, foto_base64: foto } : x)))}
               />
-              <View style={styles.cardInfo}>
+              <View style={styles.vehicleInfo}>
                 <Text style={styles.vehicleName}>{[v.marca, v.modelo].filter(Boolean).join(' ') || 'Veículo'}</Text>
                 <Text style={styles.vehicleMeta}>
-                  {v.tipo || '—'} · {v.ano_fabricacao || '-'} · {formatKm(v.quilometragem ?? 0)}
+                  {v.tipo || '-'} · {v.ano_fabricacao || '-'} · {formatKm(v.quilometragem ?? 0)}
                 </Text>
                 {dash?.fipe?.Valor ? (
                   <Text style={styles.fipe}>
-                    FIPE: {dash.fipe.Valor} {dash.fipe.MesReferencia ? `(${dash.fipe.MesReferencia})` : ''}
+                    FIPE {dash.fipe.Valor} {dash.fipe.MesReferencia ? `(${dash.fipe.MesReferencia})` : ''}
                   </Text>
                 ) : null}
               </View>
-              <HealthRing score={score} size={84} stroke={10} showLabel={false} />
+              {score > 0 ? <HealthRing score={score} size={64} stroke={8} showLabel={false} /> : null}
             </View>
 
             {dash?.saude && dash.saude.length > 0 ? (
               <View style={styles.saude}>
                 {dash.saude.map((s, i) => (
-                  <Pill key={i} tone={s.status === 'OK' ? 'good' : 'neutral'}>
+                  <Pill key={i} tone={s.status === 'OK' ? 'good' : 'neutral'} size="sm">
                     {s.item}
                   </Pill>
                 ))}
@@ -224,32 +222,33 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
 
             {stats ? (
               <View style={styles.stats}>
-                <Text style={styles.stat}>Manutencoes: {stats.manutencoes_realizadas ?? 0}</Text>
-                <Text style={styles.stat}>Chats: {stats.chats_realizados ?? 0}</Text>
+                <Stat label="Manutenções" value={String(stats.manutencoes_realizadas ?? 0)} align="center" />
+                <Stat label="Consultas" value={String(stats.chats_realizados ?? 0)} align="center" />
                 {stats.data_ultima_manutencao ? (
-                  <Text style={styles.stat}>Ultima manut.: {stats.data_ultima_manutencao}</Text>
+                  <Stat label="Última manut." value={stats.data_ultima_manutencao} align="center" />
                 ) : null}
               </View>
             ) : null}
 
             <View style={styles.actions}>
               <Pressable onPress={() => startEdit(v)} style={styles.iconBtn}>
-                <Ionicons name="create-outline" size={20} color={Palette.text} />
+                <Ionicons name="create-outline" size={18} color={Palette.textMuted} />
               </Pressable>
               <Pressable onPress={() => confirmDelete(v)} style={styles.iconBtn}>
-                <Ionicons name="trash-outline" size={20} color={Palette.red} />
+                <Ionicons name="trash-outline" size={18} color={Palette.red} />
               </Pressable>
-              <AppButton title="Mod Passport" variant="secondary" onPress={() => goTo('modpassport')} />
-              <AppButton title="Perguntar à NOG" variant="ghost" onPress={() => goTo('chat')} />
+              <View style={{ flex: 1 }} />
+              <AppButton title="Mod Passport" variant="secondary" size="sm" onPress={() => goTo('modpassport')} />
+              <AppButton title="NOG" variant="ghost" size="sm" onPress={() => goTo('chat')} />
             </View>
           </Card>
         );
       })}
 
       <Card style={styles.form}>
-        <Text style={styles.formTitle}>{editing ? 'Editar veículo' : 'Adicionar veículo'}</Text>
+        <Text style={styles.formTitle}>{editing ? 'Editar veículo' : 'Novo veículo'}</Text>
         <Text style={styles.muted}>Esses dados deixam o chat e as previsões mais precisos.</Text>
-        {editing ? <Pill tone="info" label={`Editando: ${editing.marca} ${editing.modelo}`} /> : null}
+        {editing ? <Pill tone="info" size="sm" label={`Editando: ${editing.marca} ${editing.modelo}`} /> : null}
         <Field label="Tipo" value={tipo} onChangeText={setTipo} placeholder="carro, moto, pickup" />
         <Field label="Marca" value={marca} onChangeText={setMarca} placeholder="Toyota" />
         <Field label="Modelo" value={modelo} onChangeText={setModelo} placeholder="Corolla" />
@@ -289,38 +288,32 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg },
-  loadingText: { color: Palette.textMuted },
-  container: { padding: Spacing.four, gap: Spacing.three },
-  title: { color: Palette.text, fontSize: 22, fontWeight: '700', fontFamily: Fonts.serif },
-  error: { color: Palette.red, lineHeight: 20 },
+  container: { padding: Spacing.four, gap: Spacing.four },
+  error: { color: Palette.red, lineHeight: 20, fontSize: 13 },
   nextCard: { gap: Spacing.two },
-  nextHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  nextText: { flex: 1, gap: Spacing.one },
-  nextLabel: { color: Palette.text, fontWeight: '800' },
-  card: { gap: Spacing.three },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  cardInfo: { flex: 1, gap: Spacing.one },
-  vehicleName: { color: Palette.text, fontSize: 18, fontWeight: '700' },
-  vehicleMeta: { color: Palette.textMuted, fontSize: 14 },
-  fipe: { color: Palette.textMuted, fontSize: 14 },
-  saude: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  stats: { gap: 2 },
-  stat: { color: Palette.textMuted, fontSize: 13 },
-  muted: { color: Palette.textMuted, lineHeight: 20 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.two },
+  nextHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  nextText: { flex: 1, gap: 2 },
+  nextLabel: { color: Palette.text, fontWeight: '700', fontSize: 14 },
+  muted: { color: Palette.textMuted, lineHeight: 18, fontSize: 13 },
+  vehicleCard: { gap: Spacing.three },
+  vehicleTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  vehicleInfo: { flex: 1, gap: Spacing.one },
+  vehicleName: { color: Palette.text, fontSize: 17, fontWeight: '700' },
+  vehicleMeta: { color: Palette.textMuted, fontSize: 13 },
+  fipe: { color: Palette.accent, fontSize: 13, fontWeight: '600' },
+  saude: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  stats: { flexDirection: 'row', gap: Spacing.two },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Palette.bgAlt,
-    borderWidth: 1,
-    borderColor: Palette.border,
   },
-  form: { gap: Spacing.two },
-  formTitle: { color: Palette.text, fontSize: 18, fontWeight: '900', fontFamily: Fonts.serif },
+  form: { gap: Spacing.three },
+  formTitle: { color: Palette.text, fontSize: 17, fontWeight: '700', fontFamily: Fonts.sans },
   twoColumns: { flexDirection: 'row', gap: Spacing.two },
   flexField: { flex: 1 },
   formActions: { gap: Spacing.two },

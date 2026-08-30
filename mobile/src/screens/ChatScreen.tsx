@@ -15,13 +15,14 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton, Card, EmptyState } from '@/components/primitives';
 import { NogInputBar, type NogImage } from '@/components/nog/NogInputBar';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { stripMarkdown } from '@/lib/format';
 import { generateReportPdf } from '@/lib/report';
-import type { ChatRecord, Conversation, LinkItem, VideoItem } from '@/lib/types';
+import type { ChatRecord, Conversation, LinkItem, VideoItem, Vehicle } from '@/lib/types';
 import type { Nav } from '@/screens/AppShell';
 import { useAuth } from '@/context/auth';
 
@@ -31,15 +32,23 @@ function newSessionId() {
   return 'nog-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
+function formatTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 function formatConversationDate(value?: string) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('pt-BR');
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
-export function ChatScreen({ nav: _nav }: { nav: Nav }) {
-  const { request, accessToken } = useAuth();
+export function ChatScreen({ nav }: { nav: Nav }) {
+  const { request, accessToken, user } = useAuth();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [history, setHistory] = useState<ChatRecord[]>([]);
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
@@ -53,6 +62,8 @@ export function ChatScreen({ nav: _nav }: { nav: Nav }) {
   const [convLoading, setConvLoading] = useState(false);
   const [search, setSearch] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicleId, setVehicleId] = useState<number | null>(null);
 
   const loadConversations = useCallback(async (query = '') => {
     setConvLoading(true);
@@ -107,6 +118,24 @@ export function ChatScreen({ nav: _nav }: { nav: Nav }) {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await request<{ veiculos: Vehicle[] }>('/api/veiculos');
+        if (!mounted) return;
+        const list = data.veiculos || [];
+        setVehicles(list);
+        setVehicleId((prev) => prev ?? list[0]?.id ?? null);
+      } catch {
+        /* vehicles opcionais no chat */
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [request]);
 
   async function bootstrap() {
     setLoadingHistory(true);
@@ -182,7 +211,7 @@ export function ChatScreen({ nav: _nav }: { nav: Nav }) {
     try {
       const response = await request<{ response: string; videos: VideoItem[]; links: LinkItem[]; chat: ChatRecord }>(
         '/api/chat',
-        { method: 'POST', body: { message: trimmed, image: attachment?.base64, session_id: sessionId ?? undefined, ignore_global_history: false } },
+        { method: 'POST', body: { message: trimmed, image: attachment?.base64, session_id: sessionId ?? undefined, ignore_global_history: false, vehicle_id: vehicleId ?? undefined } },
       );
       setHistory((items) => [...items.slice(0, -1), response.chat]);
       setPickedImage(null);
@@ -245,19 +274,41 @@ export function ChatScreen({ nav: _nav }: { nav: Nav }) {
     }
   }
 
+  const greeting = user?.nome ? user.nome.split(' ')[0] : 'motorista';
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.toolbar}>
-        <Pressable onPress={openModal} style={styles.toolbarButton} hitSlop={8}>
-          <Ionicons name="chatbubbles-outline" size={22} color={Palette.text} />
+      behavior="padding"
+      keyboardVerticalOffset={0}>
+      <View style={styles.header}>
+        <Pressable onPress={() => nav.openDrawer()} style={styles.headerBtn} hitSlop={10}>
+          <Ionicons name="menu" size={20} color={Palette.textMuted} />
         </Pressable>
-        <View style={styles.toolbarTitleWrap}>
-          <Text style={styles.toolbarTitle} numberOfLines={1}>{currentTitle}</Text>
-        </View>
-        <Pressable onPress={startNewConversation} style={styles.toolbarButton} hitSlop={8}>
-          <Ionicons name="create-outline" size={22} color={Palette.primary} />
+        <Pressable onPress={openModal} style={styles.headerCenter} hitSlop={10}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{currentTitle}</Text>
+          {vehicles.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleChips}>
+              <Pressable
+                onPress={() => setVehicleId(null)}
+                style={[styles.vehicleChip, vehicleId === null ? styles.vehicleChipActive : null]}>
+                <Text style={[styles.vehicleChipText, vehicleId === null ? styles.vehicleChipTextActive : null]}>Todos</Text>
+              </Pressable>
+              {vehicles.map((v) => (
+                <Pressable
+                  key={v.id}
+                  onPress={() => setVehicleId(v.id)}
+                  style={[styles.vehicleChip, vehicleId === v.id ? styles.vehicleChipActive : null]}>
+                  <Text style={[styles.vehicleChipText, vehicleId === v.id ? styles.vehicleChipTextActive : null]} numberOfLines={1}>
+                    {[v.marca, v.modelo].filter(Boolean).join(' ') || 'Veículo'}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+        </Pressable>
+        <Pressable onPress={startNewConversation} style={styles.headerBtn} hitSlop={10}>
+          <Ionicons name="add" size={24} color={Palette.primary} />
         </Pressable>
       </View>
 
@@ -265,19 +316,34 @@ export function ChatScreen({ nav: _nav }: { nav: Nav }) {
         ref={scrollRef}
         contentContainerStyle={styles.messages}
         keyboardShouldPersistTaps="handled">
-        <Card style={styles.intro}>
-          <Text style={styles.title}>NOG — seu copiloto de carro</Text>
-          <Text style={styles.muted}>
-            Especialista em automóveis. Pergunte sobre sintomas, manutenção, FIPE ou envie uma foto para o Raio-X.
-          </Text>
-        </Card>
-
-        {loadingHistory ? (
-          <ActivityIndicator color={Palette.primary} />
-        ) : history.length ? (
-          history.map((chat, index) => <ChatBubble key={`${chat.id || index}`} chat={chat} />)
+        {history.length === 0 && !loadingHistory ? (
+          <View style={styles.emptyChat}>
+            <View style={styles.welcomeMark}>
+              <Text style={styles.welcomeMarkText}>NOG</Text>
+            </View>
+            <Text style={styles.welcomeTitle}>Olá, {greeting}.</Text>
+            <Text style={styles.welcomeSub}>Como posso ajudar com seu carro?</Text>
+            <View style={styles.suggestions}>
+              <Pressable onPress={() => send('Qual a FIPE do meu carro?')} style={styles.suggestion}>
+                <Text style={styles.suggestionText}>Consultar FIPE</Text>
+              </Pressable>
+              <Pressable onPress={() => send('Preciso de ajuda com uma manutenção')} style={styles.suggestion}>
+                <Text style={styles.suggestionText}>Manutenção</Text>
+              </Pressable>
+              <Pressable onPress={() => _nav.goTo('raiox')} style={styles.suggestion}>
+                <Text style={styles.suggestionText}>Raio-X</Text>
+              </Pressable>
+              <Pressable onPress={() => send('Me dê dicas de economia de combustível')} style={styles.suggestion}>
+                <Text style={styles.suggestionText}>Dicas</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : loadingHistory ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={Palette.primary} />
+          </View>
         ) : (
-          <EmptyState title="Sem conversas ainda" body="Mande sua primeira pergunta para iniciar o diagnóstico." />
+          history.map((chat, index) => <ChatBubble key={`${chat.id || index}`} chat={chat} />)
         )}
       </ScrollView>
 
@@ -296,36 +362,40 @@ export function ChatScreen({ nav: _nav }: { nav: Nav }) {
       {modalVisible ? (
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.modalBackdropPress} onPress={() => setModalVisible(false)} />
-          <View style={styles.modal}>
+          <View style={[styles.modal, { paddingBottom: insets.bottom + Spacing.four }]}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Conversas</Text>
               <Pressable onPress={() => setModalVisible(false)} style={styles.modalClose} hitSlop={8}>
-                <Ionicons name="close" size={22} color={Palette.text} />
+                <Ionicons name="close" size={20} color={Palette.textMuted} />
               </Pressable>
             </View>
 
             <View style={styles.searchRow}>
-              <Ionicons name="search" size={18} color={Palette.textSoft} />
+              <Ionicons name="search" size={16} color={Palette.textSoft} />
               <TextInput
                 value={search}
                 onChangeText={onSearchChange}
-                placeholder="Buscar conversas..."
+                placeholder="Buscar..."
                 placeholderTextColor={Palette.textSoft}
                 style={styles.searchInput}
               />
             </View>
 
-            <AppButton title="Nova conversa" onPress={startNewConversation} />
+            <Pressable onPress={startNewConversation} style={styles.newConvBtn}>
+              <Ionicons name="add-circle" size={20} color={Palette.primary} />
+              <Text style={styles.newConvText}>Nova conversa</Text>
+            </Pressable>
 
             <ScrollView style={styles.convList}>
               {convLoading ? (
-                <ActivityIndicator color={Palette.primary} />
+                <ActivityIndicator color={Palette.primary} style={{ marginVertical: Spacing.four }} />
               ) : conversations.length ? (
                 conversations.map((conv) => (
                   <Pressable
                     key={conv.session_id ?? 'null'}
                     onPress={() => void openConversation(conv)}
-                    style={styles.convItem}>
+                    style={[styles.convItem, conv.session_id === sessionId ? styles.convItemActive : null]}>
                     <View style={styles.convItemText}>
                       <Text style={styles.convTitle} numberOfLines={1}>{conv.title}</Text>
                       <Text style={styles.convPreview} numberOfLines={1}>{conv.preview || 'Sem mensagens'}</Text>
@@ -352,6 +422,7 @@ function ChatBubble({ chat }: { chat: ChatRecord }) {
     <View style={styles.chatBlock}>
       <View style={styles.userBubble}>
         <Text style={styles.userText}>{chat.mensagem_usuario}</Text>
+        <Text style={styles.userTime}>{formatTime(chat.created_at)}</Text>
       </View>
       <View style={styles.botBubble}>
         <Text style={styles.botText}>{stripMarkdown(chat.resposta_ia || '')}</Text>
@@ -376,7 +447,8 @@ function AttachmentList({ videos, links }: { videos: VideoItem[]; links: LinkIte
           key={`${item.url}-${index}`}
           onPress={() => item.url && Linking.openURL(item.url)}
           style={styles.attachmentButton}>
-          <Text style={styles.attachmentText}>{item.title}</Text>
+          <Ionicons name="link" size={14} color={Palette.blue} />
+          <Text style={styles.attachmentText} numberOfLines={1}>{item.title}</Text>
         </Pressable>
       ))}
     </View>
@@ -385,52 +457,190 @@ function AttachmentList({ videos, links }: { videos: VideoItem[]; links: LinkIte
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  toolbar: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderBottomWidth: 1,
+    height: 56,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Palette.border,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.bg,
   },
-  toolbarButton: {
-    width: 40,
-    height: 40,
+  headerBtn: {
+    width: 36,
+    height: 36,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.bgAlt,
+  },
+  headerCenter: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  headerTitle: {
+    color: Palette.text,
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+  },
+  vehicleChips: {
+    gap: Spacing.one,
+  },
+  vehicleChip: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.surface,
+  },
+  vehicleChipActive: {
+    backgroundColor: Palette.primaryMuted,
+  },
+  vehicleChipText: {
+    color: Palette.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  vehicleChipTextActive: {
+    color: Palette.primary,
+  },
+  messages: {
+    padding: Spacing.four,
+    gap: Spacing.four,
+    flexGrow: 1,
+  },
+  emptyChat: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    paddingTop: Spacing.ten,
+  },
+  welcomeMark: {
+    width: 64,
+    height: 64,
+    borderRadius: Radius.xl,
+    backgroundColor: Palette.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,255,0.3)',
+  },
+  welcomeMarkText: {
+    color: Palette.primary,
+    fontSize: 20,
+    fontWeight: '800',
+    fontFamily: Fonts.sans,
+    letterSpacing: 1,
+  },
+  welcomeTitle: {
+    color: Palette.text,
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: Fonts.serif,
+    letterSpacing: -0.3,
+  },
+  welcomeSub: {
+    color: Palette.textMuted,
+    fontSize: 15,
+    fontFamily: Fonts.sans,
+  },
+  suggestions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  suggestion: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.full,
+    backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
   },
-  toolbarTitleWrap: { flex: 1 },
-  toolbarTitle: { color: Palette.text, fontSize: 17, fontFamily: Fonts.serif, fontWeight: '900' },
+  suggestionText: {
+    color: Palette.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+  },
+  loadingWrap: {
+    paddingVertical: Spacing.five,
+    alignItems: 'center',
+  },
+  chatBlock: { gap: Spacing.three },
+  userBubble: {
+    alignSelf: 'flex-end',
+    maxWidth: '82%',
+    backgroundColor: Palette.primary,
+    borderTopRightRadius: Radius.sm,
+    borderRadius: Radius.lg,
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  userText: { color: Palette.white, lineHeight: 21, fontSize: 15 },
+  userTime: { color: 'rgba(255,255,255,0.6)', fontSize: 10, alignSelf: 'flex-end' },
+  botBubble: {
+    alignSelf: 'flex-start',
+    maxWidth: '88%',
+    backgroundColor: Palette.surface,
+    borderTopLeftRadius: Radius.sm,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  botText: { color: Palette.text, lineHeight: 22, fontSize: 15 },
+  attachments: { gap: Spacing.one },
+  attachmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    borderRadius: Radius.sm,
+    padding: Spacing.two,
+    backgroundColor: Palette.bgAlt,
+  },
+  attachmentText: { color: Palette.blue, fontWeight: '600', fontSize: 13, flex: 1 },
+  error: { color: Palette.red, paddingHorizontal: Spacing.four, paddingBottom: Spacing.one, fontSize: 13 },
+
+  /* Modal */
   modalBackdrop: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalBackdropPress: { position: 'absolute', inset: 0 },
   modal: {
     maxHeight: '80%',
     backgroundColor: Palette.surface,
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-    padding: Spacing.three,
-    gap: Spacing.two,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Palette.borderStrong,
+    alignSelf: 'center',
+    marginBottom: Spacing.one,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  modalTitle: { color: Palette.text, fontSize: 20, fontFamily: Fonts.serif, fontWeight: '900' },
+  modalTitle: { color: Palette.text, fontSize: 18, fontWeight: '800', fontFamily: Fonts.sans },
   modalClose: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -441,6 +651,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
+    height: 40,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Palette.border,
@@ -448,70 +659,41 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    minHeight: 44,
     color: Palette.text,
     fontSize: 15,
     fontFamily: Fonts.sans,
-    paddingVertical: 10,
   },
-  convList: { maxHeight: 360, gap: Spacing.two },
-  convItem: {
+  newConvBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+    paddingVertical: Spacing.two,
+  },
+  newConvText: {
+    color: Palette.primary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  convList: { maxHeight: 360 },
+  convItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
     padding: Spacing.three,
     borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.bgAlt,
+    marginBottom: Spacing.one,
+  },
+  convItemActive: {
+    backgroundColor: Palette.primaryMuted,
   },
   convItemText: { flex: 1, gap: 2 },
-  convTitle: { color: Palette.text, fontWeight: '800', fontSize: 15 },
-  convPreview: { color: Palette.textMuted, fontSize: 13 },
+  convTitle: { color: Palette.text, fontWeight: '700', fontSize: 14 },
+  convPreview: { color: Palette.textMuted, fontSize: 12 },
   convMeta: { alignItems: 'flex-end', gap: 2 },
   convCount: {
-    color: Palette.white,
-    backgroundColor: Palette.primary,
-    fontWeight: '800',
-    fontSize: 12,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    overflow: 'hidden',
+    color: Palette.primary,
+    fontWeight: '700',
+    fontSize: 11,
   },
   convDate: { color: Palette.textSoft, fontSize: 11 },
-  messages: { padding: Spacing.three, gap: Spacing.three },
-  intro: { gap: Spacing.one },
-  title: { color: Palette.text, fontSize: 20, fontFamily: Fonts.serif, fontWeight: '900' },
-  muted: { color: Palette.textMuted, lineHeight: 20 },
-  chatBlock: { gap: Spacing.one },
-  userBubble: {
-    alignSelf: 'flex-end',
-    maxWidth: '88%',
-    backgroundColor: Palette.primary,
-    borderRadius: Radius.md,
-    padding: Spacing.three,
-  },
-  userText: { color: Palette.white, lineHeight: 20 },
-  botBubble: {
-    alignSelf: 'flex-start',
-    maxWidth: '92%',
-    backgroundColor: Palette.surface,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  botText: { color: Palette.text, lineHeight: 21 },
-  attachments: { gap: Spacing.one },
-  attachmentButton: {
-    borderWidth: 1,
-    borderColor: Palette.border,
-    borderRadius: Radius.sm,
-    padding: Spacing.two,
-    backgroundColor: Palette.bgAlt,
-  },
-  attachmentText: { color: Palette.blue, fontWeight: '700' },
-  error: { color: Palette.red, paddingHorizontal: Spacing.three, paddingBottom: Spacing.one },
 });

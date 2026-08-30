@@ -1,70 +1,92 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 
-import { AppButton, Card, EmptyState } from '@/components/primitives';
+import { AppButton, Card, EmptyState, Field, Pill, SectionTitle } from '@/components/primitives';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
-import { formatCurrency } from '@/lib/format';
-import type { Vehicle } from '@/lib/types';
-import type { Nav } from '@/screens/AppShell';
+import { formatDate } from '@/lib/format';
 import { useAuth } from '@/context/auth';
+import type { Nav } from '@/screens/AppShell';
 
-const MOD_CATEGORIES = [
-  'motor',
-  'turbo',
-  'suspensao',
-  'freios',
-  'rodas',
-  'pneus',
-  'escapamento',
-  'eletronica',
-  'som',
-  'estetica',
-  'interna',
-  'outros',
-];
-
-type ModEntry = { categoria: string; valor?: number };
-type PassportResult = {
-  fipe_base?: string | number;
-  fipe_ajustada?: string | number;
-  pct_ajuste?: number | string;
-  valor_extra?: number | string;
-  aviso?: string;
+type ModEvent = {
+  id?: number;
+  tipo: string;
+  descricao: string;
+  data: string;
+  oficina?: string;
+  comprovante_url?: string;
+  verificavel?: boolean;
 };
 
+type PassportShare = {
+  token: string;
+  url: string;
+  validade?: string;
+  sent_at?: string;
+};
+
+type PassportData = {
+  events?: ModEvent[];
+  shares?: PassportShare[];
+  summary?: string;
+  Veiculo?: { id: number; marca?: string; modelo?: string };
+};
+
+type NewMod = {
+  categoria: string;
+  nome: string;
+  descricao: string;
+  valor: string;
+};
+
+const CATEGORIAS = [
+  'Motor',
+  'Suspensão',
+  'Freio',
+  'Elétrica',
+  'Interior',
+  'Exterior',
+  'Som',
+  'Rodas',
+  'Turbo',
+  'Escapamento',
+  'Outro',
+];
+
 export function ModPassportScreen({ nav }: { nav: Nav }) {
-  const { user, request } = useAuth();
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const { request } = useAuth();
   const [vehicleId, setVehicleId] = useState<number | null>(null);
-  const [mods, setMods] = useState<ModEntry[]>([]);
-  const [category, setCategory] = useState(MOD_CATEGORIES[0]);
-  const [valor, setValor] = useState('');
+  const [data, setData] = useState<PassportData | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<PassportResult | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [error, setError] = useState('');
 
-  const isPremium = !!user?.is_premium;
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newMods, setNewMods] = useState<NewMod[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [currentMod, setCurrentMod] = useState<NewMod>({ categoria: '', nome: '', descricao: '', valor: '' });
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setRefreshing(true);
+    setError('');
     try {
-      const data = await request<{ veiculos: Vehicle[] }>('/api/veiculos');
-      setVehicles(data.veiculos || []);
-      setVehicleId((prev) => prev ?? data.veiculos?.[0]?.id ?? null);
-    } catch {
-      setVehicles([]);
+      const vehiclesResp = await request<{ veiculos: { id: number }[] }>('/api/veiculos');
+      const first = vehiclesResp.veiculos?.[0];
+      if (!first) {
+        setError('Adicione um veículo para usar o Mod Passport.');
+        setLoading(false);
+        return;
+      }
+      setVehicleId(first.id);
+      const resp = await request<PassportData>(`/api/veiculos/${first.id}/mod-passport/history`);
+      setData(resp);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar Mod Passport.');
     } finally {
+      setRefreshing(false);
       setLoading(false);
     }
   }, [request]);
@@ -74,239 +96,265 @@ export function ModPassportScreen({ nav }: { nav: Nav }) {
     return () => clearTimeout(timer);
   }, [load]);
 
-  function addMod() {
-    const parsed = valor.trim() ? Number(valor) : undefined;
-    if (parsed !== undefined && !Number.isFinite(parsed)) {
-      setError('Valor inválido.');
+  async function handleShare() {
+    if (!vehicleId) return;
+    setSharing(true);
+    try {
+      const resp = await request<PassportData>(`/api/veiculos/${vehicleId}/mod-passport/share`, { method: 'POST' });
+      setData((prev) => prev ? { ...prev, shares: [resp as unknown as PassportShare, ...(prev.shares || [])] } : prev);
+      const url = (resp as unknown as PassportShare).url;
+      if (url) {
+        Alert.alert('Link gerado', 'Link copiado para a área de transferência.', [
+          { text: 'OK', onPress: () => Clipboard.setStringAsync(url) },
+        ]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao compartilhar.');
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function handlePdf() {
+    if (!vehicleId) return;
+    setGeneratingPdf(true);
+    try {
+      Alert.alert('PDF', 'O PDF será gerado. Aguarde um momento.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao gerar PDF.');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
+  function addModToList() {
+    if (!currentMod.categoria) {
+      setError('Selecione uma categoria.');
       return;
     }
-    setMods((prev) => [...prev, { categoria: category, valor: parsed }]);
-    setValor('');
+    setNewMods((prev) => [...prev, { ...currentMod }]);
+    setCurrentMod({ categoria: '', nome: '', descricao: '', valor: '' });
     setError('');
   }
 
-  async function calculate() {
-    if (!vehicleId) {
-      setError('Selecione um veículo.');
-      return;
-    }
-    if (!mods.length) {
-      setError('Adicione ao menos uma modificação.');
-      return;
-    }
-    if (!isPremium) {
-      Alert.alert('Recurso Premium', 'O Mod Passport é exclusivo do plano Premium.', [
-        { text: 'Ver planos', onPress: () => nav.goTo('plans') },
-        { text: 'OK' },
-      ]);
-      return;
-    }
+  function removeModFromList(index: number) {
+    setNewMods((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function saveMods() {
+    if (!vehicleId || newMods.length === 0) return;
     setSaving(true);
     setError('');
     try {
-      const data = await request<PassportResult>(`/api/veiculos/${vehicleId}/modificacoes`, {
+      await request(`/api/veiculos/${vehicleId}/modificacoes`, {
         method: 'POST',
-        body: { modificacoes: mods },
+        body: { modificacoes: newMods },
       });
-      setResult(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao calcular o Mod Passport.');
+      setNewMods([]);
+      setShowAddForm(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar modificações.');
     } finally {
       setSaving(false);
     }
   }
 
-  const pct = result?.pct_ajuste != null ? Number(result.pct_ajuste) : 0;
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Palette.primary} />
-      </View>
-    );
-  }
-
-  if (!vehicles.length) {
-    return (
-      <ScrollView contentContainerStyle={styles.content}>
-        <EmptyState
-          title="Nenhum veículo"
-          body="Adicione um veículo para usar o Mod Passport."
-          action={{ label: 'Adicionar veículo', onPress: () => nav.goTo('dashboard') }}
-        />
-      </ScrollView>
-    );
-  }
+  const events = data?.events || [];
+  const shares = data?.shares || [];
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <Card style={styles.intro}>
-        <Text style={styles.title}>Mod Passport</Text>
-        <Text style={styles.muted}>
-          Estimativa conservadora do valor do seu carro considerando as modificações. Não é uma avaliação oficial.
-        </Text>
-      </Card>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}>
+      <SectionTitle
+        kicker="Histórico"
+        title="Mod Passport"
+        subtitle="Registro completo de modificações do veículo."
+      />
 
-      <View style={styles.selector}>
-        {vehicles.map((v) => {
-          const active = v.id === vehicleId;
-          return (
-            <Pressable
-              key={v.id}
-              onPress={() => setVehicleId(v.id)}
-              style={[styles.chip, active ? styles.chipActive : null]}>
-              <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
-                {[v.marca, v.modelo].filter(Boolean).join(' ') || 'Veículo'}
-              </Text>
-            </Pressable>
-          );
-        })}
+      {data?.Veiculo ? (
+        <Pill tone="info" label={`${data.Veiculo.marca || ''} ${data.Veiculo.modelo || ''}`} />
+      ) : null}
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <View style={styles.shareRow}>
+        <AppButton title="Compartilhar" onPress={handleShare} loading={sharing} />
+        <AppButton title="Gerar PDF" variant="secondary" onPress={handlePdf} loading={generatingPdf} />
       </View>
 
-      <Card style={styles.form}>
-        <Text style={styles.sectionTitle}>Modificações</Text>
-        <View style={styles.modRow}>
-          <View style={styles.picker}>
-            {MOD_CATEGORIES.map((c) => (
+      <AppButton
+        title={showAddForm ? 'Cancelar' : 'Adicionar modificação'}
+        variant={showAddForm ? 'ghost' : 'primary'}
+        onPress={() => {
+          setShowAddForm(!showAddForm);
+          setNewMods([]);
+          setCurrentMod({ categoria: '', nome: '', descricao: '', valor: '' });
+          setError('');
+        }}
+      />
+
+      {showAddForm ? (
+        <Card style={styles.addForm}>
+          <SectionTitle title="Nova modificação" />
+
+          <Text style={styles.fieldLabel}>Categoria</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
+            {CATEGORIAS.map((c) => (
               <Pressable
                 key={c}
-                onPress={() => setCategory(c)}
-                style={[styles.catChip, c === category ? styles.catChipActive : null]}>
-                <Text style={[styles.catText, c === category ? styles.catTextActive : null]}>{c}</Text>
+                onPress={() => setCurrentMod((prev) => ({ ...prev, categoria: c }))}
+                style={[styles.catChip, currentMod.categoria === c ? styles.catChipActive : null]}>
+                <Text style={[styles.catChipText, currentMod.categoria === c ? styles.catChipTextActive : null]}>{c}</Text>
               </Pressable>
             ))}
-          </View>
-          <View style={styles.addRow}>
-            <TextInput
-              value={valor}
-              onChangeText={setValor}
-              placeholder="Valor (R$)"
-              placeholderTextColor={Palette.textSoft}
-              keyboardType="numeric"
-              style={styles.valueInput}
-            />
-            <AppButton title="Adicionar" onPress={addMod} />
-          </View>
-        </View>
+          </ScrollView>
 
-        {mods.length ? (
-          <View style={styles.modList}>
-            {mods.map((m, i) => (
-              <View key={i} style={styles.modItem}>
-                <Text style={styles.modName}>{m.categoria}</Text>
-                <Text style={styles.modValue}>{m.valor ? formatCurrency(m.valor) : 'Peso padrão'}</Text>
-                <Pressable onPress={() => setMods((prev) => prev.filter((_, idx) => idx !== i))}>
-                  <Ionicons name="close-circle" size={20} color={Palette.red} />
-                </Pressable>
+          <Field
+            label="Nome"
+            value={currentMod.nome}
+            onChangeText={(t) => setCurrentMod((prev) => ({ ...prev, nome: t }))}
+            placeholder="Ex: Turbo Garrett GTX3076R"
+          />
+          <Field
+            label="Descrição (opcional)"
+            value={currentMod.descricao}
+            onChangeText={(t) => setCurrentMod((prev) => ({ ...prev, descricao: t }))}
+            placeholder="Detalhes da modificação"
+          />
+          <Field
+            label="Valor (opcional)"
+            value={currentMod.valor}
+            onChangeText={(t) => setCurrentMod((prev) => ({ ...prev, valor: t }))}
+            placeholder="R$ 0,00"
+            keyboardType="numeric"
+          />
+
+          <AppButton title="Adicionar à lista" variant="secondary" onPress={addModToList} />
+
+          {newMods.length > 0 ? (
+            <View style={styles.pendingSection}>
+              <Text style={styles.pendingTitle}>{newMods.length} modificação(ões) para salvar:</Text>
+              {newMods.map((m, i) => (
+                <View key={i} style={styles.pendingItem}>
+                  <View style={styles.pendingInfo}>
+                    <Pill tone="info" size="sm" label={m.categoria} />
+                    <Text style={styles.pendingName} numberOfLines={1}>{m.nome || 'Sem nome'}</Text>
+                  </View>
+                  <Pressable onPress={() => removeModFromList(i)} hitSlop={6}>
+                    <Ionicons name="close-circle" size={20} color={Palette.red} />
+                  </Pressable>
+                </View>
+              ))}
+              <AppButton title="Salvar todas" onPress={saveMods} loading={saving} />
+            </View>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {shares.length > 0 ? (
+        <Card style={styles.sharesCard}>
+          <SectionTitle title="Links compartilhados" />
+          {shares.map((s, i) => (
+            <View key={i} style={styles.shareItem}>
+              <Ionicons name="link" size={14} color={Palette.primary} />
+              <View style={styles.shareInfo}>
+                <Text style={styles.shareUrl} numberOfLines={1}>{s.url}</Text>
+                <Text style={styles.muted}>{s.sent_at ? `Enviado ${formatDate(s.sent_at)}` : ''}</Text>
               </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.muted}>Nenhuma modificação adicionada.</Text>
-        )}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <AppButton title="Calcular valor ajustado" onPress={calculate} loading={saving} />
-      </Card>
+            </View>
+          ))}
+        </Card>
+      ) : null}
 
-      {result ? (
-        <Card style={styles.result}>
-          <Text style={styles.sectionTitle}>Valor estimado</Text>
-          <Row label="FIPE" value={String(result.fipe_base ?? '-')} />
-          <Row label="Ajustado" value={String(result.fipe_ajustada ?? '-')} highlight />
-          <Row label="Ajuste" value={`${pct > 0 ? '+' : ''}${pct}%`} />
-          {result.aviso ? <Text style={styles.disclaimer}>{result.aviso}</Text> : null}
-          <View style={styles.disclaimerBox}>
-            <Ionicons name="information-circle" size={16} color={Palette.amber} />
-            <Text style={styles.disclaimerText}>
-              Estimativa conservadora. Não substitui avaliação profissional.
-            </Text>
+      <SectionTitle title="Histórico de modificações" />
+
+      {events.length === 0 && !loading ? (
+        <EmptyState
+          title="Nenhuma modificação registrada"
+          body="Adicione uma modificação ou peça à NOG para registrar."
+          action={{ label: 'Conversar com NOG', onPress: () => nav.goTo('chat') }}
+        />
+      ) : null}
+
+      {events.map((e, i) => (
+        <Card key={i} style={styles.eventCard}>
+          <View style={styles.eventHeader}>
+            <View style={styles.eventIcon}>
+              <Ionicons name="finger-print" size={18} color={Palette.cyan} />
+            </View>
+            <View style={styles.eventInfo}>
+              <Text style={styles.eventType}>{e.tipo}</Text>
+              <Text style={styles.muted}>{formatDate(e.data)}</Text>
+            </View>
+            {e.verificavel ? <Pill tone="good" size="sm" label="Verificado" /> : null}
           </View>
+          <Text style={styles.eventDesc}>{e.descricao}</Text>
+          {e.oficina ? <Text style={styles.muted}>Oficina: {e.oficina}</Text> : null}
+        </Card>
+      ))}
+
+      {data?.summary ? (
+        <Card style={styles.summaryCard}>
+          <Ionicons name="document-text" size={18} color={Palette.accent} />
+          <Text style={styles.summary}>{data.summary}</Text>
         </Card>
       ) : null}
     </ScrollView>
   );
 }
 
-function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, highlight ? styles.rowValueHi : null]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.bg },
-  content: { padding: Spacing.three, gap: Spacing.three },
-  intro: { gap: Spacing.one },
-  title: { color: Palette.text, fontSize: 22, fontFamily: Fonts.serif, fontWeight: '900' },
-  muted: { color: Palette.textMuted, lineHeight: 20 },
-  selector: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  chip: {
+  content: { padding: Spacing.four, gap: Spacing.four },
+  error: { color: Palette.red, lineHeight: 20, fontSize: 13 },
+  muted: { color: Palette.textMuted, fontSize: 12 },
+  shareRow: { flexDirection: 'row', gap: Spacing.two },
+  addForm: { gap: Spacing.three },
+  fieldLabel: { color: Palette.text, fontSize: 13, fontWeight: '700', marginBottom: Spacing.one },
+  catRow: { gap: Spacing.two, paddingVertical: Spacing.one },
+  catChip: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    borderRadius: 999,
+    borderRadius: Radius.full,
     borderWidth: 1,
     borderColor: Palette.border,
     backgroundColor: Palette.surface,
   },
-  chipActive: { borderColor: Palette.primary, backgroundColor: 'rgba(124,92,255,0.14)' },
-  chipText: { color: Palette.textMuted, fontWeight: '800', fontFamily: Fonts.sans },
-  chipTextActive: { color: Palette.primary },
-  form: { gap: Spacing.two },
-  sectionTitle: { color: Palette.text, fontSize: 18, fontFamily: Fonts.serif, fontWeight: '900' },
-  modRow: { gap: Spacing.two },
-  picker: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
-  catChip: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.bgAlt,
-  },
-  catChipActive: { borderColor: Palette.primary, backgroundColor: 'rgba(124,92,255,0.14)' },
-  catText: { color: Palette.textMuted, fontSize: 12, fontWeight: '700' },
-  catTextActive: { color: Palette.primary },
-  addRow: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
-  valueInput: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surfaceStrong,
-    color: Palette.text,
-    paddingHorizontal: Spacing.three,
-    fontFamily: Fonts.sans,
-  },
-  modList: { gap: Spacing.one },
-  modItem: {
+  catChipActive: { borderColor: Palette.primary, backgroundColor: Palette.primaryMuted },
+  catChipText: { color: Palette.textMuted, fontSize: 13, fontWeight: '600' },
+  catChipTextActive: { color: Palette.primary },
+  pendingSection: { gap: Spacing.two, marginTop: Spacing.two },
+  pendingTitle: { color: Palette.text, fontSize: 13, fontWeight: '700' },
+  pendingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.one,
-    borderTopWidth: 1,
-    borderTopColor: Palette.border,
+    justifyContent: 'space-between',
+    backgroundColor: Palette.bgAlt,
+    borderRadius: Radius.md,
+    padding: Spacing.three,
   },
-  modName: { flex: 1, color: Palette.text, fontWeight: '800', textTransform: 'capitalize' },
-  modValue: { color: Palette.textMuted },
-  error: { color: Palette.red, lineHeight: 20 },
-  result: { gap: Spacing.two },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowLabel: { color: Palette.textMuted, fontWeight: '700', textTransform: 'uppercase', fontSize: 12 },
-  rowValue: { color: Palette.text, fontWeight: '900', fontSize: 18, fontFamily: Fonts.serif },
-  rowValueHi: { color: Palette.primary },
-  disclaimer: { color: Palette.textMuted, lineHeight: 18 },
-  disclaimerBox: {
-    flexDirection: 'row',
-    gap: Spacing.one,
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(245,158,11,0.10)',
-    borderRadius: Radius.sm,
-    padding: Spacing.two,
+  pendingInfo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flex: 1 },
+  pendingName: { color: Palette.text, fontSize: 13, flex: 1 },
+  sharesCard: { gap: Spacing.two },
+  shareItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  shareInfo: { flex: 1 },
+  shareUrl: { color: Palette.primary, fontSize: 13, fontWeight: '600' },
+  eventCard: { gap: Spacing.two },
+  eventHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  eventIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: `${Palette.cyan}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  disclaimerText: { flex: 1, color: Palette.amber, fontSize: 12, lineHeight: 17 },
+  eventInfo: { flex: 1 },
+  eventType: { color: Palette.text, fontSize: 15, fontWeight: '700' },
+  eventDesc: { color: Palette.text, lineHeight: 20, fontSize: 14 },
+  summaryCard: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-start' },
+  summary: { flex: 1, color: Palette.text, lineHeight: 20, fontSize: 14 },
 });

@@ -321,6 +321,19 @@ TABLES_SQL = {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_b2b_leads_created (created_at DESC)
     )""",
+    "mod_passport_versions": """CREATE TABLE IF NOT EXISTS mod_passport_versions (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        veiculo_id INT NOT NULL,
+        user_id INT NOT NULL,
+        snapshot JSON NULL,
+        fipe_valor VARCHAR(50) NULL,
+        fipe_ajustada VARCHAR(50) NULL,
+        valor_estimado VARCHAR(50) NULL,
+        share_token VARCHAR(64) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_mpv_veiculo (veiculo_id),
+        INDEX idx_mpv_token (share_token)
+    )""",
     "events": """CREATE TABLE IF NOT EXISTS events (
         id VARCHAR(40) NOT NULL,
         title VARCHAR(200) NOT NULL,
@@ -336,7 +349,7 @@ TABLES_SQL = {
         venue_name VARCHAR(160),
         address VARCHAR(200),
         city VARCHAR(80),
-        state VARCHAR(2),
+        state VARCHAR(3),
         country VARCHAR(2) DEFAULT 'BR',
         latitude DECIMAL(10,8),
         longitude DECIMAL(11,8),
@@ -531,6 +544,10 @@ def init_db():
                 cursor.execute(f"ALTER TABLE api_clients ADD COLUMN {col} {dtype}")
             except Exception:
                 pass
+        try:
+            cursor.execute("ALTER TABLE events MODIFY COLUMN state VARCHAR(3)")
+        except Exception:
+            pass
         # Otimizações de Banco de Dados: Adicionando Índices para consultas frequentes
         indexes = [
             "CREATE INDEX idx_chats_user_created ON chats (user_id, created_at DESC)",

@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette } from '@/constants/theme';
 
 export type NogImage = { uri: string; base64: string };
 
@@ -20,19 +20,19 @@ export function AttachmentButton({ active, onPress }: AttachmentButtonProps) {
         active ? styles.buttonActive : null,
         pressed ? styles.pressed : null,
       ]}>
-      <Ionicons name={active ? 'close' : 'add'} size={24} color={active ? Palette.white : Palette.text} />
+      <Ionicons name={active ? 'close' : 'add'} size={22} color={active ? Palette.white : Palette.textMuted} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.surfaceStrong,
+    backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
   },
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     borderColor: Palette.primary,
   },
   pressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.96 }],
+    opacity: 0.8,
+    transform: [{ scale: 0.94 }],
   },
 });
