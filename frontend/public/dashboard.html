@@ -424,16 +424,6 @@
         .trust-banner i { font-size: 1.5rem; color: var(--accent); }
         .trust-banner strong { display: block; font-size: 0.98rem; }
         .trust-banner span { font-size: 0.85rem; color: var(--muted); }
-        .concierge-fab { position: fixed; right: 18px; bottom: 18px; z-index: 9000; display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.7rem 0.95rem; border-radius: 999px; border: none; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.85rem; box-shadow: 0 12px 30px rgba(59,130,246,0.35); cursor: pointer; }
-        .concierge-fab:hover { filter: brightness(1.08); }
-        .mechanics-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; max-height: 60vh; overflow-y: auto; }
-        .mech-item { border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.85rem; }
-        .mech-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
-        .mech-head strong { font-size: 0.95rem; }
-        .mech-dist { color: var(--accent); font-size: 0.8rem; white-space: nowrap; }
-        .mech-meta { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
-        .mech-esp { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
-        .mech-actions { margin-top: 6px; }
                 .nav-logo-icon { width:auto; height:auto; background:transparent; border-radius:0; display:flex; align-items:center; justify-content:center; }
         .nav-logo-text { font-size:20px; font-weight:700; letter-spacing:-0.5px; }
         .nav-toggle { display: none; }
@@ -1202,59 +1192,5 @@ ${pred.predicted_next_km ? `
     </script>
 
   <script src="static/js/analytics-consent.js"></script>
-
-    <!-- Concierge: busca de oficinas proximas -->
-    <button id="conciergeFab" class="concierge-fab" title="Buscar oficinas próximas"><i class="fas fa-map-marker-alt"></i> Oficinas</button>
-    <div class="modal-overlay" id="mechanicsModal">
-      <div class="modal-box" style="max-width:560px;">
-        <h3>Oficinas próximas</h3>
-        <p class="modal-sub" id="mechanicsSub">Usamos sua localização para buscar oficinas perto de você.</p>
-        <div id="mechanicsList" class="mechanics-list"></div>
-        <div class="mod-modal-actions">
-          <button class="btn-action" id="mechanicsClose" style="background:rgba(255,255,255,0.08);">Fechar</button>
-        </div>
-      </div>
-    </div>
-    <script>
-      (function () {
-        function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-        function openMechanics() {
-          var modal = document.getElementById('mechanicsModal');
-          var list = document.getElementById('mechanicsList');
-          var sub = document.getElementById('mechanicsSub');
-          list.innerHTML = 'Obtendo localização...';
-          modal.classList.add('open');
-          if (!navigator.geolocation) { sub.textContent = 'Geolocalização não suportada neste navegador.'; list.innerHTML=''; return; }
-          navigator.geolocation.getCurrentPosition(function (pos) {
-            var lat = pos.coords.latitude, lng = pos.coords.longitude;
-            sub.textContent = 'Buscando oficinas próximas...';
-            fetch('/api/mechanics/search?lat=' + lat + '&lng=' + lng + '&limit=15')
-              .then(function(r){ return r.json(); })
-              .then(function(data){
-                if (!data.mechanics || !data.mechanics.length) { list.innerHTML = '<p class="modp-aviso">Nenhuma oficina encontrada por perto.</p>'; return; }
-                list.innerHTML = data.mechanics.map(function(m){
-                  var dist = m.distance_km != null ? m.distance_km + ' km' : '';
-                  var tel = m.telefone ? '<a href="tel:' + esc(m.telefone) + '" class="btn-action" style="font-size:.75rem;">Ligar</a>' : '';
-                  var esp = (m.especialidades && m.especialidades.length) ? m.especialidades.slice(0,3).join(', ') : '';
-                  return '<div class="mech-item"><div class="mech-head"><strong>' + esc(m.nome||'Oficina') + '</strong><span class="mech-dist">' + esc(dist) + '</span></div>'
-                    + '<div class="mech-meta">' + esc([m.cidade,m.estado].filter(Boolean).join(' - ')) + '</div>'
-                    + (esp ? '<div class="mech-esp">' + esc(esp) + '</div>' : '')
-                    + (tel ? '<div class="mech-actions">' + tel + '</div>' : '') + '</div>';
-                }).join('');
-              })
-              .catch(function(){ list.innerHTML = '<p class="modp-aviso">Erro ao buscar oficinas.</p>'; });
-          }, function () {
-            sub.textContent = 'Permita a localização para buscar oficinas próximas.';
-            list.innerHTML = '';
-          }, { enableHighAccuracy: false, timeout: 8000 });
-        }
-        var fab = document.getElementById('conciergeFab');
-        if (fab) fab.addEventListener('click', openMechanics);
-        var closeBtn = document.getElementById('mechanicsClose');
-        if (closeBtn) closeBtn.addEventListener('click', function(){ document.getElementById('mechanicsModal').classList.remove('open'); });
-        var mmodal = document.getElementById('mechanicsModal');
-        if (mmodal) mmodal.addEventListener('click', function(e){ if (e.target.id === 'mechanicsModal') mmodal.classList.remove('open'); });
-      })();
-    </script>
 </body>
 </html>
