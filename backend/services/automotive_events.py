@@ -1,5 +1,5 @@
 # backend/services/automotive_events.py
-"""Varredura de eventos automotivos.
+"""Varredura de eventos automotivos no Brasil.
 
 Fontes por web scraping:
   - nfeiras.com (calendário de feiras de automobilismo no Brasil)
@@ -13,6 +13,9 @@ Fontes por web scraping:
 
 Se uma fonte falhar, o erro é registrado e não quebra as demais.
 Resultados são normalizados num schema comum e cacheados (padrão 6h).
+
+Apenas eventos com country=BR (Brasil) são retornados — eventos
+internacionais são descartados na varredura.
 """
 import re
 import os
@@ -120,29 +123,29 @@ def _web_queries(location="São Paulo"):
         ]
 
     broad = [
-        "eventos automotivos",
-        "evento de carros",
-        "feira de carros",
-        "encontro de carros",
-        "exposição de carros",
-        "feira auto peças",
-        "salão do automóvel",
-        "hot wheels evento",
-        "hot wheels encontro",
-        "leilão de carros",
-        "encontro de motos",
-        "rally de carros",
-        "expo automotiva",
-        "feirinha de carros",
+        "eventos automotivos Brasil",
+        "evento de carros Brasil",
+        "feira de carros Brasil",
+        "encontro de carros Brasil",
+        "exposição de carros Brasil",
+        "feira auto peças Brasil",
+        "salão do automóvel Brasil",
+        "hot wheels evento Brasil",
+        "hot wheels encontro Brasil",
+        "leilão de carros Brasil",
+        "encontro de motos Brasil",
+        "rally de carros Brasil",
+        "expo automotiva Brasil",
+        "feirinha de carros Brasil",
     ]
 
     local = [
-        f"eventos de carros em {location}",
-        f"feira de carros em {location}",
-        f"encontro de carros em {location}",
-        f"evento automotivo {location}",
-        f"hot wheels {location}",
-        f"encontro de carros antigos {location}",
+        f"eventos de carros em {location} Brasil",
+        f"feira de carros em {location} Brasil",
+        f"encontro de carros em {location} Brasil",
+        f"evento automotivo {location} Brasil",
+        f"hot wheels {location} Brasil",
+        f"encontro de carros antigos {location} Brasil",
     ]
 
     # anexa o ano a cada query ampla/local para restringir a eventos atuais
@@ -1234,6 +1237,11 @@ def persist_events(events):
     if not events:
         return 0, 0
     from routes.database import get_db
+    # nunca persiste eventos internacionais
+    events = [e for e in events if (e.get("country") or "BR").upper() == "BR"
+              and (e.get("uf") or "").upper() != "INT"]
+    if not events:
+        return 0, 0
     rows = [_event_db_row(ev) for ev in events]
     ids = [r["id"] for r in rows]
     inserted = updated = 0
@@ -1314,6 +1322,10 @@ def scan_automotive_events(force=False):
                     continue
                 all_events.append(ev)
 
+    # remove eventos internacionais — o AutoAssist cobre apenas o Brasil
+    all_events = [e for e in all_events if (e.get("country") or "BR").upper() == "BR"
+                  and (e.get("uf") or "").upper() != "INT"]
+
     # deduplicação por score (fontes indexam o mesmo evento com URLs diferentes)
     deduped = _dedupe_events(all_events)
 
@@ -1349,7 +1361,7 @@ def filter_events(events, uf=None, q=None, categoria=None, periodo=None,
                   lat=None, lng=None, radius_km=None):
     """Aplica os filtros da busca de eventos (usado pela rota /api/events/automotive).
 
-    - uf       : UF (BR, maiúscula) ou "INT" para internacionais
+    - uf       : UF (BR, maiúscula)
     - q        : termo livre no título/descrição/cidade/local
     - categoria: feira | encontro | competicao | exposicao | congresso | outros
     - periodo  : "30" | "90" | "ano" | "todos" (padrão: "todos" → futuros já
@@ -1358,6 +1370,10 @@ def filter_events(events, uf=None, q=None, categoria=None, periodo=None,
     Resultado é ordenado por data e cortado no limite global.
     """
     result = list(events)
+
+    # remove eventos internacionais (camada de segurança adicional)
+    result = [e for e in result if (e.get("country") or "BR").upper() == "BR"
+              and (e.get("uf") or "").upper() != "INT"]
 
     if uf:
         result = [e for e in result if (e.get("uf") or "").upper() == uf.upper()]

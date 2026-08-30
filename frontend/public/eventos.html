@@ -396,10 +396,10 @@
           const foundUfs = [...new Set(base.map((e) => String(e.uf).toUpperCase()))].sort();
           const options = foundUfs.length > 0
             ? foundUfs
-            : BR_UFS.concat(['INT']);
+            : BR_UFS;
           api.setOptions(
             [{ value: '', label: 'Todos os locais' }]
-              .concat(options.map((u) => ({ value: u, label: u === 'INT' ? 'Fora do Brasil' : u })))
+              .concat(options.map((u) => ({ value: u, label: u })))
           );
           api.onChange(() => renderEvents());
           el._appSelect = api;
@@ -439,7 +439,7 @@
 
         function renderEventCard(event) {
           const dateInfo = formatEventDate(event);
-          const where = [event.cidade, event.uf && event.uf !== 'INT' ? `- ${event.uf}` : ''].join(' ').trim();
+          const where = [event.cidade, event.uf ? `- ${event.uf}` : ''].join(' ').trim();
           const status = (event.status || '').toLowerCase();
           const isPast = !!event.passado;
           let badgeClass, badgeText;
