@@ -4,7 +4,28 @@ import logging
 from pathlib import Path
 from datetime import timedelta
 
-print("Iniciando carregamento do Flask...")
+# ── Logging: configura ANTES de qualquer import que possa sobrescrever ──
+LOG_FMT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+_RELOADER = os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+
+logging.basicConfig(level=logging.INFO, format=LOG_FMT, force=True)
+_root_logger = logging.getLogger()
+if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+           for h in _root_logger.handlers):
+    _root_logger.addHandler(logging.StreamHandler(sys.stdout))
+_root_logger.setLevel(logging.INFO)
+logging.getLogger("werkzeug").setLevel(logging.WARNING if _RELOADER else logging.INFO)
+logging.getLogger("gunicorn.access").setLevel(logging.WARNING)
+logging.getLogger("gunicorn.error").setLevel(logging.INFO)
+
+logger = logging.getLogger("app")
+
+def _startup_log(msg):
+    """Log de startup uniforme (evita duplicidade do reloader Flask)."""
+    if not _RELOADER:
+        logger.info(msg)
+
+_startup_log("Iniciando carregamento do Flask...")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -34,13 +55,13 @@ load_dotenv(env_path)
 from extensions import limiter
 
 app = Flask(__name__, static_folder="../frontend/public", static_url_path="")
-print("Flask instanciado.")
+_startup_log("Flask instanciado.")
 Compress(app)
 from websocket_handler import sock as ws_sock, ws_bp
 app.register_blueprint(ws_bp)
 ws_sock.init_app(app)
 limiter.init_app(app)
-print("Extensoes inicializadas.")
+_startup_log("Extensoes inicializadas.")
 app.json.sort_keys = False
 app.json.compact = True
 
@@ -48,16 +69,7 @@ app.register_blueprint(training_bp, url_prefix="/api")
 
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
-
-# [LOG] Silencia o log de acesso de requisições ("GET /api/... HTTP/1.1" 200 -)
-# do servidor de desenvolvimento (Werkzeug) e do gunicorn em produção.
-# Mantém warnings/erros e os logs próprios da aplicação (logger acima).
-logging.getLogger('werkzeug').setLevel(logging.WARNING)
-logging.getLogger('gunicorn.access').setLevel(logging.WARNING)
-
-print("Importando rotas...")
+_startup_log("Importando rotas...")
 from routes import auth_bp, analytics_bp, pages_bp, payment_bp, feedback_bp, notes_bp, gateway_bp, init_db, config_bp
 from routes.mechanics import mechanics_bp
 from routes.events import events_bp
@@ -66,7 +78,7 @@ from routes.push import push_bp
 from routes.b2b import b2b_bp
 from routes.marketing import marketing_bp
 from routes.payment import cakto_webhook as cakto_webhook_handler
-print("Rotas importadas.")
+_startup_log("Rotas importadas.")
 
 def get_dashboard_url() -> str:
     """Retorna a URL base da UI HTML.
@@ -340,15 +352,15 @@ def _env_flag(name: str, default: bool = False) -> bool:
 def init_db_command():
     """Inicializa/atualiza o schema do banco fora do ciclo de request."""
     init_db()
-    print("Banco de dados inicializado.")
+    _startup_log("Banco de dados inicializado.")
 
 
 if _env_flag("AUTO_INIT_DB", default=not is_production):
     try:
-        print("Iniciando init_db()...")
+        _startup_log("Iniciando init_db()...")
         init_db()
-        print("init_db() concluido.")
-        logger.info("Banco de dados inicializado no startup.")
+        _startup_log("init_db() concluido.")
+        _startup_log("Banco de dados inicializado no startup.")
     except Exception as e:
         logger.error("Falha ao inicializar banco no startup: %s", e, exc_info=True)
         if is_production:
@@ -780,7 +792,13 @@ def cors_preflight(_):
     return response
 
 if __name__ == "__main__":
-    host = "0.0.0.0"
-    port = 5001
-    print(f" * Servidor rodando em http://localhost:{port}")
-    app.run(host=host, port=port)
+    # reforça logging ao rodar direto (python app.py)
+    logging.basicConfig(level=logging.INFO, format=LOG_FMT, force=True)
+    if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+               for h in logging.getLogger().handlers):
+        logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger("werkzeug").setLevel(logging.INFO)
+
+    _startup_log("Servidor rodando em http://localhost:5001")
+    app.run(host="0.0.0.0", port=5001, debug=True)

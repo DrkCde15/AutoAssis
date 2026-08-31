@@ -1,12 +1,9 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'expo-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Linking,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,9 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppButton, Card, EmptyState } from '@/components/primitives';
-import { NogInputBar, type NogImage } from '@/components/nog/NogInputBar';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { EmptyState } from '@/components/primitives';
+import { NogInputBar } from '@/components/nog/NogInputBar';
+import { Fonts, MaxContentWidth, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { stripMarkdown } from '@/lib/format';
 import { generateReportPdf } from '@/lib/report';
 import type { ChatRecord, Conversation, LinkItem, VideoItem, Vehicle } from '@/lib/types';
@@ -99,7 +96,8 @@ export function ChatScreen({ nav }: { nav: Nav }) {
     setCurrentTitle('Nova conversa');
     setHistory([]);
     setModalVisible(false);
-  }, []);
+    void loadConversations('');
+  }, [loadConversations]);
 
   function openModal() {
     setSearch('');
@@ -215,6 +213,7 @@ export function ChatScreen({ nav }: { nav: Nav }) {
       );
       setHistory((items) => [...items.slice(0, -1), response.chat]);
       setPickedImage(null);
+      void loadConversations('');
     } catch (sendError) {
       setHistory((items) => items.slice(0, -1));
       setError(sendError instanceof Error ? sendError.message : 'Não foi possível enviar a consulta.');
@@ -243,6 +242,7 @@ export function ChatScreen({ nav }: { nav: Nav }) {
         body: form,
       });
       setHistory((items) => [...items.slice(0, -1), response.chat]);
+      void loadConversations('');
     } catch (voiceError) {
       setHistory((items) => items.slice(0, -1));
       setError(voiceError instanceof Error ? voiceError.message : 'Não foi possível enviar o áudio.');
@@ -285,8 +285,10 @@ export function ChatScreen({ nav }: { nav: Nav }) {
         <Pressable onPress={() => nav.openDrawer()} style={styles.headerBtn} hitSlop={10}>
           <Ionicons name="menu" size={20} color={Palette.textMuted} />
         </Pressable>
-        <Pressable onPress={openModal} style={styles.headerCenter} hitSlop={10}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{currentTitle}</Text>
+        <View style={styles.headerCenter}>
+          <Pressable onPress={openModal} hitSlop={4}>
+            <Text style={styles.headerTitle} numberOfLines={1}>{currentTitle} ▾</Text>
+          </Pressable>
           {vehicles.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleChips}>
               <Pressable
@@ -306,7 +308,7 @@ export function ChatScreen({ nav }: { nav: Nav }) {
               ))}
             </ScrollView>
           ) : null}
-        </Pressable>
+        </View>
         <Pressable onPress={startNewConversation} style={styles.headerBtn} hitSlop={10}>
           <Ionicons name="add" size={24} color={Palette.primary} />
         </Pressable>
@@ -330,7 +332,7 @@ export function ChatScreen({ nav }: { nav: Nav }) {
               <Pressable onPress={() => send('Preciso de ajuda com uma manutenção')} style={styles.suggestion}>
                 <Text style={styles.suggestionText}>Manutenção</Text>
               </Pressable>
-              <Pressable onPress={() => _nav.goTo('raiox')} style={styles.suggestion}>
+              <Pressable onPress={() => nav.goTo('raiox')} style={styles.suggestion}>
                 <Text style={styles.suggestionText}>Raio-X</Text>
               </Pressable>
               <Pressable onPress={() => send('Me dê dicas de economia de combustível')} style={styles.suggestion}>
@@ -465,14 +467,17 @@ const styles = StyleSheet.create({
     height: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Palette.border,
-    backgroundColor: Palette.bg,
+    backgroundColor: 'rgba(9, 9, 11, 0.88)',
   },
   headerBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Palette.border,
+    backgroundColor: Palette.surface,
   },
   headerCenter: {
     flex: 1,
@@ -480,21 +485,25 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: Palette.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     fontFamily: Fonts.sans,
+    letterSpacing: -0.2,
   },
   vehicleChips: {
     gap: Spacing.one,
   },
   vehicleChip: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 2,
+    paddingHorizontal: Spacing.two + 2,
+    paddingVertical: 3,
     borderRadius: Radius.full,
-    backgroundColor: Palette.surface,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   vehicleChipActive: {
     backgroundColor: Palette.primaryMuted,
+    borderColor: 'rgba(59,130,246,0.24)',
   },
   vehicleChipText: {
     color: Palette.textMuted,
@@ -506,44 +515,52 @@ const styles = StyleSheet.create({
   },
   messages: {
     padding: Spacing.four,
+    paddingBottom: Spacing.two,
     gap: Spacing.four,
     flexGrow: 1,
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    width: '100%',
   },
   emptyChat: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.three,
-    paddingTop: Spacing.ten,
+    paddingTop: Spacing.eight,
   },
   welcomeMark: {
-    width: 64,
-    height: 64,
-    borderRadius: Radius.xl,
+    width: 72,
+    height: 72,
+    borderRadius: 999,
     backgroundColor: Palette.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(124,92,255,0.3)',
+    borderColor: 'rgba(59,130,246,0.2)',
+    ...Shadow.primary,
   },
   welcomeMarkText: {
     color: Palette.primary,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     fontFamily: Fonts.sans,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   welcomeTitle: {
     color: Palette.text,
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     fontFamily: Fonts.serif,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    lineHeight: 32,
+    textAlign: 'center',
   },
   welcomeSub: {
     color: Palette.textMuted,
     fontSize: 15,
     fontFamily: Fonts.sans,
+    textAlign: 'center',
   },
   suggestions: {
     flexDirection: 'row',
@@ -553,10 +570,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   suggestion: {
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.three + 2,
     paddingVertical: Spacing.two,
     borderRadius: Radius.full,
-    backgroundColor: Palette.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: Palette.border,
   },
@@ -573,25 +590,27 @@ const styles = StyleSheet.create({
   chatBlock: { gap: Spacing.three },
   userBubble: {
     alignSelf: 'flex-end',
-    maxWidth: '82%',
+    maxWidth: '80%',
     backgroundColor: Palette.primary,
-    borderTopRightRadius: Radius.sm,
+    borderBottomRightRadius: 6,
     borderRadius: Radius.lg,
-    padding: Spacing.three,
+    padding: Spacing.three + 2,
     gap: Spacing.one,
+    ...Shadow.primary,
   },
-  userText: { color: Palette.white, lineHeight: 21, fontSize: 15 },
-  userTime: { color: 'rgba(255,255,255,0.6)', fontSize: 10, alignSelf: 'flex-end' },
+  userText: { color: Palette.white, lineHeight: 22, fontSize: 15, fontWeight: '500' },
+  userTime: { color: 'rgba(255,255,255,0.55)', fontSize: 10, alignSelf: 'flex-end', fontWeight: '600' },
   botBubble: {
     alignSelf: 'flex-start',
     maxWidth: '88%',
     backgroundColor: Palette.surface,
-    borderTopLeftRadius: Radius.sm,
+    borderBottomLeftRadius: 6,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Palette.border,
-    padding: Spacing.three,
+    padding: Spacing.three + 2,
     gap: Spacing.two,
+    ...Shadow.sm,
   },
   botText: { color: Palette.text, lineHeight: 22, fontSize: 15 },
   attachments: { gap: Spacing.one },
@@ -605,14 +624,14 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
     backgroundColor: Palette.bgAlt,
   },
-  attachmentText: { color: Palette.blue, fontWeight: '600', fontSize: 13, flex: 1 },
+  attachmentText: { color: Palette.primary, fontWeight: '600', fontSize: 13, flex: 1 },
   error: { color: Palette.red, paddingHorizontal: Spacing.four, paddingBottom: Spacing.one, fontSize: 13 },
 
   /* Modal */
   modalBackdrop: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(9, 9, 11, 0.7)',
     justifyContent: 'flex-end',
   },
   modalBackdropPress: { position: 'absolute', inset: 0 },
@@ -623,6 +642,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.xl,
     padding: Spacing.four,
     gap: Spacing.three,
+    borderWidth: 1,
+    borderColor: Palette.border,
   },
   modalHandle: {
     width: 36,

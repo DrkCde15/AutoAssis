@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Pill } from '@/components/primitives';
-import { Palette, Spacing, Fonts } from '@/constants/theme';
+import { Fonts, Palette, Spacing } from '@/constants/theme';
 import { ApiError } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import type { LinkItem, VideoItem } from '@/lib/types';

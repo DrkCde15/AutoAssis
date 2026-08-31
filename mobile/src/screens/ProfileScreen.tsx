@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton, Card, Field, Pill, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Shadow, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { Nav } from '@/screens/AppShell';
 
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   email: { color: Palette.textMuted, fontSize: 13 },
   form: { gap: Spacing.three },
   message: { color: Palette.primary, fontSize: 13, fontWeight: '600' },
-  menuCard: { gap: Spacing.zero },
+  menuCard: { gap: 0, ...Shadow.sm },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',

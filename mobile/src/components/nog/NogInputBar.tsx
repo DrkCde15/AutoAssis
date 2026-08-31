@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import { Audio } from 'expo-av';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Radius, Spacing } from '@/constants/theme';
 import { AttachmentButton, type NogImage } from './AttachmentButton';
-export type { NogImage } from './AttachmentButton';
 import { AttachmentMenu } from './AttachmentMenu';
 import { MessageTextInput } from './MessageTextInput';
 import { SendButton } from './SendButton';
 import { VoiceButton } from './VoiceButton';
 import { VoiceRecorder } from './VoiceRecorder';
+
+export type { NogImage } from './AttachmentButton';
 
 const WAVE_COUNT = 28;
 
@@ -172,9 +173,10 @@ const styles = StyleSheet.create({
   root: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    backgroundColor: Palette.bg,
+    paddingBottom: Spacing.two,
+    backgroundColor: 'rgba(9, 9, 11, 0.88)',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Palette.border,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   bar: {
     flexDirection: 'row',
@@ -183,12 +185,12 @@ const styles = StyleSheet.create({
   },
   field: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: Spacing.one,
     paddingHorizontal: Spacing.three,
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
@@ -217,8 +219,8 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.red,
   },
   roundButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',

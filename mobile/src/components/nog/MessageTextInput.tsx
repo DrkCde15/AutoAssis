@@ -1,6 +1,6 @@
 import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette } from '@/constants/theme';
 
 type MessageTextInputProps = TextInputProps & {
   value: string;

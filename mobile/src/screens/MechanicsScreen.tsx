@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
 import { AppButton, Card, EmptyState, Pill, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Shadow, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
 
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   error: { color: Palette.red, lineHeight: 20, fontSize: 13 },
   promptCard: { gap: Spacing.three, alignItems: 'center' },
   promptText: { color: Palette.text, fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  card: { gap: Spacing.three },
+  card: { gap: Spacing.three, ...Shadow.sm },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   iconCircle: {
     width: 44,

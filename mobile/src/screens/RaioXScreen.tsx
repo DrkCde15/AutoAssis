@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton, Card, EmptyState, Pill, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { stripMarkdown } from '@/lib/format';
 import type { Nav } from '@/screens/AppShell';
 import { useAuth } from '@/context/auth';
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.four },
   picker: { gap: Spacing.two },
-  previewCard: { gap: Spacing.three },
+  previewCard: { gap: Spacing.three, ...Shadow.sm },
   preview: { width: '100%', height: 200, borderRadius: Radius.lg },
   previewActions: { flexDirection: 'row', gap: Spacing.two },
   analyzing: { gap: Spacing.three, alignItems: 'center' },
@@ -246,6 +246,7 @@ const styles = StyleSheet.create({
     borderColor: Palette.border,
     borderRadius: Radius.lg,
     padding: Spacing.three,
+    ...Shadow.sm,
   },
   historyThumb: { width: 52, height: 52, borderRadius: Radius.md },
   historyText: { flex: 1, gap: Spacing.one },

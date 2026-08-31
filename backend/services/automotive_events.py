@@ -1,5 +1,5 @@
 # backend/services/automotive_events.py
-"""Varredura de eventos automotivos.
+"""Varredura de eventos automotivos no Brasil.
 
 Fontes por web scraping:
   - nfeiras.com (calendário de feiras de automobilismo no Brasil)
@@ -13,6 +13,9 @@ Fontes por web scraping:
 
 Se uma fonte falhar, o erro é registrado e não quebra as demais.
 Resultados são normalizados num schema comum e cacheados (padrão 6h).
+
+Apenas eventos com country=BR (Brasil) são retornados — eventos
+internacionais são descartados na varredura.
 """
 import re
 import os
@@ -120,29 +123,29 @@ def _web_queries(location="São Paulo"):
         ]
 
     broad = [
-        "eventos automotivos",
-        "evento de carros",
-        "feira de carros",
-        "encontro de carros",
-        "exposição de carros",
-        "feira auto peças",
-        "salão do automóvel",
-        "hot wheels evento",
-        "hot wheels encontro",
-        "leilão de carros",
-        "encontro de motos",
-        "rally de carros",
-        "expo automotiva",
-        "feirinha de carros",
+        "eventos automotivos Brasil",
+        "evento de carros Brasil",
+        "feira de carros Brasil",
+        "encontro de carros Brasil",
+        "exposição de carros Brasil",
+        "feira auto peças Brasil",
+        "salão do automóvel Brasil",
+        "hot wheels evento Brasil",
+        "hot wheels encontro Brasil",
+        "leilão de carros Brasil",
+        "encontro de motos Brasil",
+        "rally de carros Brasil",
+        "expo automotiva Brasil",
+        "feirinha de carros Brasil",
     ]
 
     local = [
-        f"eventos de carros em {location}",
-        f"feira de carros em {location}",
-        f"encontro de carros em {location}",
-        f"evento automotivo {location}",
-        f"hot wheels {location}",
-        f"encontro de carros antigos {location}",
+        f"eventos de carros em {location} Brasil",
+        f"feira de carros em {location} Brasil",
+        f"encontro de carros em {location} Brasil",
+        f"evento automotivo {location} Brasil",
+        f"hot wheels {location} Brasil",
+        f"encontro de carros antigos {location} Brasil",
     ]
 
     # anexa o ano a cada query ampla/local para restringir a eventos atuais
@@ -798,7 +801,7 @@ def _scrape_bing_events():
             soup = BeautifulSoup(html, "html.parser")
             return _extract_event_blocks(soup)
         except Exception as e:
-            logger.debug("Busca web falhou (%s): %s", query, e)
+            logger.warning("Busca web falhou (%s): %s", query, e)
             return []
 
     events = []
@@ -901,7 +904,7 @@ def _scrape_brave_events(api_key: str):
                     continue
             return results
         except Exception as e:
-            logger.debug("Brave falhou (%s): %s", query, e)
+            logger.warning("Brave falhou (%s): %s", query, e)
             return []
 
     events = []
@@ -929,7 +932,7 @@ def _scrape_web_playwright():
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
-        logger.debug("[Events] Playwright indisponível - busca web via browser pulada.")
+        logger.info("[Events] Playwright indisponível - busca web via browser pulada.")
         return []
 
     queries = _web_queries()
@@ -960,7 +963,7 @@ def _scrape_web_playwright():
                     html = page.content()
                     page.close()
                 except Exception as e:
-                    logger.debug("[Events] Playwright query falhou (%s): %s", q, e)
+                    logger.warning("[Events] Playwright query falhou (%s): %s", q, e)
                     continue
                 for item in _extract_event_blocks(BeautifulSoup(html, "html.parser")):
                     key = (item["titulo"].lower(), item["url"])
@@ -1001,94 +1004,177 @@ SERPAPI_EVENTS_URL = "https://serpapi.com/search"
 
 # Queries automotivas nacionais para a busca web estruturada da SerpApi.
 SERPAPI_EVENT_QUERIES = [
-    "eventos automotivos",
-    "encontro de carros",
-    "feira de autopeças",
-    "salão do automóvel",
-    "feira de carros",
-    "expo automotiva",
-    "leilão de carros",
-    "encontro de motos",
-    "rally de carros",
-    "encontro de carros antigos",
+    "eventos automotivos Brasil",
+    "encontro de carros Brasil",
+    "feira de autopeças Brasil",
+    "salão do automóvel Brasil",
+    "feira de carros Brasil",
+    "expo automotiva Brasil",
+    "leilão de carros Brasil",
+    "encontro de motos Brasil",
+    "rally de carros Brasil",
+    "encontro de carros antigos Brasil",
 ]
+
+# Paginação: quantas páginas de 10 resultados buscar por query.
+SERPAPI_MAX_PAGES = 3
+
+
+def _parse_google_events_date(date_obj):
+    """Converte o campo date do google_events em (data_inicio, data_fim).
+
+    O formato retornado pode ser:
+      {"start_date": "3 de jun.", "when": "ter, 3 de jun., 09:00–18:00 BRT"}
+      {"start_date": "Jun 3"}
+    Retorna (ISO start, ISO end) ou (None, None).
+    """
+    if not date_obj or not isinstance(date_obj, dict):
+        return None, None
+
+    start_str = (date_obj.get("start_date") or "").strip()
+    when_str = (date_obj.get("when") or "").strip()
+
+    start_date = None
+    end_date = None
+
+    # tenta parsear start_date via _parse_br_dates (funciona com "3 de jun." etc.)
+    if start_str:
+        s, _ = _parse_br_dates(start_str)
+        start_date = s
+
+    # tenta extrair end_date do "when" (ex.: "ter, 3 de jun., 09:00–18:00 BRT")
+    if when_str:
+        # procura por padrão de hora final (HH:MM) após um "–" ou "-"
+        m = re.search(r"(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})", when_str)
+        # se tem data de início mas não achou intervalo de datas no "when",
+        # tenta extrair end_date de "3 de jun. a 5 de jun." no when
+        if not start_date:
+            s2, e2 = _parse_br_dates(when_str)
+            if s2:
+                start_date = s2
+                end_date = e2
+        # se o "when" contém dois range de datas (ex.: "3 de jun. a 5 de jun.")
+        m_range = re.search(r"(\d{1,2}\s*(?:de\s+)?\w+(?:\.)?\s*a\s*\d{1,2}\s*(?:de\s+)?\w+(?:\.)?\s*(?:de\s+)?\d{4})", when_str)
+        if m_range:
+            s3, e3 = _parse_br_dates(m_range.group(1))
+            if s3:
+                start_date = s3
+                end_date = e3
+
+    return start_date, end_date
+
+
+def _parse_google_events_address(address_list):
+    """Extrai (cidade, uf, local_detalhe) de address = ['The Venue, 123 St', 'City, ST'].
+
+    O Google Events retorna address como lista de strings.
+    """
+    if not address_list or not isinstance(address_list, list):
+        return "", "", ""
+    # junta tudo em uma string e tenta extrair
+    full = ", ".join(str(a) for a in address_list if a)
+    return _extract_city_uf(full)
 
 
 def _scrape_serpapi_events():
-    """Busca eventos via SerpApi (engine=google, resultados orgânicos).
+    """Busca eventos via SerpApi (engine=google_events).
 
-    Fonte de busca web estruturada e confiável: a SerpApi devolve JSON estável
-    (título, link, snippet) funciona de qualquer IP - inclusive datacenter, ao
-    contrário do scraping de SERPs (Bing/Google) que costuma ser bloqueado em
-    produção. Substitui/reforça o canal "web" com dados mais limpos. Requer
-    SERPAPI_KEY no ambiente; se ausente, a fonte é pulada silenciosamente.
-
-    Obs.: o engine dedicado `google_events` não está disponível no plano desta
-    chave, por isso usamos os resultados orgânicos do `engine=google`.
+    Engine dedicado do Google para eventos: retorna dados estruturados
+    (título, datas, venue, endereço, ingressos, imagem) em vez de snippets.
+    Filtra por Brasil via gl=br + queries localizadas. Requer SERPAPI_KEY.
     """
     api_key = os.getenv("SERPAPI_KEY")
     if not api_key:
-        logger.debug("[Events] SERPAPI_KEY ausente - fonte SerpApi pulada.")
+        logger.info("[Events] SERPAPI_KEY ausente - fonte SerpApi pulada.")
         return []
 
     def _search(query):
-        try:
-            resp = requests.get(
-                SERPAPI_EVENTS_URL,
-                params={
-                    "api_key": api_key,
-                    "engine": "google",
-                    "q": query,
-                    "hl": "pt-br",
-                    "gl": "br",
-                    "google_domain": "google.com.br",
-                },
-                headers=HEADERS,
-                timeout=REQUEST_TIMEOUT,
-            )
-            if resp.status_code != 200:
-                logger.warning("SerpApi status %s para '%s'", resp.status_code, query)
-                return []
-            data = resp.json() or {}
-        except Exception as e:
-            logger.debug("SerpApi falhou (%s): %s", query, e)
-            return []
-
-        results = []
-        for item in data.get("organic_results") or []:
+        all_results = []
+        for page in range(SERPAPI_MAX_PAGES):
             try:
-                url = (item.get("link") or "").strip()
-                if not url.startswith("http"):
+                resp = requests.get(
+                    SERPAPI_EVENTS_URL,
+                    params={
+                        "api_key": api_key,
+                        "engine": "google_events",
+                        "q": query,
+                        "hl": "pt-br",
+                        "gl": "br",
+                        "start": page * 10,
+                    },
+                    timeout=REQUEST_TIMEOUT,
+                )
+                if resp.status_code != 200:
+                    logger.warning("SerpApi status %s para '%s'", resp.status_code, query)
+                    return []
+                data = resp.json() or {}
+            except Exception as e:
+                logger.warning("SerpApi falhou (%s): %s", query, e)
+                return []
+
+            events_page = data.get("events_results") or []
+            if not events_page:
+                break
+
+            for item in events_page:
+                try:
+                    url = (item.get("link") or "").strip()
+                    if not url.startswith("http"):
+                        continue
+                    if _is_blocked_domain(url):
+                        continue
+
+                    titulo = _clean_text(item.get("title", ""))
+                    if not titulo or len(titulo) < 3:
+                        continue
+
+                    if not _is_automotive(titulo):
+                        continue
+
+                    # datas estruturadas do google_events
+                    inicio, fim = _parse_google_events_date(item.get("date"))
+
+                    # endereço estruturado
+                    cidade, uf, local = _parse_google_events_address(
+                        item.get("address")
+                    )
+
+                    # venue
+                    venue = item.get("venue") or {}
+                    venue_name = _clean_text(venue.get("name", ""))
+
+                    # descrição
+                    descricao = _clean_text(item.get("description", ""))
+
+                    # imagem
+                    image_url = (item.get("thumbnail") or item.get("image") or "").strip()
+
+                    # evento de verdade tem data; plataformas são isentas
+                    if not _is_event_domain(url) and inicio is None:
+                        continue
+
+                    all_results.append(_make_event(
+                        titulo=titulo,
+                        url=url,
+                        data_inicio=inicio,
+                        data_fim=fim,
+                        cidade=cidade,
+                        uf=uf,
+                        local=local or venue_name,
+                        descricao=descricao,
+                        venue_name=venue_name,
+                        image_url=image_url,
+                        fonte="serpapi",
+                        fonte_nome="SerpApi (Google Events)",
+                    ))
+                except Exception:
                     continue
-                if _is_blocked_domain(url):
-                    continue
-                titulo = _clean_text(item.get("title", ""))
-                if not titulo or len(titulo) < 3:
-                    continue
-                snippet = _clean_text(item.get("snippet", "") or item.get("rich_snippet", ""))
-                raw = f"{titulo} | {snippet}"
-                if not _is_automotive(raw):
-                    continue
-                cidade, uf, local = _extract_city_uf(snippet) if snippet else ("", "", "")
-                inicio = _parse_iso_date(item.get("date")) or _parse_br_dates(raw)[0]
-                # Evento de verdade tem data; plataformas de evento são isentas.
-                if not _is_event_domain(url) and inicio is None:
-                    continue
-                results.append(_make_event(
-                    titulo=titulo,
-                    url=url,
-                    data_inicio=inicio,
-                    data_fim=None,
-                    cidade=cidade,
-                    uf=uf,
-                    local=local,
-                    descricao=snippet,
-                    fonte="serpapi",
-                    fonte_nome="SerpApi (Google)",
-                ))
-            except Exception:
-                continue
-        return results
+
+            # se retornou menos de 10, não há mais páginas
+            if len(events_page) < 10:
+                break
+
+        return all_results
 
     events = []
     seen = set()
@@ -1175,7 +1261,7 @@ def _geocode_event(ev):
         if lat is not None and lng is not None:
             ev["latitude"], ev["longitude"] = lat, lng
     except Exception as exc:
-        logging.getLogger(__name__).debug("geocode falhou para %s: %s", city, exc)
+        logger.debug("geocode falhou para %s: %s", city, exc)
 
 
 _EVENT_COLUMNS = [
@@ -1213,7 +1299,7 @@ def _event_db_row(ev):
         "venue_name": ev.get("venue_name") or None,
         "address": ev.get("address") or None,
         "city": ev.get("cidade") or None,
-        "state": (ev.get("uf") or "")[:2] or None,
+        "state": ev.get("uf") or None,
         "country": ev.get("country") or "BR",
         "latitude": ev.get("latitude"),
         "longitude": ev.get("longitude"),
@@ -1234,6 +1320,11 @@ def persist_events(events):
     if not events:
         return 0, 0
     from routes.database import get_db
+    # nunca persiste eventos internacionais
+    events = [e for e in events if (e.get("country") or "BR").upper() == "BR"
+              and (e.get("uf") or "").upper() != "INT"]
+    if not events:
+        return 0, 0
     rows = [_event_db_row(ev) for ev in events]
     ids = [r["id"] for r in rows]
     inserted = updated = 0
@@ -1271,8 +1362,10 @@ def scan_automotive_events(force=False):
     if not force:
         cached = cache_get_json(cache_key)
         if cached is not None:
+            print("[Events] Cache hit — retornando eventos em cache", flush=True)
             return cached
 
+    print("[Events] Iniciando varredura de eventos automotivos...", flush=True)
     scanned_at = datetime.now(timezone.utc).isoformat()
     today = date.today().isoformat()
     sources_stats = []
@@ -1281,6 +1374,7 @@ def scan_automotive_events(force=False):
     def _run_one(slug, name, runner):
         start = datetime.now(timezone.utc)
         logger.info("[Events] Iniciando varredura da fonte %s (%s)", slug, name)
+        print(f"[Events] Iniciando varredura da fonte {slug} ({name})", flush=True)
         try:
             found = runner() or []
             elapsed = (datetime.now(timezone.utc) - start).total_seconds()
@@ -1288,10 +1382,12 @@ def scan_automotive_events(force=False):
                 "[Events] Fonte %s concluída: %d evento(s) em %.2fs",
                 slug, len(found), elapsed,
             )
+            print(f"[Events] Fonte {slug} concluída: {len(found)} evento(s) em {elapsed:.2f}s", flush=True)
             return (slug, name, True, None, found)
         except Exception as e:
             elapsed = (datetime.now(timezone.utc) - start).total_seconds()
             logger.warning("Varredura de eventos %s falhou após %.2fs: %s", slug, elapsed, e)
+            print(f"[Events] Varredura de eventos {slug} falhou após {elapsed:.2f}s: {e}", flush=True)
             return (slug, name, False, str(e)[:200], [])
 
     with ThreadPoolExecutor(max_workers=len(SOURCE_RUNNERS)) as pool:
@@ -1314,6 +1410,10 @@ def scan_automotive_events(force=False):
                     continue
                 all_events.append(ev)
 
+    # remove eventos internacionais — o AutoAssist cobre apenas o Brasil
+    all_events = [e for e in all_events if (e.get("country") or "BR").upper() == "BR"
+                  and (e.get("uf") or "").upper() != "INT"]
+
     # deduplicação por score (fontes indexam o mesmo evento com URLs diferentes)
     deduped = _dedupe_events(all_events)
 
@@ -1325,7 +1425,8 @@ def scan_automotive_events(force=False):
     try:
         persist_events(deduped)
     except Exception as exc:  # nunca quebra a varredura por falha de DB
-        logging.getLogger(__name__).warning("Falha ao persistir eventos: %s", exc)
+        logger.warning("Falha ao persistir eventos: %s", exc)
+        print(f"[Events] Falha ao persistir eventos: {exc}", flush=True)
 
     def _sort_key(ev):
         return (0, ev["data_inicio"] or "9999") if ev["data_inicio"] else (1, ev["titulo"].lower())
@@ -1342,6 +1443,7 @@ def scan_automotive_events(force=False):
         "cache_ttl_seconds": EVENTS_CACHE_TTL,
     }
     cache_set_json(cache_key, payload, ttl=EVENTS_CACHE_TTL)
+    print(f"[Events] Varredura concluída: {len(deduped[:MAX_EVENTS])} evento(s) final(is)", flush=True)
     return payload
 
 
@@ -1349,7 +1451,7 @@ def filter_events(events, uf=None, q=None, categoria=None, periodo=None,
                   lat=None, lng=None, radius_km=None):
     """Aplica os filtros da busca de eventos (usado pela rota /api/events/automotive).
 
-    - uf       : UF (BR, maiúscula) ou "INT" para internacionais
+    - uf       : UF (BR, maiúscula)
     - q        : termo livre no título/descrição/cidade/local
     - categoria: feira | encontro | competicao | exposicao | congresso | outros
     - periodo  : "30" | "90" | "ano" | "todos" (padrão: "todos" → futuros já
@@ -1358,6 +1460,10 @@ def filter_events(events, uf=None, q=None, categoria=None, periodo=None,
     Resultado é ordenado por data e cortado no limite global.
     """
     result = list(events)
+
+    # remove eventos internacionais (camada de segurança adicional)
+    result = [e for e in result if (e.get("country") or "BR").upper() == "BR"
+              and (e.get("uf") or "").upper() != "INT"]
 
     if uf:
         result = [e for e in result if (e.get("uf") or "").upper() == uf.upper()]

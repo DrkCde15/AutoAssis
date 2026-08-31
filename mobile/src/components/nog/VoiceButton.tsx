@@ -21,8 +21,8 @@ export function VoiceButton({ onPress, recording }: VoiceButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',

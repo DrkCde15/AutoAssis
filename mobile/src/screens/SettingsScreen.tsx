@@ -3,12 +3,12 @@ import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from '
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton, Card, Pill, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Shadow, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
 
 export function SettingsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
-  const { user, request, logout } = useAuth();
+  const { request, logout } = useAuth();
   const [biometric, setBiometric] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -109,7 +109,7 @@ export function SettingsScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.four },
-  card: { gap: Spacing.three },
+  card: { gap: Spacing.three, ...Shadow.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

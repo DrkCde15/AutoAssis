@@ -12,10 +12,10 @@ export const Palette = {
   text: '#FAFAFA',
   textMuted: '#A1A1AA',
   textSoft: '#71717A',
-  primary: '#7C5CFF',
-  primaryDark: '#5B3FE0',
-  primaryMuted: 'rgba(124,92,255,0.14)',
-  accent: '#A78BFA',
+  primary: '#3B82F6',
+  primaryDark: '#2563EB',
+  primaryMuted: 'rgba(59,130,246,0.12)',
+  accent: '#4F8CFF',
   blue: '#3B82F6',
   cyan: '#22D3EE',
   amber: '#F59E0B',
@@ -25,8 +25,8 @@ export const Palette = {
 } as const;
 
 export const Gradients = {
-  brand: ['#7C5CFF', '#3B82F6'] as [string, string],
-  brandSoft: ['rgba(124,92,255,0.18)', 'rgba(59,130,246,0.10)'] as [string, string],
+  brand: ['#3B82F6', '#2563EB'] as [string, string],
+  brandSoft: ['rgba(59,130,246,0.15)', 'rgba(37,99,235,0.08)'] as [string, string],
 };
 
 export const Colors = {

@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Palette } from '@/constants/theme';
+import { Palette, Shadow } from '@/constants/theme';
 
 type SendButtonProps = {
   onPress: () => void;
@@ -32,14 +32,15 @@ export function SendButton({ onPress, disabled, loading }: SendButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   enabled: {
     backgroundColor: Palette.primary,
+    ...Shadow.primary,
   },
   disabled: {
     backgroundColor: Palette.surface,

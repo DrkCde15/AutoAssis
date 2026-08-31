@@ -181,7 +181,7 @@ def automotive_events():
 
     Query params:
       - force=1       : ignora o cache e refaz a varredura
-      - uf=SP         : filtra por UF (BR) - "INT" para internacionais
+      - uf=SP         : filtra por UF (BR)
       - q=auto        : filtra por termo no título/descrição/cidade/local
       - categoria=    : feira | encontro | competicao | exposicao | congresso | outros
       - periodo=      : "30" | "90" | "ano" | "todos" - janela a partir de hoje
@@ -228,6 +228,8 @@ def get_event(event_id):
         data = scan_automotive_events(force=False)
         for ev in data.get('events', []):
             if ev.get('id') == event_id:
+                if (ev.get("country") or "BR").upper() != "BR" or (ev.get("uf") or "").upper() == "INT":
+                    return jsonify({"success": False, "error": "Evento não encontrado"}), 404
                 return jsonify({"success": True, "event": ev}), 200
 
         from routes.database import get_db
@@ -251,6 +253,8 @@ def get_event(event_id):
                 "image_url", "fonte", "source_url", "status", "confidence",
                 "last_verified_at"]
         ev = {k: v for k, v in zip(keys, row)}
+        if (ev.get("country") or "BR").upper() != "BR" or (ev.get("uf") or "").upper() == "INT":
+            return jsonify({"success": False, "error": "Evento não encontrado"}), 404
         return jsonify({"success": True, "event": ev}), 200
 
     except Exception as e:

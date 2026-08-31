@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton, Card, EmptyState, Pill, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { EmptyState, SectionTitle } from '@/components/primitives';
+import { Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { formatDate } from '@/lib/format';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
@@ -117,6 +117,7 @@ const styles = StyleSheet.create({
     borderColor: Palette.border,
     borderRadius: Radius.lg,
     padding: Spacing.four,
+    ...Shadow.sm,
   },
   cardUnread: { borderColor: `${Palette.primary}40`, backgroundColor: Palette.primaryMuted },
   iconWrap: {

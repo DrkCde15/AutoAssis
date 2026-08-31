@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { AppButton, Card, EmptyState, Field, Pill, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { ApiError } from '@/lib/api';
 import { formatCurrency, formatDate, formatKm } from '@/lib/format';
 import type { MaintenanceAlert, MaintenanceRecord, MaintenanceSummary } from '@/lib/types';
@@ -333,6 +333,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Palette.border,
     backgroundColor: Palette.surface,
+    ...Shadow.sm,
   },
   tabActive: { borderColor: Palette.primary, backgroundColor: Palette.primaryMuted },
   tabDanger: { borderColor: 'rgba(239,68,68,0.4)' },
@@ -342,7 +343,7 @@ const styles = StyleSheet.create({
     minWidth: 20,
     paddingHorizontal: 5,
     height: 20,
-    borderRadius: 10,
+    borderRadius: Radius.sm,
     backgroundColor: Palette.bgAlt,
     alignItems: 'center',
     justifyContent: 'center',

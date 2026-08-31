@@ -19,14 +19,14 @@ export function AuthScreen() {
     setError('');
     try {
       if (mode === 'login') {
-        await login(email.trim(), password);
+        await login({ email: email.trim(), password });
       } else {
         if (!nome.trim()) {
           setError('Informe seu nome.');
           setLoading(false);
           return;
         }
-        await register(nome.trim(), email.trim(), password);
+        await register({ nome: nome.trim(), email: email.trim(), password });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao autenticar.');

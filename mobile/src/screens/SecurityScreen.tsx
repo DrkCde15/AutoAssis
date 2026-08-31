@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { AppButton, Card, Field, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Spacing } from '@/constants/theme';
+import { Palette, Shadow, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
 
@@ -55,6 +55,6 @@ export function SecurityScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.four },
-  card: { gap: Spacing.three },
+  card: { gap: Spacing.three, ...Shadow.sm },
   message: { color: Palette.primary, fontSize: 13, fontWeight: '600' },
 });

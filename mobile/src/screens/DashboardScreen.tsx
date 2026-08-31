@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton, Card, EmptyState, Field, LoadingView, Pill, SectionTitle, Stat } from '@/components/primitives';
 import { VehiclePhoto } from '@/components/VehiclePhoto';
 import { HealthRing } from '@/components/HealthRing';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { formatDate, formatKm } from '@/lib/format';
 import type { MaintenanceAlert, Vehicle } from '@/lib/types';
 import { useAuth } from '@/context/auth';
@@ -290,12 +290,12 @@ export function DashboardScreen({ goTo }: { goTo: (tab: AppTab) => void }) {
 const styles = StyleSheet.create({
   container: { padding: Spacing.four, gap: Spacing.four },
   error: { color: Palette.red, lineHeight: 20, fontSize: 13 },
-  nextCard: { gap: Spacing.two },
+  nextCard: { gap: Spacing.two, ...Shadow.sm },
   nextHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   nextText: { flex: 1, gap: 2 },
   nextLabel: { color: Palette.text, fontWeight: '700', fontSize: 14 },
   muted: { color: Palette.textMuted, lineHeight: 18, fontSize: 13 },
-  vehicleCard: { gap: Spacing.three },
+  vehicleCard: { gap: Spacing.three, ...Shadow.sm },
   vehicleTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   vehicleInfo: { flex: 1, gap: Spacing.one },
   vehicleName: { color: Palette.text, fontSize: 17, fontWeight: '700' },

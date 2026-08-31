@@ -349,7 +349,7 @@ TABLES_SQL = {
         venue_name VARCHAR(160),
         address VARCHAR(200),
         city VARCHAR(80),
-        state VARCHAR(3),
+        state VARCHAR(2),
         country VARCHAR(2) DEFAULT 'BR',
         latitude DECIMAL(10,8),
         longitude DECIMAL(11,8),
@@ -400,7 +400,7 @@ def init_db():
 
         for table_name, ddl in TABLES_SQL.items():
             if table_name not in existing:
-                print(f"Criando tabela {table_name}...")
+                logging.getLogger("database").info("Criando tabela %s...", table_name)
                 cursor.execute(ddl)
                 existing.add(table_name)
 
@@ -440,10 +440,10 @@ def init_db():
         for col, dtype in columns:
             if col not in existing_columns:
                 try:
-                    print(f"Adicionando coluna faltante {col} em users...")
+                    logging.getLogger("database").info("Adicionando coluna faltante %s em users...", col)
                     cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {dtype}")
                 except Exception as e:
-                    print(f"Erro ao adicionar coluna {col}: {e}")
+                    logging.getLogger("database").warning("Erro ao adicionar coluna %s: %s", col, e)
         
         cursor.execute("SHOW COLUMNS FROM veiculos")
         existing_veiculos_columns = {row['Field'] for row in cursor.fetchall()}
@@ -473,12 +473,12 @@ def init_db():
                 AND id NOT IN (SELECT DISTINCT user_id FROM veiculos)
             """)
         except Exception as e:
-            print(f"Aviso migracao veiculos: {e}")
+            logging.getLogger("database").warning("Aviso migracao veiculos: %s", e)
 
         try:
             cursor.execute("ALTER TABLE users MODIFY COLUMN password VARCHAR(255) NULL")
         except Exception as e:
-            print(f"Erro ao modificar coluna password: {e}")
+            logging.getLogger("database").warning("Erro ao modificar coluna password: %s", e)
 
         try:
             cursor.execute("ALTER TABLE chats ADD COLUMN session_id VARCHAR(50)")
@@ -544,10 +544,6 @@ def init_db():
                 cursor.execute(f"ALTER TABLE api_clients ADD COLUMN {col} {dtype}")
             except Exception:
                 pass
-        try:
-            cursor.execute("ALTER TABLE events MODIFY COLUMN state VARCHAR(3)")
-        except Exception:
-            pass
         # Otimizações de Banco de Dados: Adicionando Índices para consultas frequentes
         indexes = [
             "CREATE INDEX idx_chats_user_created ON chats (user_id, created_at DESC)",
@@ -570,7 +566,8 @@ def init_db():
             except Exception:
                 pass # Ignora se o índice já existir
 
-        print("Banco de dados inicializado com sucesso!")
+        if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+            logging.getLogger("database").info("Banco de dados inicializado com sucesso!")
 
 
 # (enviar_email removido daqui e movido para utils.email)

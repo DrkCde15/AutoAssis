@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
 import { AppButton, Card, EmptyState, Field, Pill, SectionTitle } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { formatDate } from '@/lib/format';
 import { useAuth } from '@/context/auth';
 import type { Nav } from '@/screens/AppShell';
@@ -338,11 +338,11 @@ const styles = StyleSheet.create({
   },
   pendingInfo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flex: 1 },
   pendingName: { color: Palette.text, fontSize: 13, flex: 1 },
-  sharesCard: { gap: Spacing.two },
+  sharesCard: { gap: Spacing.two, ...Shadow.sm },
   shareItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   shareInfo: { flex: 1 },
   shareUrl: { color: Palette.primary, fontSize: 13, fontWeight: '600' },
-  eventCard: { gap: Spacing.two },
+  eventCard: { gap: Spacing.two, ...Shadow.sm },
   eventHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   eventIcon: {
     width: 36,
@@ -355,6 +355,6 @@ const styles = StyleSheet.create({
   eventInfo: { flex: 1 },
   eventType: { color: Palette.text, fontSize: 15, fontWeight: '700' },
   eventDesc: { color: Palette.text, lineHeight: 20, fontSize: 14 },
-  summaryCard: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-start' },
+  summaryCard: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-start', ...Shadow.sm },
   summary: { flex: 1, color: Palette.text, lineHeight: 20, fontSize: 14 },
 });

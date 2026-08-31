@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton, Card, EmptyState, Field, Pill, SectionTitle, Stat } from '@/components/primitives';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { AppButton, Card, EmptyState, Pill, SectionTitle, Stat } from '@/components/primitives';
+import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
 
@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     borderWidth: 1,
     borderColor: Palette.border,
+    ...Shadow.sm,
   },
   planCardActive: {
     borderColor: Palette.primary,
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
   features: { gap: Spacing.two },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   featureText: { color: Palette.text, fontSize: 14 },
-  usageCard: { gap: Spacing.three },
+  usageCard: { gap: Spacing.three, ...Shadow.sm },
   usageStats: { flexDirection: 'row', gap: Spacing.two },
   keyRow: {
     backgroundColor: Palette.bgAlt,

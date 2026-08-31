@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing, Fonts } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { AppTab } from '@/screens/AppShell';
 
@@ -61,8 +61,9 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     padding: Spacing.three,
+    ...Shadow.sm,
   },
   cardText: {
     flex: 1,
