@@ -1,0 +1,1 @@
+{ "@context": "https://schema.org", "@type": "Service", "name": "AutoAssist - Copiloto de carro com IA", "provider": { "@type": "Organization", "name": "AutoAssist IA" }, "areaServed": "BR", "description": "Assistente de IA para donos de carro: diagnostico de barulhos e luzes, consulta FIPE e alertas preventivos." }

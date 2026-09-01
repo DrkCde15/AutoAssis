@@ -148,22 +148,7 @@
     <script src="static/js/navbar.js"></script>
     <script src="static/js/notifications.js" defer></script>
     <script src="static/js/responsive.js" defer></script>
-    <script>
-        if (typeof Navbar !== 'undefined') { Navbar.init({ validate: true }); }
-        (function () {
-            var toggle = document.getElementById('navToggle');
-            var links = document.getElementById('authLinks');
-            if (toggle && links) {
-                toggle.addEventListener('click', function () {
-                    var open = links.classList.toggle('nav-open');
-                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-                });
-                links.addEventListener('click', function (e) {
-                    if (e.target.closest('a')) { links.classList.remove('nav-open'); toggle.setAttribute('aria-expanded', 'false'); }
-                });
-            }
-        })();
-    </script>
+    <script src="static/js/navbar-init.js"></script>
   <script src="static/js/analytics-consent.js"></script>
   </body>
 </html>

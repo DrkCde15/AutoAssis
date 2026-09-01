@@ -1,5 +1,6 @@
 import os
 import sys
+import secrets
 import logging
 from pathlib import Path
 from datetime import timedelta
@@ -32,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from routes.training import training_bp
 from dotenv import load_dotenv
 load_dotenv()
-from flask import Flask, jsonify, make_response, request, current_app
+from flask import Flask, jsonify, make_response, request, current_app, g
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
 from routes.database import get_db
@@ -126,14 +127,17 @@ def _env_ws_origin() -> str | None:
 
 csp = {
     'default-src': "'self'",
+    # script-src: todos os scripts inline dos HTML foram extraídos para arquivos
+    # externos (static/js/*.js). Nonce dinâmico é injetado para o Swagger UI.
     'script-src': [
         "'self'",
         "https://cdnjs.cloudflare.com",
         "https://cdn.jsdelivr.net",
         "https://unpkg.com",
         "https://challenges.cloudflare.com",
-        "'unsafe-inline'",
     ],
+    # style-src: mantém 'unsafe-inline' por praticidade — 193 atributos style=""
+    # e 35 blocos <style> nos HTML estáticos não são viáveis de extrair agora.
     'style-src': [
         "'self'",
         "https://cdnjs.cloudflare.com",
@@ -207,6 +211,8 @@ talisman = Talisman(app,
 
 @app.before_request
 def before_request():
+    # Gera nonce per-request para CSP (usado pelo Swagger UI)
+    g.csp_nonce = secrets.token_urlsafe(32)
     # Log todas as requisições para /api/dashboard
     if request.path == '/api/dashboard':
         logger.info(f">>> REQUEST: {request.method} {request.path}")
@@ -221,6 +227,14 @@ def after_request(response):
     # Log resposta para /api/dashboard
     if request.path == '/api/dashboard':
         logger.info(f"<<< RESPONSE: {response.status_code} | Content-Type: {response.headers.get('Content-Type')}")
+    # Injeta nonce no CSP script-src (Swagger UI usa <script nonce="...">)
+    csp = response.headers.get('Content-Security-Policy')
+    nonce = getattr(g, 'csp_nonce', None)
+    if csp and nonce:
+        # Adiciona nonce após 'self' no script-src
+        response.headers['Content-Security-Policy'] = csp.replace(
+            "script-src 'self'", f"script-src 'self' 'nonce-{nonce}'"
+        )
     # Remove a diretiva 'browsing-topics' (recurso nao reconhecido pelos navegadores)
     # do Permissions-Policy, que o Flask-Talisman adiciona por padrao e gera warning no console.
     pp = response.headers.get('Permissions-Policy')
@@ -648,7 +662,7 @@ def swagger_ui():
 <body>
     <div id="swagger-ui"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js"></script>
-    <script>
+    <script nonce="{g.csp_nonce}">
         SwaggerUIBundle({{
             url: '{request.host_url}api/docs',
             dom_id: '#swagger-ui',
