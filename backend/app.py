@@ -756,11 +756,12 @@ def handle_413(e):
     return jsonify(error="Arquivo muito grande. O limite e de 16MB."), 413
 
 
-# [404] Telas sensiveis (robots.txt / sitemap.xml) recebem a pagina 404
-# estilizada em vez do arquivo bruto. Rotas explicitas têm prioridade
-# sobre a rota estatica catch-all do Flask.
+# [404] Telas sensiveis (robots.txt / sitemap.xml / llms.txt) recebem a
+# pagina 404 estilizada em vez do arquivo bruto. Rotas explicitas têm
+# prioridade sobre a rota estatica catch-all do Flask.
 @app.route("/robots.txt")
 @app.route("/sitemap.xml")
+@app.route("/llms.txt")
 def sensitive_404():
     resp = current_app.send_static_file("404.html")
     resp.status_code = 404

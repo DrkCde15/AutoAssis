@@ -1,0 +1,56 @@
+# AutoAssist IA
+
+> Copiloto de IA para o mercado automotivo brasileiro. Diagnósticos por foto, avaliações FIPE, agenda de manutenção, eventos automotivos e consultoria especializada via chat com IA (NOG).
+
+Plataforma SaaS (freemium) que integra Processamento de Linguagem Natural e Visão Computacional para donos de veículos e profissionais automotivos. Backend Flask, frontend vanilla JS, cache Redis, banco MySQL.
+
+## Documentação
+
+Páginas legais, termos, políticas e documentação técnica da plataforma.
+
+- [Documentação da API B2B](https://autoassist.com.br/docs.html): API REST para diagnóstico por foto como serviço. Inclui autenticação via X-API-Key, endpoints (diagnóstico, uso, leads), exemplos em Python/JavaScript/cURL e collection Postman. Voltada para empresas que desejam integrar IA automotiva em seus sistemas.
+- [Perguntas Frequentes](https://autoassist.com.br/duvidas.html): Respostas para dúvidas comuns sobre cadastro, login, planos, funcionalidades do chat NOG, Mod Passport, eventos e uso geral da plataforma.
+- [Termos de Uso](https://autoassist.com.br/termos.html): Contrato de uso que define regras, responsabilidades, propriedade intelectual e condições de utilização do AutoAssist.
+- [Política de Privacidade](https://autoassist.com.br/privacidade.html): Explica quais dados são coletados (conta, veículos, uso), como são armazenados, compartilhados e protegidos, e quais direitos o titular possui.
+- [LGPD](https://autoassist.com.br/lgpd.html): Conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018). Direitos do titular, bases legais, contato do DPO e prazo de retenção.
+- [Política de Analytics](https://autoassist.com.br/analytics.html): Detalha os eventos de uso coletados (page_view, signup, nog_use, etc.), consentimento do usuário, atribuição first-touch e ausência de integração com GA4/Meta Pixel.
+
+## Produto
+
+Páginas principais da plataforma AutoAssist — onde o usuário interage com os recursos de IA, gestão de veículos e serviços automotivos.
+
+- [Página Inicial](https://autoassist.com.br/index.html): Landing page com visão geral do AutoAssist. Apresenta o copiloto NOG, funcionalidades (diagnóstico visual, FIPE, manutenção, eventos), depoimentos e chamada para ação (criar conta grátis ou testar o chat).
+- [Planos e Preços](https://autoassist.com.br/planos.html): Comparativo entre o plano gratuito (até 30 consultas/mês com NOG, 3 manutenções por veículo) e o Premium (R$ 19,90/mês — consultas ilimitadas, Mod Passport, eventos, notificações avançadas). Inclui programa de indicação (1 mês grátis por convite).
+- [API B2B](https://autoassist.com.br/b2b.html): Página de vendas da API B2B. Planos (Trial grátis, Pro 1k R$99/mês, Pro 5k R$399/mês, Pro 20k R$999/mês), cota de requisições, checkout via Cakto e documentação de integração.
+- [Eventos Automotivos](https://autoassist.com.br/eventos.html): Agenda de feiras, encontros, competições e exposições do setor automotivo brasileiro. Filtros por UF, categoria e período. Selo de status (Agendado/Acontecendo/Cancelado/Encerrado) e fonte de dados (alta confiança vs. busca web).
+- [Consultoria NOG IA](https://autoassist.com.br/chat.html): Chat com inteligência artificial para diagnósticos por foto, orientações de manutenção, previsão de revisões, busca de mecânicos próximos e recomendação de peças/veículos (e-commerce integrado). Suporta voz e histórico de conversas.
+- [Dashboard](https://autoassist.com.br/dashboard.html): Painel principal do usuário. Cards de veículos com foto, valor FIPE base/ajustado, status de manutenção (Ok/Aviso/Atrasado), Mod Passport com histórico e compartilhamento, concierge de oficinas por geolocalização e notificações proativas de manutenção.
+- [Galeria de Vídeos](https://autoassist.com.br/library.html): Biblioteca curada de vídeos educativos sobre manutenção automotiva, cuidados com o veículo e dicas práticas. Redirecionamento direto para o YouTube com miniaturas.
+- [Mapa de Mecânicos](https://autoassist.com.br/maps.html): Busca de oficinas mecânicas reais próximas via OpenStreetMap + Google Search. Exibe distância, cidade, especialidades e botão de ligar. Cache Redis (1h OSM, 24h web).
+- [Manutenções](https://autoassist.com.br/maintenance_history.html): Gestão completa do histórico de manutenções de cada veículo. Registro de serviços, datas, quilometragem, custos e alertas automáticos de revisões pendentes.
+- [Perfil](https://autoassist.com.br/perfil.html): Configurações da conta (nome, e-mail, senha) e gestão de veículos cadastrados. Upload/remoção de foto do veículo, dados FIPE e acesso ao Mod Passport.
+
+## Artigos
+
+- [O que é Tabela FIPE e como consultar](https://autoassist.com.br/artigo-valor-fipe.html): Guia completo sobre a tabela de referência de preços de veículos.
+- [Como trocar o óleo do motor](https://autoassist.com.br/artigo-oleo-motor.html): Passo a passo para a manutenção mais importante do carro.
+- [Pastilhas de freio: quando trocar](https://autoassist.com.br/artigo-pastilha-freio.html): Sinais de desgaste e orientações para troca segura.
+- [Calibragem de pneus](https://autoassist.com.br/artigo-pneus-calibragem.html): Por que manter a pressão correta e como verificar.
+- [Revisão preventiva](https://autoassist.com.br/artigo-revisao-preventiva.html): Checklist de manutenções para evitar problemas maiores.
+- [Barulhos estranhos no motor](https://autoassist.com.br/artigo-barulho-motor.html): Como identificar e diagnosticar ruídos incomuns.
+- [Luz acesa no painel](https://autoassist.com.br/artigo-luz-painel.html): O que cada luz do painel indica e quando procurar ajuda.
+- [Gasolina aditivada](https://autoassist.com.br/artigo-gasolina-aditivada.html): Diferenças, vantagens e se realmente compensa.
+- [IPVA 2026](https://autoassist.com.br/artigo-ipva-2026.html): Informações sobre o imposto veicular do ano corrente.
+
+## Código
+
+- [Repositório GitHub](https://github.com/julio-cesar-fast/AutoAssist): Código-fonte do projeto.
+- [Backend Flask](https://github.com/julio-cesar-fast/AutoAssist/tree/main/backend): API REST, rotas, serviços de IA e utilitários.
+- [Frontend](https://github.com/julio-cesar-fast/AutoAssist/tree/main/frontend): Interface do usuário em HTML/CSS/JS vanilla.
+
+## Opcional
+
+- [Feedback](https://autoassist.com.br/feedback.html): Canal para sugestões e reportar problemas.
+- [Login](https://autoassist.com.br/login.html): Acesso à conta existente.
+- [Cadastro](https://autoassist.com.br/cadastro.html): Criação de conta gratuita.
+- [Pagamento](https://autoassist.com.br/pagamento-sucesso.html): Página de confirmação de pagamento.
