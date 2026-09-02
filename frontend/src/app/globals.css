@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Fonts ─────────────────────────────────────────────── */
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+
+  /* ── Colors ────────────────────────────────────────────── */
+  --color-bg-primary: #09090b;
+  --color-bg-secondary: #18181b;
+  --color-bg-card: #1c1c1f;
+  --color-bg-card-hover: #1a1a20;
+  --color-bg-input: #1f1f25;
+  --color-bg-elevated: #1c1c22;
+
+  --color-border: #27272a;
+  --color-border-subtle: #1d1d23;
+  --color-border-hover: #34343d;
+
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-soft: rgba(59, 130, 246, 0.1);
+  --color-accent-ring: rgba(59, 130, 246, 0.18);
+  --color-accent-blue: #4f8cff;
+  --color-accent-strong: #2563eb;
+
+  --color-danger: #ef4444;
+  --color-danger-soft: rgba(239, 68, 68, 0.1);
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+
+  /* ── Radii ─────────────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+
+  /* ── Shadows ───────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.45);
+  --shadow-md: 0 4px 12px rgba(9, 9, 11, 0.55);
+  --shadow-lg: 0 12px 40px rgba(9, 9, 11, 0.65);
+  --shadow-glow: 0 0 0 1px var(--color-accent-ring), 0 8px 24px rgba(37, 99, 235, 0.18);
+}
+
+/* ── Base ──────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+}
+
+::selection {
+  background: var(--color-accent-ring);
+  color: var(--color-text-primary);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* ── Reduced motion ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Section container ─────────────────────────────────── */
+.section {
+  padding: 100px 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.section--alt {
+  background: var(--color-bg-secondary);
+}
+
+.section__wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.section__header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.section__tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--color-accent);
+  margin-bottom: 16px;
+}
+
+.section__title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+
+.section__desc {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 64px 20px;
+  }
+}
+
+@keyframes scan {
+  0%, 100% { opacity: 0; top: 20%; }
+  50% { opacity: 1; top: 80%; }
+}
+
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: animate-in 150ms ease-out;
+}
+
+.fade-in {
+  animation: animate-in 150ms ease-out;
+}
+
+.slide-in-from-top-1 {
+  --tw-enter-translate-y: -4px;
+}

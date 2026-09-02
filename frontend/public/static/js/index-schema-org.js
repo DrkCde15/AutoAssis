@@ -1,1 +1,0 @@
-{ "@context": "https://schema.org", "@type": "Organization", "name": "AutoAssist IA", "url": "https://autoassist.com.br", "logo": "https://autoassist.com.br/static/logo2.png", "description": "Copiloto de carro com IA: diagnostico, valor FIPE real e alertas de manutencao." }

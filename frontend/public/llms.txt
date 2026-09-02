@@ -1,52 +1,36 @@
-# AutoAssist IA
+# AutoAssist
 
-> Copiloto de IA para o mercado automotivo brasileiro. Diagnósticos por foto, avaliações FIPE, agenda de manutenção, eventos automotivos e consultoria especializada via chat com IA (NOG).
+Assistente automotivo inteligente com IA para diagnósticos, manutenção e gestão de veículos.
 
-Plataforma SaaS (freemium) que integra Processamento de Linguagem Natural e Visão Computacional para donos de veículos e profissionais automotivos. Backend Flask, frontend vanilla JS, cache Redis, banco MySQL.
+## Sobre
+O AutoAssist é uma plataforma SaaS que utiliza inteligência artificial (NOG IA) para auxiliar motoristas e empresas do ramo automotivo com diagnósticos por foto, manutenção preditiva, consultas FIPE, mapa de mecânicos e muito mais.
 
-## Documentação
+## URLs Principais
+- Site: https://autoassist-l9lr.onrender.com
+- Blog: https://autoassist-l9lr.onrender.com/blog
+- Planos: https://autoassist-l9lr.onrender.com/planos
+- API B2B: https://autoassist-l9lr.onrender.com/b2b
+- Documentação da API: https://autoassist-l9lr.onrender.com/docs
+- Dúvidas frequentes: https://autoassist-l9lr.onrender.com/duvidas
+- Eventos automotivos: https://autoassist-l9lr.onrender.com/eventos
 
-Páginas legais, termos, políticas e documentação técnica da plataforma.
+## Funcionalidades
+- Diagnóstico automotivo por foto (IA)
+- Consulta de tabela FIPE
+- Manutenção preditiva e alertas
+- Histórico de manutenção por veículo
+- Mapa de mecânicos com avaliações
+- Chat com IA especializada em automotive
+- Eventos automotivos do Brasil
+- Relatórios PDF de manutenção
+- Mod Passport (compartilhamento de veículo)
 
-- [Documentação da API B2B](https://autoassist-l9lr.onrender.com/docs.html): API REST para diagnóstico por foto como serviço. Inclui autenticação via X-API-Key, endpoints (diagnóstico, uso, leads), exemplos em Python/JavaScript/cURL e collection Postman. Voltada para empresas que desejam integrar IA automotiva em seus sistemas.
-- [Perguntas Frequentes](https://autoassist-l9lr.onrender.com/duvidas.html): Respostas para dúvidas comuns sobre cadastro, login, planos, funcionalidades do chat NOG, Mod Passport, eventos e uso geral da plataforma.
-- [Termos de Uso](https://autoassist-l9lr.onrender.com/termos.html): Contrato de uso que define regras, responsabilidades, propriedade intelectual e condições de utilização do AutoAssist.
-- [Política de Privacidade](https://autoassist-l9lr.onrender.com/privacidade.html): Explica quais dados são coletados (conta, veículos, uso), como são armazenados, compartilhados e protegidos, e quais direitos o titular possui.
-- [LGPD](https://autoassist-l9lr.onrender.com/lgpd.html): Conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018). Direitos do titular, bases legais, contato do DPO e prazo de retenção.
-- [Política de Analytics](https://autoassist-l9lr.onrender.com/analytics.html): Detalha os eventos de uso coletados (page_view, signup, nog_use, etc.), consentimento do usuário, atribuição first-touch e ausência de integração com GA4/Meta Pixel.
+## Stack
+- Frontend: Next.js 16, React 19, Tailwind CSS 4
+- Backend: Python, Flask, MySQL, Redis
+- IA: Groq API (visão + texto)
+- Deploy: Render
 
-## Produto
-
-Páginas principais da plataforma AutoAssist — onde o usuário interage com os recursos de IA, gestão de veículos e serviços automotivos.
-
-- [Página Inicial](https://autoassist-l9lr.onrender.com/index.html): Landing page com visão geral do AutoAssist. Apresenta o copiloto NOG, funcionalidades (diagnóstico visual, FIPE, manutenção, eventos), depoimentos e chamada para ação (criar conta grátis ou testar o chat).
-- [Planos e Preços](https://autoassist-l9lr.onrender.com/planos.html): Comparativo entre o plano gratuito (até 30 consultas/mês com NOG, 3 manutenções por veículo) e o Premium (R$ 19,90/mês — consultas ilimitadas, Mod Passport, eventos, notificações avançadas). Inclui programa de indicação (1 mês grátis por convite).
-- [API B2B](https://autoassist-l9lr.onrender.com/b2b.html): Página de vendas da API B2B. Planos (Trial grátis, Pro 1k R$99/mês, Pro 5k R$399/mês, Pro 20k R$999/mês), cota de requisições, checkout via Cakto e documentação de integração.
-- [Eventos Automotivos](https://autoassist-l9lr.onrender.com/eventos.html): Agenda de feiras, encontros, competições e exposições do setor automotivo brasileiro. Filtros por UF, categoria e período. Selo de status (Agendado/Acontecendo/Cancelado/Encerrado) e fonte de dados (alta confiança vs. busca web).
-- [Consultoria NOG IA](https://autoassist-l9lr.onrender.com/chat.html): Chat com inteligência artificial para diagnósticos por foto, orientações de manutenção, previsão de revisões, busca de mecânicos próximos e recomendação de peças/veículos (e-commerce integrado). Suporta voz e histórico de conversas.
-- [Dashboard](https://autoassist-l9lr.onrender.com/dashboard.html): Painel principal do usuário. Cards de veículos com foto, valor FIPE base/ajustado, status de manutenção (Ok/Aviso/Atrasado), Mod Passport com histórico e compartilhamento, concierge de oficinas por geolocalização e notificações proativas de manutenção.
-- [Galeria de Vídeos](https://autoassist-l9lr.onrender.com/library.html): Biblioteca curada de vídeos educativos sobre manutenção automotiva, cuidados com o veículo e dicas práticas. Redirecionamento direto para o YouTube com miniaturas.
-- [Mapa de Mecânicos](https://autoassist-l9lr.onrender.com/maps.html): Busca de oficinas mecânicas reais próximas via OpenStreetMap + Google Search. Exibe distância, cidade, especialidades e botão de ligar. Cache Redis (1h OSM, 24h web).
-- [Manutenções](https://autoassist-l9lr.onrender.com/maintenance_history.html): Gestão completa do histórico de manutenções de cada veículo. Registro de serviços, datas, quilometragem, custos e alertas automáticos de revisões pendentes.
-- [Perfil](https://autoassist-l9lr.onrender.com/perfil.html): Configurações da conta (nome, e-mail, senha) e gestão de veículos cadastrados. Upload/remoção de foto do veículo, dados FIPE e acesso ao Mod Passport.
-
-## Artigos
-
-- [O que é Tabela FIPE e como consultar](https://autoassist-l9lr.onrender.com/artigo-valor-fipe.html): Guia completo sobre a tabela de referência de preços de veículos.
-- [Como trocar o óleo do motor](https://autoassist-l9lr.onrender.com/artigo-oleo-motor.html): Passo a passo para a manutenção mais importante do carro.
-- [Pastilhas de freio: quando trocar](https://autoassist-l9lr.onrender.com/artigo-pastilha-freio.html): Sinais de desgaste e orientações para troca segura.
-- [Calibragem de pneus](https://autoassist-l9lr.onrender.com/artigo-pneus-calibragem.html): Por que manter a pressão correta e como verificar.
-- [Revisão preventiva](https://autoassist-l9lr.onrender.com/artigo-revisao-preventiva.html): Checklist de manutenções para evitar problemas maiores.
-- [Barulhos estranhos no motor](https://autoassist-l9lr.onrender.com/artigo-barulho-motor.html): Como identificar e diagnosticar ruídos incomuns.
-- [Luz acesa no painel](https://autoassist-l9lr.onrender.com/artigo-luz-painel.html): O que cada luz do painel indica e quando procurar ajuda.
-- [Gasolina aditivada](https://autoassist-l9lr.onrender.com/artigo-gasolina-aditivada.html): Diferenças, vantagens e se realmente compensa.
-- [IPVA 2026](https://autoassist-l9lr.onrender.com/artigo-ipva-2026.html): Informações sobre o imposto veicular do ano corrente.
-
-
-
-## Opcional
-
-- [Feedback](https://autoassist-l9lr.onrender.com/feedback.html): Canal para sugestões e reportar problemas.
-- [Login](https://autoassist-l9lr.onrender.com/login.html): Acesso à conta existente.
-- [Cadastro](https://autoassist-l9lr.onrender.com/cadastro.html): Criação de conta gratuita.
-- [Pagamento](https://autoassist-l9lr.onrender.com/pagamento-sucesso.html): Página de confirmação de pagamento.
+## Contato
+- Suporte:可通过应用内聊天
+- API B2B: https://autoassist-l9lr.onrender.com/b2b

@@ -1,15 +1,10 @@
 User-agent: *
+Allow: /
 Disallow: /api/
-Disallow: /perfil.html
-Disallow: /dashboard.html
-Disallow: /library.html
-Disallow: /maps.html
-Disallow: /maintenance_history.html
-Disallow: /chat.html
-Disallow: /login.html
-Disallow: /cadastro.html
-Disallow: /esqueci-senha.html
-Disallow: /redefinir-senha.html
-Disallow: /pagamento-sucesso.html
+Disallow: /perfil
+Disallow: /dashboard
+Disallow: /chat
+Disallow: /login
+Disallow: /cadastro
 
-Sitemap: https://autoassist.com.br/sitemap.xml
+Sitemap: https://autoassist-l9lr.onrender.com/sitemap.xml

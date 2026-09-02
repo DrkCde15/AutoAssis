@@ -771,8 +771,7 @@ def handle_413(e):
 
 
 # [404] Telas sensiveis (robots.txt / sitemap.xml / llms.txt) recebem a
-# pagina 404 estilizada em vez do arquivo bruto. Rotas explicitas têm
-# prioridade sobre a rota estatica catch-all do Flask.
+# pagina 404 estilizada em vez do arquivo bruto.
 @app.route("/robots.txt")
 @app.route("/sitemap.xml")
 @app.route("/llms.txt")

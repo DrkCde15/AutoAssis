@@ -86,10 +86,13 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 
 | Tecnologia           | Função                                                     |
 | :------------------- | :--------------------------------------------------------- |
-| **Vanilla JS**       | Lógica de estado e consumo de APIs sem frameworks pesados. |
-| **Glassmorphism UI** | Design moderno com transparências e animações dinâmicas.   |
-| **DOMPurify + Marked**| Renderização segura de Markdown e sanitização de HTML.     |
+| **Next.js**          | Framework React com App Router, SSG (output: export).      |
+| **React 19**         | UI library com hooks e server components.                  |
+| **Tailwind CSS v4**  | Utility-first CSS com design system customizado.           |
+| **Framer Motion**    | Animações com respeito a `prefers-reduced-motion`.         |
+| **DOMPurify + Marked**| Renderização segura de Markdown e sanitização de HTML.    |
 | **Web Speech API**   | Captura e processamento de voz nativo no navegador.        |
+| **Lucide React**     | Ícones leves e consistentes.                               |
 
 ---
 
@@ -104,33 +107,24 @@ AutoAssist/
 │   ├── services/                  # IA e Lógica (NOG IA, Vision, Maintenance, Web Scraping, Automotive Events)
 │   ├── utils/                     # Cache Redis, e-mail, tasks assíncronas e cron auth
 │   ├── app.py                     # Entry-point (Servidor Flask)
-│   ├── render.yaml                # Blueprint de deploy (Render)
+│   ├── build.sh                   # Build do Next.js + cópia para public/
 │   ├── docker-compose.yml         # Redis local para desenvolvimento
 │   └── .env                       # Variáveis de ambiente (não commitar)
 ├── frontend/
-│   ├── index.html                 # Landing Page
-│   ├── chat.html                  # Consultor NOG IA
-│   ├── maps.html                   # Mapa de mecânicos (OpenStreetMap)
-    ├── dashboard.html             # Dashboard
-│   ├── library.html               # Galeria de Vídeos YouTube
-│   ├── maintenance_history.html   # Gestão de Manutenções
-│   ├── profile.html               # Perfil do Usuário
-│   ├── planos.html                # Planos e preços (Premium R$ 19,90/mês)
-│   ├── b2b.html                   # Landing da API B2B (planos, lead, chave self-serve)
-│   ├── eventos.html               # Agenda de eventos automotivos
-│   └── static/
-│       ├── css/
-│       │   ├── car-scrollytelling.css   # Estilos do carrossel 3D e hero
-│       │   ├── shared.css               # Estilos compartilhados (navbar, footer)
-│       │   ├── responsive.css           # Media queries globais
-│       │   ├── chat.css                 # Estilos do consultor NOG IA
-│       │   ├── dashboard.css            # Estilos do dashboard
-│       │   └── profile.css              # Estilos do perfil
-│       ├── js/
-│       │   ├── car-scrollytelling.js    # Canvas 2D carrossel com física de perspectiva
-│       │   ├── auth.js                  # Autenticação Google OAuth 2.0
-│       │   └── config.js                # Configurações do frontend
-│       └── logo2.png                    # Logotipo do projeto
+│   ├── src/
+│   │   ├── app/                   # App Router (páginas)
+│   │   │   ├── (app)/             # Rotas autenticadas (dashboard, chat, maps, etc.)
+│   │   │   ├── (auth)/            # Rotas de autenticação (login, cadastro, etc.)
+│   │   │   ├── blog/              # Blog (listing + artigos)
+│   │   │   └── ...                # Páginas públicas (planos, eventos, etc.)
+│   │   ├── components/            # Componentes React (UI, landing, auth)
+│   │   ├── lib/                   # Utilitários (auth, blog, api, analytics)
+│   │   └── globals.css            # Design tokens + animações
+│   ├── public/                    # Assets estáticos (logo, manifest) + HTMLs gerados pelo build
+│   ├── next.config.ts             # Configuração Next.js (output: export)
+│   ├── tailwind.config.ts         # Configuração Tailwind
+│   └── package.json               # Dependências Node.js
+├── render.yaml                    # Blueprint de deploy (Render)
 └── README.md
 ```
 
@@ -228,17 +222,36 @@ B2B_ADMIN_SECRET=gere_um_segredo_forte
 ### 3. Instalação e Execução
 
 ```bash
-# Entre na pasta do backend
+# Backend
 cd backend
-
-# Instale as dependências
 pip install -r requirements.txt
-
-# Execute o servidor
 python app.py
+
+# Frontend (desenvolvimento)
+cd frontend
+npm install
+npm run dev    # http://localhost:3000
 ```
 
-### 4. Redis para desenvolvimento local
+### 4. Build para Produção
+
+O frontend Next.js gera HTML estático que o Flask serve via `static_folder`:
+
+```bash
+cd backend
+bash build.sh
+# Copia HTMLs gerados para frontend/public/
+# Flask serve tudo em http://localhost:5001
+```
+
+### 5. Deploy no Render
+
+O `render.yaml` configura automaticamente:
+- `rootDir: backend`
+- `buildCommand: bash build.sh` (builda Next.js + copia para public/)
+- `startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT`
+
+### 6. Redis para desenvolvimento local
 
 O cache de IA, o cache do dashboard (FIPE + predições de manutenção), as filas RQ (e-mails/manutenção) e o rate limit usam Redis. Para subir um Redis local:
 
