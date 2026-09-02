@@ -7,7 +7,7 @@ rm -rf ../frontend/public/_next 2>/dev/null || true
 
 echo "=== Build do Next.js ==="
 cd ../frontend
-npm ci
+npm install
 npm run build
 cd ../backend
 
