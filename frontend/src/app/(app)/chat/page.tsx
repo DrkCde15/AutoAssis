@@ -132,17 +132,25 @@ export default function ChatPage() {
             const histRes = await authFetch(`/api/chat/history?session_id=${convs[0].id}`);
             if (histRes.ok) {
               const histData = await histRes.json();
-              const msgs = (histData.chats ?? []).map((ch: any) => ({
-                id: String(ch.id),
-                role: "user" as const,
-                content: ch.mensagem_usuario ?? "",
-                timestamp: ch.created_at ?? "",
-              })).concat((histData.chats ?? []).map((ch: any) => ({
-                id: String(ch.id) + "-ai",
-                role: "assistant" as const,
-                content: ch.resposta_ia ?? "",
-                timestamp: ch.created_at ?? "",
-              })));
+              const msgs: Message[] = [];
+              for (const ch of histData.chats ?? []) {
+                if (ch.mensagem_usuario) {
+                  msgs.push({
+                    id: String(ch.id),
+                    role: "user",
+                    content: ch.mensagem_usuario,
+                    timestamp: ch.created_at ?? "",
+                  });
+                }
+                if (ch.resposta_ia) {
+                  msgs.push({
+                    id: String(ch.id) + "-ai",
+                    role: "assistant",
+                    content: ch.resposta_ia,
+                    timestamp: ch.created_at ?? "",
+                  });
+                }
+              }
               setMessages(msgs);
             }
           }
@@ -185,14 +193,14 @@ export default function ChatPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "message") {
+        if (data.type === "response") {
           setMessages((prev) => [
             ...prev,
             {
-              id: crypto.randomUUID(),
+              id: String(data.id ?? crypto.randomUUID()),
               role: "assistant",
-              content: data.content,
-              timestamp: new Date().toISOString(),
+              content: data.resposta_ia ?? "",
+              timestamp: data.created_at ?? new Date().toISOString(),
             },
           ]);
           setIsTyping(false);
@@ -281,18 +289,19 @@ export default function ChatPage() {
 
         if (response.ok) {
           const data = await response.json();
+          const chat = data.chat ?? {};
           setMessages((prev) => [
             ...prev,
             {
-              id: crypto.randomUUID(),
+              id: String(chat.id ?? crypto.randomUUID()),
               role: "assistant",
-              content: data.response,
-              timestamp: new Date().toISOString(),
+              content: chat.resposta_ia ?? data.response ?? "",
+              timestamp: chat.created_at ?? new Date().toISOString(),
             },
           ]);
 
-          if (!activeSession && data.session_id) {
-            setActiveSession(data.session_id);
+          if (!activeSession && chat.session_id) {
+            setActiveSession(chat.session_id);
           }
         }
 
@@ -459,17 +468,25 @@ export default function ChatPage() {
       const histRes = await authFetch(`/api/chat/history?session_id=${sessionId}`);
       if (histRes.ok) {
         const histData = await histRes.json();
-        const msgs = (histData.chats ?? []).map((ch: any) => ({
-          id: String(ch.id),
-          role: "user" as const,
-          content: ch.mensagem_usuario ?? "",
-          timestamp: ch.created_at ?? "",
-        })).concat((histData.chats ?? []).map((ch: any) => ({
-          id: String(ch.id) + "-ai",
-          role: "assistant" as const,
-          content: ch.resposta_ia ?? "",
-          timestamp: ch.created_at ?? "",
-        })));
+        const msgs: Message[] = [];
+        for (const ch of histData.chats ?? []) {
+          if (ch.mensagem_usuario) {
+            msgs.push({
+              id: String(ch.id),
+              role: "user",
+              content: ch.mensagem_usuario,
+              timestamp: ch.created_at ?? "",
+            });
+          }
+          if (ch.resposta_ia) {
+            msgs.push({
+              id: String(ch.id) + "-ai",
+              role: "assistant",
+              content: ch.resposta_ia,
+              timestamp: ch.created_at ?? "",
+            });
+          }
+        }
         setMessages(msgs);
       }
     } catch (error) {

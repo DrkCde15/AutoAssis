@@ -328,8 +328,11 @@ export default function MapsPage() {
       } else {
         const res = await authFetch(`/api/mechanics/${mechanicId}/favorite`, { method: "POST" });
         if (res.ok) {
-          const data = await res.json();
-          setFavorites((prev) => [...prev, data]);
+          const favRes = await authFetch("/api/mechanics/favorites");
+          if (favRes.ok) {
+            const favData = await favRes.json();
+            setFavorites(favData.favorites ?? favData ?? []);
+          }
         }
       }
     } catch (error) {

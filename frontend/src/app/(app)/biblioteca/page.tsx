@@ -75,7 +75,31 @@ export default function LibraryPage() {
         const response = await authFetch("/api/videos/library");
         if (response.ok) {
           const data = await response.json();
-          setSections(data.sections ?? data ?? []);
+          const lib = data.library ?? [];
+          const mapped: TopicSection[] = lib.map((section: any) => ({
+            topic: section.topic ?? "",
+            items: [
+              ...(section.videos ?? []).map((v: any) => ({
+                id: String(v.url ?? Math.random()),
+                type: "video" as const,
+                title: v.title ?? v.nome ?? "",
+                description: v.description ?? v.descricao ?? "",
+                url: v.url ?? "",
+                thumbnail: v.thumbnail ?? v.thumb ?? "",
+                topic: section.topic ?? "",
+              })),
+              ...(section.links ?? []).map((l: any) => ({
+                id: String(l.url ?? Math.random()),
+                type: "link" as const,
+                title: l.title ?? l.nome ?? "",
+                description: l.description ?? l.descricao ?? "",
+                url: l.url ?? "",
+                thumbnail: l.thumbnail ?? l.thumb ?? "",
+                topic: section.topic ?? "",
+              })),
+            ],
+          }));
+          setSections(mapped);
         }
       } catch (error) {
         console.error("Failed to load library:", error);

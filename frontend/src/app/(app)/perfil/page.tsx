@@ -151,7 +151,7 @@ export default function ProfilePage() {
       await authFetch("/api/user", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ nome: name, email }),
       });
     } catch (error) {
       console.error("Failed to save profile:", error);

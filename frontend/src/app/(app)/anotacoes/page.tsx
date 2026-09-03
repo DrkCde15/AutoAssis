@@ -156,13 +156,13 @@ export default function MaintenancePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vehicle_id: selectedVehicle,
-          description,
-          cost: parseFloat(cost) || 0,
-          km: parseInt(km) || 0,
-          date,
-          interval_days: parseInt(intervalDays) || undefined,
-          interval_km: parseInt(intervalKm) || undefined,
+          veiculo_id: selectedVehicle,
+          descricao: description,
+          custo: parseFloat(cost) || 0,
+          quilometragem_servico: parseInt(km) || 0,
+          data_servico: date,
+          intervalo_dias: parseInt(intervalDays) || undefined,
+          intervalo_km: parseInt(intervalKm) || undefined,
         }),
       });
 
@@ -197,10 +197,10 @@ export default function MaintenancePage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          description: editDescription,
-          cost: parseFloat(editCost) || 0,
-          km: parseInt(editKm) || 0,
-          date: editDate,
+          descricao: editDescription,
+          custo: parseFloat(editCost) || 0,
+          quilometragem_servico: parseInt(editKm) || 0,
+          data_servico: editDate,
         }),
       });
 

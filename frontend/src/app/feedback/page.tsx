@@ -10,10 +10,10 @@ import { Star, Send, Loader2, User } from "lucide-react";
 
 interface Feedback {
   id: number;
-  name: string;
-  rating: number;
-  comment: string;
-  createdAt: string;
+  nome: string;
+  estrelas: number;
+  comentario: string;
+  created_at: string;
 }
 
 export default function FeedbackPage() {
@@ -33,7 +33,7 @@ export default function FeedbackPage() {
       const res = await fetch("/api/feedbacks", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        setFeedbacks(data);
+        setFeedbacks(data.feedbacks ?? []);
       }
     } catch {
       // silently fail
@@ -55,7 +55,7 @@ export default function FeedbackPage() {
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, name, email, comment }),
+        body: JSON.stringify({ estrelas: rating, nome: name, email, comentario: comment }),
       });
       if (res.ok) {
         setSubmitted(true);
@@ -231,11 +231,11 @@ export default function FeedbackPage() {
                               </div>
                               <div>
                                 <p className="text-sm font-medium text-primary">
-                                  {fb.name || "Anônimo"}
+                                  {fb.nome || "Anônimo"}
                                 </p>
                                 <p className="text-xs text-muted">
                                   {new Date(
-                                    fb.createdAt
+                                    fb.created_at
                                   ).toLocaleDateString("pt-BR", {
                                     day: "2-digit",
                                     month: "short",
@@ -250,7 +250,7 @@ export default function FeedbackPage() {
                                   key={v}
                                   size={14}
                                   className={
-                                    v <= fb.rating
+                                    v <= fb.estrelas
                                       ? "fill-warning text-warning"
                                       : "text-muted"
                                   }
@@ -259,7 +259,7 @@ export default function FeedbackPage() {
                             </div>
                           </div>
                           <p className="text-sm text-secondary">
-                            {fb.comment}
+                            {fb.comentario}
                           </p>
                         </CardBody>
                       </Card>
