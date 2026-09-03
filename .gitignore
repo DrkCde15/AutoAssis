@@ -54,6 +54,7 @@ htmlcov/
 frontend/node_modules/
 frontend/package-lock.json
 frontend/test-results/
+frontend/public/_next/
 
 # --- Misc ---
 *.mod
