@@ -680,133 +680,133 @@ export default function ChatPage() {
               )}
 
               <div ref={messagesEndRef} />
+            </div>
+          </div>
 
-              <div className="border-t border-border bg-secondary p-4 mt-6">
-                <div className="max-w-[920px] mx-auto">
-                  {attachedFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {attachedFiles.map((file) => (
-                        <div
-                          key={file.name}
-                          className="flex items-center gap-2 bg-primary border border-border rounded-lg px-3 py-1.5"
-                        >
-                          {previewUrls[file.name] ? (
-                            <img
-                              src={previewUrls[file.name]}
-                              alt={file.name}
-                              className="w-8 h-8 rounded object-cover"
-                            />
-                          ) : (
-                            getFileIcon(file.name)
-                          )}
-                          <span className="text-xs text-secondary max-w-[100px] truncate">
-                            {file.name}
-                          </span>
-                          <button onClick={() => removeFile(file.name)}>
-                            <X className="w-3 h-3 text-muted hover:text-danger" />
-                          </button>
-                        </div>
-                      ))}
+          <div className="border-t border-border bg-secondary p-4 shrink-0">
+            <div className="max-w-[920px] mx-auto">
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {attachedFiles.map((file) => (
+                    <div
+                      key={file.name}
+                      className="flex items-center gap-2 bg-primary border border-border rounded-lg px-3 py-1.5"
+                    >
+                      {previewUrls[file.name] ? (
+                        <img
+                          src={previewUrls[file.name]}
+                          alt={file.name}
+                          className="w-8 h-8 rounded object-cover"
+                        />
+                      ) : (
+                        getFileIcon(file.name)
+                      )}
+                      <span className="text-xs text-secondary max-w-[100px] truncate">
+                        {file.name}
+                      </span>
+                      <button onClick={() => removeFile(file.name)}>
+                        <X className="w-3 h-3 text-muted hover:text-danger" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-end gap-2">
+                <div className="relative" data-attach-dropdown>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.txt,.csv,.md,.json"
+                    onChange={handleFileAttach}
+                    className="hidden"
+                  />
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileAttach}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAttachOpen(!attachOpen)}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                  {attachOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 w-48 bg-secondary border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          imageInputRef.current?.click();
+                          setAttachOpen(false);
+                        }}
+                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors"
+                      >
+                        <Camera className="w-4 h-4" />
+                        Enviar imagem
+                      </button>
+                      <button
+                        onClick={() => {
+                          fileInputRef.current?.click();
+                          setAttachOpen(false);
+                        }}
+                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Enviar arquivo
+                      </button>
+                      <button
+                        onClick={() => {
+                          generateReport();
+                          setAttachOpen(false);
+                        }}
+                        disabled={generatingReport || messages.length === 0}
+                        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {generatingReport ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                        Baixar conversa em PDF
+                      </button>
                     </div>
                   )}
+                </div>
 
-                  <div className="flex items-end gap-2">
-                    <div className="relative" data-attach-dropdown>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept="image/*,.pdf,.txt,.csv,.md,.json"
-                        onChange={handleFileAttach}
-                        className="hidden"
-                      />
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileAttach}
-                        className="hidden"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setAttachOpen(!attachOpen)}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                      {attachOpen && (
-                        <div className="absolute bottom-full left-0 mb-2 w-48 bg-secondary border border-border rounded-xl shadow-lg z-50 overflow-hidden">
-                          <button
-                            onClick={() => {
-                              imageInputRef.current?.click();
-                              setAttachOpen(false);
-                            }}
-                            className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors"
-                          >
-                            <Camera className="w-4 h-4" />
-                            Enviar imagem
-                          </button>
-                          <button
-                            onClick={() => {
-                              fileInputRef.current?.click();
-                              setAttachOpen(false);
-                            }}
-                            className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors"
-                          >
-                            <FileText className="w-4 h-4" />
-                            Enviar arquivo
-                          </button>
-                          <button
-                            onClick={() => {
-                              generateReport();
-                              setAttachOpen(false);
-                            }}
-                            disabled={generatingReport || messages.length === 0}
-                            className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {generatingReport ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
-                            )}
-                            Baixar conversa em PDF
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Digite sua mensagem..."
+                    rows={1}
+                    className="w-full bg-primary border border-border rounded-xl px-4 py-3 text-sm text-primary placeholder:text-muted resize-none focus:outline-none focus:border-accent min-h-[44px] max-h-[120px]"
+                    style={{ height: "auto" }}
+                  />
+                </div>
 
-                    <div className="flex-1 relative">
-                      <textarea
-                        ref={textareaRef}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Digite sua mensagem..."
-                        rows={1}
-                        className="w-full bg-primary border border-border rounded-xl px-4 py-3 text-sm text-primary placeholder:text-muted resize-none focus:outline-none focus:border-accent min-h-[44px] max-h-[120px]"
-                        style={{ height: "auto" }}
-                      />
-                    </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={isRecording ? "text-danger" : ""}
+                  >
+                    {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </Button>
 
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={isRecording ? stopRecording : startRecording}
-                        className={isRecording ? "text-danger" : ""}
-                      >
-                        {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        onClick={sendMessage}
-                        disabled={!input.trim() && attachedFiles.length === 0}
-                      >
-                        <Send className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <Button
+                    size="sm"
+                    onClick={sendMessage}
+                    disabled={!input.trim() && attachedFiles.length === 0}
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </div>
