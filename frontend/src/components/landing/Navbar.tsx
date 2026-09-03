@@ -15,7 +15,7 @@ import {
   ChevronDown,
   BookOpen,
   Calendar,
-  MessageSquare,
+  CreditCard,
 } from 'lucide-react'
 import { isAuthenticated, getUser, logout } from '@/lib/auth-client'
 
@@ -121,7 +121,7 @@ export default function Navbar() {
               <>
                 {navLink('/dashboard', 'Dashboard', <LayoutDashboard className="h-4 w-4" />)}
                 {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
-                {navLink('/planos', 'Planos', null)}
+                {navLink('/planos', 'Planos', <CreditCard className="h-4 w-4" />)}
 
                 <div className="relative" data-more-menu>
                   <button
@@ -178,7 +178,7 @@ export default function Navbar() {
             ) : (
               <>
                 {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
-                {navLink('/planos', 'Planos', null)}
+                {navLink('/planos', 'Planos', <CreditCard className="h-4 w-4" />)}
                 <Link
                   href="/login"
                   className="rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-white/5 hover:text-primary"
@@ -245,7 +245,7 @@ export default function Navbar() {
               <>
                 {navLink('/dashboard', 'Dashboard', <LayoutDashboard className="h-4 w-4" />)}
                 {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
-                {navLink('/planos', 'Planos', null)}
+                {navLink('/planos', 'Planos', <CreditCard className="h-4 w-4" />)}
                 {navLink('/anotacoes', 'Anotações', <StickyNote className="h-4 w-4" />)}
                 {navLink('/maps', 'Mapa', <Map className="h-4 w-4" />)}
                 {navLink('/biblioteca', 'Biblioteca', <BookOpen className="h-4 w-4" />)}
@@ -255,7 +255,7 @@ export default function Navbar() {
             ) : (
               <>
                 {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
-                {navLink('/planos', 'Planos', null)}
+                {navLink('/planos', 'Planos', <CreditCard className="h-4 w-4" />)}
               </>
             )}
           </div>
@@ -272,16 +272,6 @@ export default function Navbar() {
                 </div>
                 <span className="truncate text-sm font-medium text-primary">{userName}</span>
               </div>
-
-              {/* Chat button */}
-              <Link
-                href="/chat"
-                onClick={closeDrawer}
-                className="flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
-              >
-                <Bot className="h-4 w-4" />
-                Seu consultor automotivo inteligente
-              </Link>
 
               {/* Logout */}
               <button
