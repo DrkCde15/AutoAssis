@@ -3377,11 +3377,6 @@ def serve_report(filename):
     return send_from_directory(secure_reports_dir, filename)
 
 @limiter.exempt
-@pages_bp.route("/_next/<path:path>")
-def serve_next_static(path):
-    return send_from_directory(os.path.join(current_app.root_path, "../frontend/public/_next"), path)
-
-@limiter.exempt
 @pages_bp.route("/")
 def index():
     return current_app.send_static_file("index.html")
