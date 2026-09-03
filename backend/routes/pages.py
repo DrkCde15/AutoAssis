@@ -3376,10 +3376,12 @@ def serve_report(filename):
     secure_reports_dir = os.path.join(current_app.root_path, "secure_reports")
     return send_from_directory(secure_reports_dir, filename)
 
+@limiter.exempt
 @pages_bp.route("/")
 def index():
     return current_app.send_static_file("index.html")
 
+@limiter.exempt
 @pages_bp.route("/<path:path>")
 def serve_html(path):
     if path.startswith("api/"):
