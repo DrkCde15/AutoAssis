@@ -5,16 +5,8 @@ import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import {
-  Calendar,
-  MapPin,
-  RefreshCw,
-  Loader2,
-  Tag,
-  Building2,
-  ExternalLink,
-  Clock,
-} from "lucide-react";
+import { Calendar, MapPin, RefreshCw, Loader2, Tag, Building2, ExternalLink, Clock } from "lucide-react";
+import { authFetch } from "@/lib/auth-client";
 
 interface Evento {
   id: number;
@@ -95,9 +87,8 @@ export default function EventosPage() {
   const fetchEventos = async () => {
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
       const params = ufFilter ? `?uf=${ufFilter}` : "";
-      const res = await fetch(`${apiUrl}/api/events/automotive${params}`);
+      const res = await authFetch(`/api/events/automotive${params}`);
       if (res.ok) {
         const data = await res.json();
         const events = data.events || data || [];
