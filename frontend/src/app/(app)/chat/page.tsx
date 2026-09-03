@@ -66,6 +66,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
@@ -170,6 +171,12 @@ export default function ChatPage() {
 
     ws.onopen = () => {
       console.log("WebSocket connected");
+      const token = localStorage.getItem("autoassist_access_token") || "";
+      ws.send(JSON.stringify({
+        type: "auth",
+        token,
+        session_id: activeSession || "",
+      }));
     };
 
     ws.onmessage = (event) => {
@@ -186,6 +193,11 @@ export default function ChatPage() {
             },
           ]);
           setIsTyping(false);
+        } else if (data.type === "status") {
+          setIsTyping(true);
+        } else if (data.error) {
+          console.error("WebSocket error:", data.error);
+          setIsTyping(false);
         }
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);
@@ -201,7 +213,7 @@ export default function ChatPage() {
     };
 
     wsRef.current = ws;
-  }, []);
+  }, [activeSession]);
 
   useEffect(() => {
     connectWebSocket();
@@ -438,6 +450,7 @@ export default function ChatPage() {
   };
 
   const fetchSessionMessages = async (sessionId: string) => {
+    setLoadingMessages(true);
     try {
       const histRes = await authFetch(`/api/chat/history?session_id=${sessionId}`);
       if (histRes.ok) {
@@ -457,6 +470,8 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error("Failed to fetch session messages:", error);
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
@@ -603,7 +618,22 @@ export default function ChatPage() {
             </div>
 
             <div className="max-w-[920px] mx-auto px-4 py-6 space-y-6">
-              {messages.length === 0 && (
+              {loadingMessages && messages.length === 0 && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary border border-border rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-accent" />
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce [animation-delay:0.1s]" />
+                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce [animation-delay:0.2s]" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!loadingMessages && messages.length === 0 && (
                 <div className="text-center py-16">
                   <Bot className="w-16 h-16 text-accent mx-auto mb-4" />
                   <h2 className="text-2xl font-bold text-primary mb-2">Olá! Sou o NOG</h2>
