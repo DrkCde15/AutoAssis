@@ -30,7 +30,7 @@ import {
 
 interface UserProfile {
   id: string;
-  name: string;
+  nome: string;
   email: string;
   is_premium: boolean;
   total_consultas: number;
@@ -103,13 +103,19 @@ export default function ProfilePage() {
         }
 
         setUser(currentUser);
-        setName(currentUser.name ?? "");
+        setName(currentUser.nome ?? "");
         setEmail(currentUser.email ?? "");
 
-        const [vehiclesRes, referralRes] = await Promise.all([
+        const [profileRes, vehiclesRes, referralRes] = await Promise.all([
+          authFetch("/api/user"),
           authFetch("/api/veiculos"),
           authFetch("/api/referral"),
         ]);
+
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          setUser((prev) => ({ ...prev, ...profileData }));
+        }
 
         if (vehiclesRes.ok) {
           const vData = await vehiclesRes.json();
@@ -324,11 +330,11 @@ export default function ProfilePage() {
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center">
               <span className="text-2xl font-bold text-white">
-                {user.name?.charAt(0)?.toUpperCase() ?? "U"}
+                {user.nome?.charAt(0)?.toUpperCase() ?? "U"}
               </span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-primary">{user.name}</h1>
+              <h1 className="text-xl font-bold text-primary">{user.nome}</h1>
               <p className="text-secondary">{user.email}</p>
             </div>
           </div>

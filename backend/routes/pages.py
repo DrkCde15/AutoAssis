@@ -2742,6 +2742,27 @@ def delete_chat_history(chat_id):
         logger.error(f"Erro ao excluir chat: {e}")
         return jsonify(error="Erro ao excluir chat"), 500
 
+
+@pages_bp.route("/api/chat/session/<session_id>", methods=["DELETE"])
+@jwt_required()
+def delete_chat_session(session_id):
+    user_id = get_jwt_identity()
+    try:
+        with get_db() as (cursor, conn):
+            user = get_user_by_id(cursor, user_id)
+            if not user:
+                return invalid_session_response()
+
+            if session_id == "null":
+                cursor.execute("DELETE FROM chats WHERE session_id IS NULL AND user_id = %s", (user_id,))
+            else:
+                cursor.execute("DELETE FROM chats WHERE session_id = %s AND user_id = %s", (session_id, user_id))
+
+        return jsonify(success=True), 200
+    except Exception as e:
+        logger.error(f"Erro ao excluir sessao: {e}")
+        return jsonify(error="Erro ao excluir sessao"), 500
+
 @pages_bp.route("/api/chat/sync_guest", methods=["POST"])
 @jwt_required()
 def sync_guest_chat():

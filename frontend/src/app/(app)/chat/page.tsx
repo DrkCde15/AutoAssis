@@ -24,6 +24,8 @@ import {
   Loader2,
   AlertTriangle,
   Bot,
+  Camera,
+  Download,
 } from "lucide-react";
 
 interface Message {
@@ -58,7 +60,6 @@ export default function ChatPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<string | null>(null);
@@ -72,9 +73,11 @@ export default function ChatPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<number | null>(null);
   const [freeMessagesLeft, setFreeMessagesLeft] = useState(FREE_MESSAGE_LIMIT);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -87,6 +90,17 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-attach-dropdown]")) {
+        setAttachOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -412,7 +426,7 @@ export default function ChatPage() {
 
   const deleteSession = async (sessionId: string) => {
     try {
-      await authFetch(`/api/chat/history/${sessionId}`, { method: "DELETE" });
+      await authFetch(`/api/chat/session/${sessionId}`, { method: "DELETE" });
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       if (activeSession === sessionId) {
         setActiveSession(null);
@@ -420,6 +434,29 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error("Failed to delete session:", error);
+    }
+  };
+
+  const fetchSessionMessages = async (sessionId: string) => {
+    try {
+      const histRes = await authFetch(`/api/chat/history?session_id=${sessionId}`);
+      if (histRes.ok) {
+        const histData = await histRes.json();
+        const msgs = (histData.chats ?? []).map((ch: any) => ({
+          id: String(ch.id),
+          role: "user" as const,
+          content: ch.mensagem_usuario ?? "",
+          timestamp: ch.created_at ?? "",
+        })).concat((histData.chats ?? []).map((ch: any) => ({
+          id: String(ch.id) + "-ai",
+          role: "assistant" as const,
+          content: ch.resposta_ia ?? "",
+          timestamp: ch.created_at ?? "",
+        })));
+        setMessages(msgs);
+      }
+    } catch (error) {
+      console.error("Failed to fetch session messages:", error);
     }
   };
 
@@ -468,22 +505,14 @@ export default function ChatPage() {
 
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchOpen(!searchOpen)}
-              >
-                <Search className="w-4 h-4" />
-              </Button>
-              {searchOpen && (
-                <input
-                  type="text"
-                  placeholder="Buscar conversas..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-primary border border-border rounded-lg px-3 py-1.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent"
-                />
-              )}
+              <Search className="w-4 h-4 text-muted" />
+              <input
+                type="text"
+                placeholder="Buscar conversas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-primary border border-border rounded-lg px-3 py-1.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent"
+              />
             </div>
           </div>
 
@@ -501,7 +530,8 @@ export default function ChatPage() {
                   }`}
                   onClick={() => {
                     setActiveSession(session.id);
-                    setMessages(session.messages ?? []);
+                    setMessages([]);
+                    fetchSessionMessages(session.id);
                     setSidebarOpen(false);
                   }}
                 >
@@ -650,112 +680,133 @@ export default function ChatPage() {
               )}
 
               <div ref={messagesEndRef} />
-            </div>
-          </div>
 
-          <div className="border-t border-border bg-secondary p-4 shrink-0">
-            <div className="max-w-[920px] mx-auto">
-              {attachedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {attachedFiles.map((file) => (
-                    <div
-                      key={file.name}
-                      className="flex items-center gap-2 bg-primary border border-border rounded-lg px-3 py-1.5"
-                    >
-                      {previewUrls[file.name] ? (
-                        <img
-                          src={previewUrls[file.name]}
-                          alt={file.name}
-                          className="w-8 h-8 rounded object-cover"
-                        />
-                      ) : (
-                        getFileIcon(file.name)
-                      )}
-                      <span className="text-xs text-secondary max-w-[100px] truncate">
-                        {file.name}
-                      </span>
-                      <button onClick={() => removeFile(file.name)}>
-                        <X className="w-3 h-3 text-muted hover:text-danger" />
-                      </button>
+              <div className="border-t border-border bg-secondary p-4 mt-6">
+                <div className="max-w-[920px] mx-auto">
+                  {attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {attachedFiles.map((file) => (
+                        <div
+                          key={file.name}
+                          className="flex items-center gap-2 bg-primary border border-border rounded-lg px-3 py-1.5"
+                        >
+                          {previewUrls[file.name] ? (
+                            <img
+                              src={previewUrls[file.name]}
+                              alt={file.name}
+                              className="w-8 h-8 rounded object-cover"
+                            />
+                          ) : (
+                            getFileIcon(file.name)
+                          )}
+                          <span className="text-xs text-secondary max-w-[100px] truncate">
+                            {file.name}
+                          </span>
+                          <button onClick={() => removeFile(file.name)}>
+                            <X className="w-3 h-3 text-muted hover:text-danger" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
 
-              <div className="flex items-end gap-2">
-                <div className="flex gap-1">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,.pdf,.txt,.csv,.md,.json"
-                    onChange={handleFileAttach}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-end gap-2">
+                    <div className="relative" data-attach-dropdown>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.txt,.csv,.md,.json"
+                        onChange={handleFileAttach}
+                        className="hidden"
+                      />
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileAttach}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAttachOpen(!attachOpen)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                      {attachOpen && (
+                        <div className="absolute bottom-full left-0 mb-2 w-48 bg-secondary border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+                          <button
+                            onClick={() => {
+                              imageInputRef.current?.click();
+                              setAttachOpen(false);
+                            }}
+                            className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors"
+                          >
+                            <Camera className="w-4 h-4" />
+                            Enviar imagem
+                          </button>
+                          <button
+                            onClick={() => {
+                              fileInputRef.current?.click();
+                              setAttachOpen(false);
+                            }}
+                            className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Enviar arquivo
+                          </button>
+                          <button
+                            onClick={() => {
+                              generateReport();
+                              setAttachOpen(false);
+                            }}
+                            disabled={generatingReport || messages.length === 0}
+                            className="flex items-center gap-3 w-full px-4 py-3 text-sm text-primary hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {generatingReport ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                            Baixar conversa em PDF
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = ".pdf";
-                      input.onchange = (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) handleFileAttach({ target: { files: [file] } } as any);
-                      };
-                      input.click();
-                    }}
-                  >
-                    <FileText className="w-4 h-4" />
-                  </Button>
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Digite sua mensagem..."
+                        rows={1}
+                        className="w-full bg-primary border border-border rounded-xl px-4 py-3 text-sm text-primary placeholder:text-muted resize-none focus:outline-none focus:border-accent min-h-[44px] max-h-[120px]"
+                        style={{ height: "auto" }}
+                      />
+                    </div>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => audioInputRef.current?.click()}
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                  </Button>
-                </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={isRecording ? stopRecording : startRecording}
+                        className={isRecording ? "text-danger" : ""}
+                      >
+                        {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      </Button>
 
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Digite sua mensagem..."
-                    rows={1}
-                    className="w-full bg-primary border border-border rounded-xl px-4 py-3 text-sm text-primary placeholder:text-muted resize-none focus:outline-none focus:border-accent min-h-[44px] max-h-[120px]"
-                    style={{ height: "auto" }}
-                  />
-                </div>
-
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={isRecording ? "text-danger" : ""}
-                  >
-                    {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    onClick={sendMessage}
-                    disabled={!input.trim() && attachedFiles.length === 0}
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
+                      <Button
+                        size="sm"
+                        onClick={sendMessage}
+                        disabled={!input.trim() && attachedFiles.length === 0}
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

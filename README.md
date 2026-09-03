@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/static/logo2.png" alt="AutoAssist Logo" width="200">
+  <img src="frontend/public/logo2.png" alt="AutoAssist Logo" width="200">
 </p>
 
 # AutoAssist IA 🚗💨
