@@ -143,20 +143,65 @@ export default function Navbar() {
         </button>
       </nav>
 
+      {/* Backdrop */}
       {open && (
-        <div className="border-t border-border/50 bg-primary/95 backdrop-blur-xl md:hidden">
-          <div className="flex flex-col gap-1 px-4 py-4">
+        <div
+          className="fixed inset-0 z-[1200] bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`fixed top-0 right-0 z-[1300] h-full w-72 border-l border-border/50 bg-primary shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
+          open ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex h-full flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
+            <span className="text-sm font-semibold text-primary">Menu</span>
+            <button
+              onClick={() => setOpen(false)}
+              className="rounded-lg p-1.5 text-secondary transition-colors hover:bg-white/5 hover:text-primary"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Links */}
+          <div className="flex-1 overflow-y-auto px-3 py-4">
+            <div className="flex flex-col gap-1">
+              {logged ? (
+                <>
+                  {navLink('/dashboard', 'Dashboard', <LayoutDashboard className="h-4 w-4" />)}
+                  {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
+                  {navLink('/planos', 'Planos', null)}
+                  {navLink('/anotacoes', 'Anotações', <StickyNote className="h-4 w-4" />)}
+                  {navLink('/maps', 'Mapa', <Map className="h-4 w-4" />)}
+                  {navLink('/biblioteca', 'Biblioteca', <BookOpen className="h-4 w-4" />)}
+                  {navLink('/eventos', 'Eventos', <Calendar className="h-4 w-4" />)}
+                  {navLink('/perfil', 'Perfil', <User className="h-4 w-4" />)}
+                </>
+              ) : (
+                <>
+                  {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
+                  {navLink('/planos', 'Planos', null)}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-border/50 px-3 py-4">
             {logged ? (
-              <>
-                {navLink('/dashboard', 'Dashboard', <LayoutDashboard className="h-4 w-4" />)}
-                {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
-                {navLink('/planos', 'Planos', null)}
-                {navLink('/anotacoes', 'Anotações', <StickyNote className="h-4 w-4" />)}
-                {navLink('/maps', 'Mapa', <Map className="h-4 w-4" />)}
-                {navLink('/biblioteca', 'Biblioteca', <BookOpen className="h-4 w-4" />)}
-                {navLink('/eventos', 'Eventos', <Calendar className="h-4 w-4" />)}
-                {navLink('/perfil', 'Perfil', <User className="h-4 w-4" />)}
-                <div className="my-2 h-px bg-border/40" />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent">
+                    {userName.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-primary truncate">{userName}</span>
+                </div>
                 <button
                   onClick={() => { setOpen(false); logout(); }}
                   className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-secondary transition-all duration-150 hover:bg-danger/10 hover:text-danger"
@@ -164,30 +209,28 @@ export default function Navbar() {
                   <LogOut className="h-4 w-4" />
                   Sair
                 </button>
-              </>
+              </div>
             ) : (
-              <>
-                {navLink('/chat', 'Chat', <Bot className="h-4 w-4" />)}
-                {navLink('/planos', 'Planos', null)}
+              <div className="flex flex-col gap-2">
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-secondary transition-all duration-150 hover:bg-white/5 hover:text-primary"
+                  className="rounded-lg px-3 py-2.5 text-center text-sm font-medium text-secondary transition-all duration-150 hover:bg-white/5 hover:text-primary"
                 >
                   Entrar
                 </Link>
                 <Link
                   href="/cadastro"
                   onClick={() => setOpen(false)}
-                  className="mt-2 rounded-lg bg-accent px-3 py-2.5 text-center text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
+                  className="rounded-lg bg-accent px-3 py-2.5 text-center text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
                 >
                   Criar Conta
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
-      )}
+      </div>
     </header>
   )
 }

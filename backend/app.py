@@ -55,7 +55,7 @@ load_dotenv(env_path)
 
 from extensions import limiter
 
-app = Flask(__name__, static_folder="../frontend/public", static_url_path="")
+app = Flask(__name__, static_folder="../frontend/public", static_url_path="/static")
 _startup_log("Flask instanciado.")
 Compress(app)
 from websocket_handler import sock as ws_sock, ws_bp
