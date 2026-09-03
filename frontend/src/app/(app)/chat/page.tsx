@@ -162,6 +162,9 @@ export default function ChatPage() {
     init();
   }, [router]);
 
+  const activeSessionRef = useRef(activeSession);
+  activeSessionRef.current = activeSession;
+
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
@@ -175,7 +178,7 @@ export default function ChatPage() {
       ws.send(JSON.stringify({
         type: "auth",
         token,
-        session_id: activeSession || "",
+        session_id: activeSessionRef.current || "",
       }));
     };
 
@@ -209,16 +212,17 @@ export default function ChatPage() {
     };
 
     ws.onclose = () => {
-      setTimeout(connectWebSocket, 3000);
+      wsRef.current = null;
     };
 
     wsRef.current = ws;
-  }, [activeSession]);
+  }, []);
 
   useEffect(() => {
     connectWebSocket();
     return () => {
       wsRef.current?.close();
+      wsRef.current = null;
     };
   }, [connectWebSocket]);
 
@@ -621,12 +625,12 @@ export default function ChatPage() {
               {loadingMessages && messages.length === 0 && (
                 <div className="flex justify-start">
                   <div className="bg-secondary border border-border rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-4 h-4 text-accent" />
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce [animation-delay:0.1s]" />
-                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <div className="flex items-center gap-2.5">
+                      <Bot className="w-4 h-4 text-accent" style={{ animation: "nog-glow 1.4s ease-in-out infinite" }} />
+                      <div className="flex items-center gap-1">
+                        <span className="block w-[5px] h-[5px] rounded-full bg-accent" style={{ animation: "nog-pulse 1.4s ease-in-out infinite", animationDelay: "0s" }} />
+                        <span className="block w-[5px] h-[5px] rounded-full bg-accent" style={{ animation: "nog-pulse 1.4s ease-in-out infinite", animationDelay: "0.2s" }} />
+                        <span className="block w-[5px] h-[5px] rounded-full bg-accent" style={{ animation: "nog-pulse 1.4s ease-in-out infinite", animationDelay: "0.4s" }} />
                       </div>
                     </div>
                   </div>
@@ -697,12 +701,12 @@ export default function ChatPage() {
               {isTyping && (
                 <div className="flex justify-start">
                   <div className="bg-secondary border border-border rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-4 h-4 text-accent" />
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce [animation-delay:0.1s]" />
-                        <div className="w-2 h-2 bg-muted rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <div className="flex items-center gap-2.5">
+                      <Bot className="w-4 h-4 text-accent" style={{ animation: "nog-glow 1.4s ease-in-out infinite" }} />
+                      <div className="flex items-center gap-1">
+                        <span className="block w-[5px] h-[5px] rounded-full bg-accent" style={{ animation: "nog-pulse 1.4s ease-in-out infinite", animationDelay: "0s" }} />
+                        <span className="block w-[5px] h-[5px] rounded-full bg-accent" style={{ animation: "nog-pulse 1.4s ease-in-out infinite", animationDelay: "0.2s" }} />
+                        <span className="block w-[5px] h-[5px] rounded-full bg-accent" style={{ animation: "nog-pulse 1.4s ease-in-out infinite", animationDelay: "0.4s" }} />
                       </div>
                     </div>
                   </div>
