@@ -1,0 +1,38 @@
+# AutoAssist
+
+Diagnóstico automotivo com IA, Tabela FIPE, histórico de manutenção e muito mais.
+Entenda seu carro antes de gastar dinheiro.
+
+## Sobre
+
+O AutoAssist é uma plataforma web que usa inteligência artificial para ajudar proprietários de veículos a entenderem melhor seus carros. Com diagnóstico por foto, consulta à tabela FIPE, registro de manutenção e um assistente conversacional, o AutoAssist reduz custos e evita surpresas com oficinas.
+
+## Funcionalidades principais
+
+- Diagnóstico automotivo por foto (IA)
+- Consulta de valores FIPE
+- Histórico de manutenção do veículo
+- Assistente conversacional (chat com IA)
+- Mapa de oficinas parceiras
+- Blog com dicas de manutenção automotiva
+
+## Preços
+
+- Plano gratuito com diagnósticos limitados
+- Planos pagos com recursos ilimitados
+- Veja detalhes em /planos
+
+## Links
+
+- Site: https://autoassist-l9lr.onrender.com
+- Planos: https://autoassist-l9lr.onrender.com/planos
+- API B2B: https://autoassist-l9lr.onrender.com/b2b
+- Documentação da API: https://autoassist-l9lr.onrender.com/docs
+- Blog: https://autoassist-l9lr.onrender.com/blog
+- Central de dúvidas: https://autoassist-l9lr.onrender.com/duvidas
+
+## Contato
+
+- Suporte: https://autoassist-l9lr.onrender.com/feedback
+- Termos de uso: https://autoassist-l9lr.onrender.com/termos
+- Política de privacidade: https://autoassist-l9lr.onrender.com/privacidade

@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /perfil
+Disallow: /dashboard
+Disallow: /anotacoes
+Disallow: /eventos
+Disallow: /biblioteca
+Disallow: /feedback
+Disallow: /maps
+Disallow: /chat
+Disallow: /pagamento-sucesso
+
+Sitemap: https://autoassist-l9lr.onrender.com/sitemap.xml
