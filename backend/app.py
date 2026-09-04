@@ -132,6 +132,7 @@ csp = {
     # externos (static/js/*.js). Nonce dinâmico é injetado para o Swagger UI.
     'script-src': [
         "'self'",
+        "'unsafe-eval'",
         "https://cdnjs.cloudflare.com",
         "https://cdn.jsdelivr.net",
         "https://unpkg.com",
