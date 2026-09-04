@@ -17,6 +17,7 @@
       waitForTurnstile(function() {
         turnstileWidgetId = turnstile.render('#turnstileBox', {
           sitekey: key,
+          action: 'signup',
           theme: 'dark',
           callback: function(token) { turnstileToken = token; submitBtn.disabled = false; },
           'expired-callback': function() { turnstileToken = null; submitBtn.disabled = true; },
