@@ -842,7 +842,6 @@ def cadastro():
 
 @auth_bp.route("/api/login", methods=["POST"])
 @limiter.limit("10 per minute")
-@turnstile_required(action="login")
 def login():
     if request.args.get("demo") == "1":
         _demo_enabled = os.getenv("DEMO_LOGIN_ENABLED", "0")
