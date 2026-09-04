@@ -126,19 +126,50 @@
           var user = window.auth.getUser();
           var name = user ? (user.nome || user.name || "Perfil") : "Perfil";
 
+          var navClass = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 text-secondary hover:bg-white/5 hover:text-primary";
+          var iconClass = "lucide h-4 w-4";
+
           // Dashboard link
           var dashLink = document.createElement("a");
           dashLink.href = "/dashboard";
           dashLink.setAttribute("data-auth-link", "1");
-          dashLink.className = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 text-secondary hover:bg-white/5 hover:text-primary";
-          dashLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-dashboard h-4 w-4"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg></span>Dashboard';
+          dashLink.className = navClass;
+          dashLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg></span>Dashboard';
+
+          // Anotações link
+          var anotLink = document.createElement("a");
+          anotLink.href = "/anotacoes";
+          anotLink.setAttribute("data-auth-link", "1");
+          anotLink.className = navClass;
+          anotLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></span>Anotações';
+
+          // Eventos link
+          var eventosLink = document.createElement("a");
+          eventosLink.href = "/eventos";
+          eventosLink.setAttribute("data-auth-link", "1");
+          eventosLink.className = navClass;
+          eventosLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg></span>Eventos';
+
+          // Maps link
+          var mapsLink = document.createElement("a");
+          mapsLink.href = "/maps";
+          mapsLink.setAttribute("data-auth-link", "1");
+          mapsLink.className = navClass;
+          mapsLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>Mapas';
+
+          // Biblioteca link
+          var bibLink = document.createElement("a");
+          bibLink.href = "/biblioteca";
+          bibLink.setAttribute("data-auth-link", "1");
+          bibLink.className = navClass;
+          bibLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span>Biblioteca';
 
           // Perfil link
           var perfilLink = document.createElement("a");
           perfilLink.href = "/perfil";
           perfilLink.setAttribute("data-auth-link", "1");
-          perfilLink.className = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 text-secondary hover:bg-white/5 hover:text-primary";
-          perfilLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user h-4 w-4"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>Perfil';
+          perfilLink.className = navClass;
+          perfilLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>Perfil';
 
           // Sair link
           var sairLink = document.createElement("a");
@@ -151,9 +182,12 @@
             window.auth.logout();
           });
 
-          // Insert before the hamburger (desktop) or at end (drawer)
-          container.insertBefore(dashLink, entrarLink);
-          container.insertBefore(perfilLink, entrarLink);
+          // Insert before the first hidden link or at end
+          var refNode = entrarLink || criarLink;
+          [dashLink, anotLink, eventosLink, mapsLink, bibLink, perfilLink].forEach(function(el) {
+            if (refNode) container.insertBefore(el, refNode);
+            else container.appendChild(el);
+          });
           container.appendChild(sairLink);
         }
       } else {
