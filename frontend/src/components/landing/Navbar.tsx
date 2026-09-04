@@ -53,13 +53,16 @@ export default function Navbar() {
   useEffect(() => {
     if (open) {
       const scrollY = window.scrollY
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${scrollY}px`
-      document.body.style.width = '100%'
+      const htmlEl = document.documentElement
+      htmlEl.style.overflow = 'hidden'
+      htmlEl.style.position = 'fixed'
+      htmlEl.style.top = `-${scrollY}px`
+      htmlEl.style.width = '100%'
       return () => {
-        document.body.style.position = ''
-        document.body.style.top = ''
-        document.body.style.width = ''
+        htmlEl.style.overflow = ''
+        htmlEl.style.position = ''
+        htmlEl.style.top = ''
+        htmlEl.style.width = ''
         window.scrollTo(0, scrollY)
       }
     }
@@ -197,11 +200,11 @@ export default function Navbar() {
 
           {/* ── Hamburger (mobile) ── */}
           <button
-            onClick={() => setOpen(true)}
+            onPointerDown={() => setOpen((v) => !v)}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-white/5 hover:text-primary md:hidden"
-            aria-label="Abrir menu"
+            aria-label={open ? 'Fechar menu' : 'Abrir menu'}
           >
-            <Menu className="h-5 w-5" />
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </nav>
       </header>
@@ -209,10 +212,10 @@ export default function Navbar() {
       {/* ════════════════ DRAWER (outside header) ════════════════ */}
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-[1200] bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
-          open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        className={`fixed inset-0 z-[1200] bg-black/60 transition-opacity duration-300 md:hidden ${
+          open ? 'pointer-events-auto opacity-100 backdrop-blur-sm' : 'pointer-events-none opacity-0'
         }`}
-        onClick={closeDrawer}
+        onPointerDown={open ? closeDrawer : undefined}
         aria-hidden="true"
       />
 
@@ -229,7 +232,7 @@ export default function Navbar() {
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-border/50 px-5">
           <span className="text-sm font-semibold text-primary">Menu</span>
           <button
-            onClick={closeDrawer}
+            onPointerDown={closeDrawer}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-white/5 hover:text-primary"
             aria-label="Fechar menu"
           >
@@ -275,7 +278,7 @@ export default function Navbar() {
 
               {/* Logout */}
               <button
-                onClick={() => {
+                onPointerDown={() => {
                   closeDrawer()
                   logout()
                 }}
