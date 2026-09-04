@@ -48,7 +48,7 @@
         return;
       }
       var params = new URLSearchParams(window.location.search);
-      window.location.href = params.get('redirect') || '/dashboard';
+      window.location.href = params.get('redirect') || '/';
     } catch(err) {
       errorDiv.textContent = err.message || 'Erro ao entrar. Tente novamente.';
       errorDiv.classList.remove('hidden');

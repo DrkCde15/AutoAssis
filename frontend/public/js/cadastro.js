@@ -55,7 +55,7 @@
         password: password,
         turnstile_token: token
       });
-      window.location.href = '/dashboard';
+      window.location.href = '/';
     } catch(err) {
       errorDiv.textContent = err.message || 'Erro ao criar conta. Tente novamente.';
       errorDiv.classList.remove('hidden');
