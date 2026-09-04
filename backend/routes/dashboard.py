@@ -267,20 +267,19 @@ def get_dashboard_data():
 
     try:
         with get_db() as (cur, conn):
-            # 1) Veículos agregados (1 query)
+            # 1) Veículos agregados (sem subquery correlacionada)
             cur.execute(
                 """SELECT v.id, v.user_id, v.tipo, v.marca, v.modelo,
                           v.ano_fabricacao, v.quilometragem, v.foto_base64,
                           v.fipe_valor, v.fipe_mes_referencia, v.fipe_updated_at,
                           COUNT(mh.id) AS qtde_manutencao,
-                          MAX(mh.service_date) AS ultima_manutencao,
-                          (SELECT COUNT(DISTINCT session_id) FROM chats WHERE user_id=%s) AS qtde_chats
+                          MAX(mh.service_date) AS ultima_manutencao
                    FROM veiculos v
                    LEFT JOIN maintenance_history mh ON mh.vehicle_id=v.id
                    WHERE v.user_id=%s
                    GROUP BY v.id
                    ORDER BY v.id""",
-                (user_id, user_id),
+                (user_id,),
             )
             rows = cur.fetchall()
 
@@ -304,6 +303,13 @@ def get_dashboard_data():
             )
             health_last = {r["vehicle_id"]: r["last_recorded"] for r in cur.fetchall()}
 
+            # 4) Total de chats (1 query simples)
+            cur.execute(
+                "SELECT COUNT(DISTINCT session_id) AS qtde_chats FROM chats WHERE user_id=%s",
+                (user_id,),
+            )
+            qtde_chats = cur.fetchone()["qtde_chats"]
+
         # Agrupa histórico por veículo em Python (sem DB)
         from collections import defaultdict
         hist_por_veiculo = defaultdict(list)
@@ -316,6 +322,7 @@ def get_dashboard_data():
         items = []
         pending_health = []
         for row in rows:
+            row["qtde_chats"] = qtde_chats
             vid = row["id"]
             health_score = _compute_health_score(row, predictions.get(vid))
             items.append(_build_vehicle_dashboard(row, health_score, predictions.get(vid)))
