@@ -200,10 +200,10 @@ talisman = Talisman(app,
              "camera": [],
              "encrypted-media": [],
              "fullscreen": [],
-             "geolocation": ["'self'"],
+             "geolocation": ["self"],
              "gyroscope": [],
              "magnetometer": [],
-             "microphone": ["'self'"],
+             "microphone": ["self"],
              "midi": [],
              "payment": [],
              "usb": [],
@@ -236,15 +236,9 @@ def after_request(response):
         response.headers['Content-Security-Policy'] = csp.replace(
             "script-src 'self'", f"script-src 'self' 'nonce-{nonce}'"
         )
-    # Remove a diretiva 'browsing-topics' (recurso nao reconhecido pelos navegadores)
-    # do Permissions-Policy, que o Flask-Talisman adiciona por padrao e gera warning no console.
-    pp = response.headers.get('Permissions-Policy')
-    if pp and 'browsing-topics' in pp:
-        new_pp = ', '.join(p for p in pp.split(',') if 'browsing-topics' not in p)
-        if new_pp.strip():
-            response.headers['Permissions-Policy'] = new_pp
-        else:
-            del response.headers['Permissions-Policy']
+    # Remove Permissions-Policy (gera parse error no browser e nao agrega ao CSP)
+    if 'Permissions-Policy' in response.headers:
+        del response.headers['Permissions-Policy']
     return response
 
 # [SEGURANCA] Verificacao estrita da Secret Key
