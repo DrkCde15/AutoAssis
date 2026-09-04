@@ -26,6 +26,41 @@ export default function Navbar() {
   const [moreOpen, setMoreOpen] = useState(false)
   const pathname = usePathname()
 
+  /* ═══════ DEBUG: track state changes ═══════ */
+  useEffect(() => {
+    console.log('[NAVBAR-DEBUG] state "open" changed to:', open)
+  }, [open])
+
+  /* ═══════ DEBUG: DOM inspection on mount ═══════ */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const hamburger = document.querySelector('[aria-label="Abrir menu"], [aria-label="Fechar menu"]')
+      if (hamburger) {
+        const rect = hamburger.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+        const topEl = document.elementFromPoint(cx, cy)
+        const cs = getComputedStyle(hamburger)
+        console.log('[NAVBAR-DEBUG] Hamburger rect:', JSON.stringify({ top: rect.top, left: rect.left, w: rect.width, h: rect.height }))
+        console.log('[NAVBAR-DEBUG] elementFromPoint at center:', topEl?.tagName, topEl?.className?.substring(0, 100))
+        console.log('[NAVBAR-DEBUG] hamburger computed pointerEvents:', cs.pointerEvents)
+        console.log('[NAVBAR-DEBUG] hamburger computed zIndex:', cs.zIndex)
+        console.log('[NAVBAR-DEBUG] hamburger computed position:', cs.position)
+        console.log('[NAVBAR-DEBUG] hamburger computed display:', cs.display)
+        console.log('[NAVBAR-DEBUG] hamburger computed visibility:', cs.visibility)
+        if (topEl !== hamburger && topEl !== hamburger.querySelector('svg')) {
+          console.warn('[NAVBAR-DEBUG] !!! WARNING: elementFromPoint returned DIFFERENT element than hamburger !!!')
+          console.warn('[NAVBAR-DEBUG] Blocking element:', topEl?.tagName, topEl?.id, topEl?.className?.substring(0, 200))
+        } else {
+          console.log('[NAVBAR-DEBUG] elementFromPoint OK: hamburger IS the top element')
+        }
+      } else {
+        console.error('[NAVBAR-DEBUG] Hamburger button NOT FOUND in DOM!')
+      }
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
   useEffect(() => {
     const authed = isAuthenticated()
     setLogged(authed)
@@ -51,14 +86,17 @@ export default function Navbar() {
 
   /* ── body scroll lock when drawer open ── */
   useEffect(() => {
+    console.log('[NAVBAR-DEBUG] scroll lock effect, open:', open)
     if (open) {
       const scrollY = window.scrollY
       const htmlEl = document.documentElement
+      console.log('[NAVBAR-DEBUG] applying scroll lock, scrollY:', scrollY)
       htmlEl.style.overflow = 'hidden'
       htmlEl.style.position = 'fixed'
       htmlEl.style.top = `-${scrollY}px`
       htmlEl.style.width = '100%'
       return () => {
+        console.log('[NAVBAR-DEBUG] removing scroll lock')
         htmlEl.style.overflow = ''
         htmlEl.style.position = ''
         htmlEl.style.top = ''
@@ -200,7 +238,18 @@ export default function Navbar() {
 
           {/* ── Hamburger (mobile) ── */}
           <button
-            onPointerDown={() => setOpen((v) => !v)}
+            onPointerDown={(e) => {
+              console.log('[NAVBAR-DEBUG] POINTERDOWN on hamburger, pointerType:', e.pointerType, 'isTrusted:', e.isTrusted)
+              console.log('[NAVBAR-DEBUG] current open state BEFORE toggle:', open)
+              setOpen((v) => {
+                const next = !v
+                console.log('[NAVBAR-DEBUG] setOpen called, will change to:', next)
+                return next
+              })
+            }}
+            onClick={(e) => {
+              console.log('[NAVBAR-DEBUG] CLICK on hamburger, pointerType:', e.pointerType, 'isTrusted:', e.isTrusted)
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-white/5 hover:text-primary md:hidden"
             aria-label={open ? 'Fechar menu' : 'Abrir menu'}
           >
@@ -215,7 +264,10 @@ export default function Navbar() {
         className={`fixed inset-0 z-[1200] bg-black/60 transition-opacity duration-300 md:hidden ${
           open ? 'pointer-events-auto opacity-100 backdrop-blur-sm' : 'pointer-events-none opacity-0'
         }`}
-        onPointerDown={open ? closeDrawer : undefined}
+        onPointerDown={(e) => {
+          console.log('[NAVBAR-DEBUG] POINTERDOWN on backdrop, open:', open, 'pointerType:', e.pointerType, 'isTrusted:', e.isTrusted)
+          if (open) closeDrawer()
+        }}
         aria-hidden="true"
       />
 
