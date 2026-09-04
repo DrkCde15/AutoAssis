@@ -26,41 +26,6 @@ export default function Navbar() {
   const [moreOpen, setMoreOpen] = useState(false)
   const pathname = usePathname()
 
-  /* ═══════ DEBUG: track state changes ═══════ */
-  useEffect(() => {
-    console.log('[NAVBAR-DEBUG] state "open" changed to:', open)
-  }, [open])
-
-  /* ═══════ DEBUG: DOM inspection on mount ═══════ */
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const hamburger = document.querySelector('[aria-label="Abrir menu"], [aria-label="Fechar menu"]')
-      if (hamburger) {
-        const rect = hamburger.getBoundingClientRect()
-        const cx = rect.left + rect.width / 2
-        const cy = rect.top + rect.height / 2
-        const topEl = document.elementFromPoint(cx, cy)
-        const cs = getComputedStyle(hamburger)
-        console.log('[NAVBAR-DEBUG] Hamburger rect:', JSON.stringify({ top: rect.top, left: rect.left, w: rect.width, h: rect.height }))
-        console.log('[NAVBAR-DEBUG] elementFromPoint at center:', topEl?.tagName, topEl?.className?.substring(0, 100))
-        console.log('[NAVBAR-DEBUG] hamburger computed pointerEvents:', cs.pointerEvents)
-        console.log('[NAVBAR-DEBUG] hamburger computed zIndex:', cs.zIndex)
-        console.log('[NAVBAR-DEBUG] hamburger computed position:', cs.position)
-        console.log('[NAVBAR-DEBUG] hamburger computed display:', cs.display)
-        console.log('[NAVBAR-DEBUG] hamburger computed visibility:', cs.visibility)
-        if (topEl !== hamburger && topEl !== hamburger.querySelector('svg')) {
-          console.warn('[NAVBAR-DEBUG] !!! WARNING: elementFromPoint returned DIFFERENT element than hamburger !!!')
-          console.warn('[NAVBAR-DEBUG] Blocking element:', topEl?.tagName, topEl?.id, topEl?.className?.substring(0, 200))
-        } else {
-          console.log('[NAVBAR-DEBUG] elementFromPoint OK: hamburger IS the top element')
-        }
-      } else {
-        console.error('[NAVBAR-DEBUG] Hamburger button NOT FOUND in DOM!')
-      }
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [])
-
   useEffect(() => {
     const authed = isAuthenticated()
     setLogged(authed)
@@ -84,23 +49,36 @@ export default function Navbar() {
     }
   }, [moreOpen])
 
+  /* ── close drawer on outside click ── */
+  useEffect(() => {
+    if (!open) return
+    const handleOutside = (e: PointerEvent) => {
+      const target = e.target as HTMLElement
+      if (
+        target.closest('[data-mobile-drawer]') ||
+        target.closest('[data-hamburger]')
+      ) {
+        return
+      }
+      setOpen(false)
+    }
+    document.addEventListener('pointerdown', handleOutside)
+    return () => document.removeEventListener('pointerdown', handleOutside)
+  }, [open])
+
   /* ── body scroll lock when drawer open ── */
   useEffect(() => {
-    console.log('[NAVBAR-DEBUG] scroll lock effect, open:', open)
     if (open) {
       const scrollY = window.scrollY
-      const htmlEl = document.documentElement
-      console.log('[NAVBAR-DEBUG] applying scroll lock, scrollY:', scrollY)
-      htmlEl.style.overflow = 'hidden'
-      htmlEl.style.position = 'fixed'
-      htmlEl.style.top = `-${scrollY}px`
-      htmlEl.style.width = '100%'
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
       return () => {
-        console.log('[NAVBAR-DEBUG] removing scroll lock')
-        htmlEl.style.overflow = ''
-        htmlEl.style.position = ''
-        htmlEl.style.top = ''
-        htmlEl.style.width = ''
+        document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.width = ''
         window.scrollTo(0, scrollY)
       }
     }
@@ -150,7 +128,7 @@ export default function Navbar() {
   return (
     <>
       {/* ════════════════ HEADER ════════════════ */}
-      <header className="fixed top-0 left-0 right-0 z-[1100] border-b border-border/50 bg-primary/80 backdrop-blur-xl">
+      <header className="fixed top-0 left-0 right-0 z-[1100] border-b border-border/50 bg-primary/80 md:backdrop-blur-xl">
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2 text-primary">
             <img src="/logo.png" alt="AutoAssist" className="h-22 w-auto" />
@@ -166,6 +144,7 @@ export default function Navbar() {
 
                 <div className="relative" data-more-menu>
                   <button
+                    type="button"
                     onClick={() => setMoreOpen(!moreOpen)}
                     className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
                       moreOpen
@@ -195,6 +174,7 @@ export default function Navbar() {
                       <div className="mx-3 my-1.5 h-px bg-border/40" />
                       <div className="px-1.5">
                         <button
+                          type="button"
                           onClick={() => {
                             setMoreOpen(false)
                             logout()
@@ -238,20 +218,12 @@ export default function Navbar() {
 
           {/* ── Hamburger (mobile) ── */}
           <button
-            onPointerDown={(e) => {
-              console.log('[NAVBAR-DEBUG] POINTERDOWN on hamburger, pointerType:', e.pointerType, 'isTrusted:', e.isTrusted)
-              console.log('[NAVBAR-DEBUG] current open state BEFORE toggle:', open)
-              setOpen((v) => {
-                const next = !v
-                console.log('[NAVBAR-DEBUG] setOpen called, will change to:', next)
-                return next
-              })
-            }}
-            onClick={(e) => {
-              console.log('[NAVBAR-DEBUG] CLICK on hamburger, pointerType:', e.pointerType, 'isTrusted:', e.isTrusted)
-            }}
+            type="button"
+            data-hamburger
+            onClick={() => setOpen((v) => !v)}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-white/5 hover:text-primary md:hidden"
             aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={open}
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -259,20 +231,9 @@ export default function Navbar() {
       </header>
 
       {/* ════════════════ DRAWER (outside header) ════════════════ */}
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 z-[1200] bg-black/60 transition-opacity duration-300 md:hidden ${
-          open ? 'pointer-events-auto opacity-100 backdrop-blur-sm' : 'pointer-events-none opacity-0'
-        }`}
-        onPointerDown={(e) => {
-          console.log('[NAVBAR-DEBUG] POINTERDOWN on backdrop, open:', open, 'pointerType:', e.pointerType, 'isTrusted:', e.isTrusted)
-          if (open) closeDrawer()
-        }}
-        aria-hidden="true"
-      />
-
       {/* Sidebar */}
       <div
+        data-mobile-drawer
         className={`fixed top-0 right-0 z-[1300] flex h-dvh w-72 flex-col border-l border-border/50 bg-primary shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
@@ -284,7 +245,8 @@ export default function Navbar() {
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-border/50 px-5">
           <span className="text-sm font-semibold text-primary">Menu</span>
           <button
-            onPointerDown={closeDrawer}
+            type="button"
+            onClick={closeDrawer}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-white/5 hover:text-primary"
             aria-label="Fechar menu"
           >
@@ -330,7 +292,8 @@ export default function Navbar() {
 
               {/* Logout */}
               <button
-                onPointerDown={() => {
+                type="button"
+                onClick={() => {
                   closeDrawer()
                   logout()
                 }}
