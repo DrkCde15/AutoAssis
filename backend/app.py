@@ -138,6 +138,9 @@ csp = {
         "https://unpkg.com",
         "https://challenges.cloudflare.com",
     ],
+    # script-src-attr: necessário para o widget Turnstile (cs.js) que usa
+    # event handlers inline (onclick, etc). Não enfraquece script-src.
+    'script-src-attr': ["'unsafe-inline'"],
     # style-src: mantém 'unsafe-inline' por praticidade — 193 atributos style=""
     # e 35 blocos <style> nos HTML estáticos não são viáveis de extrair agora.
     'style-src': [
