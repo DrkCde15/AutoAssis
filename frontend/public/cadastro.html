@@ -53,7 +53,7 @@
           <label class="mb-1.5 block text-sm font-medium text-secondary">Confirmar Senha</label>
           <input id="password2" type="password" placeholder="••••••••" required minlength="8" class="w-full rounded-lg border border-border bg-primary px-4 py-3 text-primary placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"/>
         </div>
-        <div id="turnstileBox" class="cf-turnstile" data-sitekey="" data-theme="dark" data-callback="onTurnstileReady"></div>
+        <div id="turnstileBox" class="min-h-[65px]"></div>
         <div id="error" class="hidden rounded-lg bg-red-500/10 p-3 text-sm text-red-400"></div>
         <button id="submitBtn" type="submit" disabled class="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50">
           Criar conta
@@ -71,21 +71,34 @@
 (function() {
   var submitBtn = document.getElementById('submitBtn');
   var errorDiv = document.getElementById('error');
+  var turnstileToken = null;
+  var turnstileWidgetId = null;
+
+  function waitForTurnstile(cb) {
+    if (typeof turnstile !== 'undefined') return cb();
+    var t = setInterval(function() {
+      if (typeof turnstile !== 'undefined') { clearInterval(t); cb(); }
+    }, 50);
+  }
 
   fetch('/api/config/public').then(function(r){return r.json()}).then(function(d){
     var key = d.turnstile_site_key;
     if (key) {
-      document.getElementById('turnstileBox').setAttribute('data-sitekey', key);
+      waitForTurnstile(function() {
+        turnstileWidgetId = turnstile.render('#turnstileBox', {
+          sitekey: key,
+          theme: 'dark',
+          callback: function(token) { turnstileToken = token; submitBtn.disabled = false; },
+          'expired-callback': function() { turnstileToken = null; submitBtn.disabled = true; },
+          'error-callback': function() { turnstileToken = null; submitBtn.disabled = true; }
+        });
+      });
     } else {
       submitBtn.disabled = false;
     }
   }).catch(function(){
     submitBtn.disabled = false;
   });
-
-  window.onTurnstileReady = function() {
-    submitBtn.disabled = false;
-  };
 
   document.getElementById('signupForm').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -102,18 +115,14 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Criando conta...';
 
-    var turnstileToken = null;
-    try {
-      var widget = document.querySelector('[name="cf-turnstile-response"]');
-      if (widget) turnstileToken = widget.value;
-    } catch(_) {}
+    var token = turnstileToken;
 
     try {
       await auth.register({
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         password: password,
-        turnstile_token: turnstileToken
+        turnstile_token: token
       });
       window.location.href = '/dashboard';
     } catch(err) {
@@ -121,7 +130,10 @@
       errorDiv.classList.remove('hidden');
       submitBtn.disabled = false;
       submitBtn.textContent = 'Criar conta';
-      if (typeof turnstile !== 'undefined') turnstile.reset();
+      if (typeof turnstile !== 'undefined' && turnstileWidgetId !== null) {
+        turnstileToken = null;
+        turnstile.reset(turnstileWidgetId);
+      }
     }
   });
 })();
