@@ -60,6 +60,7 @@ _startup_log("Flask instanciado.")
 Compress(app)
 
 @app.route("/_next/<path:filename>")
+@limiter.exempt
 def serve_next_assets(filename):
     from flask import send_from_directory
     return send_from_directory(os.path.join(app.root_path, "../frontend/public/_next"), filename)
