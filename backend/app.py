@@ -59,12 +59,6 @@ app = Flask(__name__, static_folder="../frontend/public", static_url_path="/stat
 _startup_log("Flask instanciado.")
 Compress(app)
 
-@app.route("/_next/<path:filename>")
-@limiter.exempt
-def serve_next_assets(filename):
-    from flask import send_from_directory
-    return send_from_directory(os.path.join(app.root_path, "../frontend/public/_next"), filename)
-
 from websocket_handler import sock as ws_sock, ws_bp
 app.register_blueprint(ws_bp)
 ws_sock.init_app(app)
