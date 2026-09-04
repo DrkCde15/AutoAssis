@@ -14,7 +14,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ two_factor_required?: boolean; pending_token?: string }>;
+  login: (email: string, password: string, turnstileToken?: string) => Promise<{ two_factor_required?: boolean; pending_token?: string }>;
   register: (data: { nome: string; email: string; password: string; veiculos?: unknown[] }) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
@@ -82,10 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, turnstileToken?: string) => {
     const res = await api.post<{ access_token?: string; two_factor_required?: boolean; pending_token?: string; user?: User }>(
       "/api/login",
-      { email, password }
+      { email, password, ...(turnstileToken ? { turnstile_token: turnstileToken } : {}) }
     );
 
     if (res.two_factor_required) {

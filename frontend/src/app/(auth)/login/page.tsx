@@ -1,22 +1,61 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
+      getResponse: (widgetId: string) => string | undefined;
+      reset: (widgetId: string) => void;
+    };
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [redirectTo, setRedirectTo] = useState("/");
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string>("");
+  const [turnstileLoaded, setTurnstileLoaded] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setRedirectTo(params.get("redirect") || "/");
   }, []);
+
+  const initTurnstile = useCallback(() => {
+    if (!TURNSTILE_SITE_KEY || !window.turnstile || !turnstileRef.current) return;
+    if (widgetIdRef.current) return;
+
+    widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: () => setTurnstileLoaded(true),
+      "error-callback": () => setTurnstileLoaded(false),
+      theme: "dark",
+      appearance: "interaction-only",
+    });
+  }, []);
+
+  useEffect(() => {
+    if (window.turnstile) {
+      initTurnstile();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.onload = () => initTurnstile();
+    document.head.appendChild(script);
+  }, [initTurnstile]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,19 +65,29 @@ export default function LoginPage() {
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
 
+  const getTurnstileToken = (): string | undefined => {
+    if (!window.turnstile || !widgetIdRef.current) return undefined;
+    return window.turnstile.getResponse(widgetIdRef.current);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      await login(email, password);
+      const token = getTurnstileToken();
+      await login(email, password, token);
       router.push(redirectTo);
     } catch (err: any) {
       if (err?.two_factor_required) {
         setTwoFactorRequired(true);
       } else {
         setError(err?.message || "Credenciais inválidas. Tente novamente.");
+        if (window.turnstile && widgetIdRef.current) {
+          window.turnstile.reset(widgetIdRef.current);
+          setTurnstileLoaded(false);
+        }
       }
     } finally {
       setLoading(false);
@@ -51,7 +100,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const token = getTurnstileToken();
+      await login(email, password, token);
       router.push(redirectTo);
     } catch (err: any) {
       setError(err?.message || "Código inválido. Tente novamente.");
@@ -183,6 +233,8 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+
+          {TURNSTILE_SITE_KEY && <div ref={turnstileRef} />}
 
           <button
             type="submit"
