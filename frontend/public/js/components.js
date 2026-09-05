@@ -6,36 +6,44 @@
 
   // ── FAQ Accordion ──
   document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll("[data-accordion]").forEach(function (accordion) {
-      accordion.querySelectorAll("[data-accordion-trigger]").forEach(function (trigger) {
-        trigger.addEventListener("click", function () {
-          var item = trigger.closest("[data-accordion-item]");
-          var content = item.querySelector("[data-accordion-content]");
-          var icon = trigger.querySelector("[data-accordion-icon]");
-          var isOpen = item.classList.contains("open");
+    document.querySelectorAll("button[aria-expanded]").forEach(function (btn) {
+      var content = btn.parentElement.querySelector(".overflow-hidden");
+      var icon = btn.querySelector("svg");
+      if (!content) return;
 
-          // Close all others in same accordion
-          accordion.querySelectorAll("[data-accordion-item].open").forEach(function (openItem) {
-            if (openItem !== item) {
-              openItem.classList.remove("open");
-              var c = openItem.querySelector("[data-accordion-content]");
-              if (c) c.style.maxHeight = "0";
-              var i = openItem.querySelector("[data-accordion-icon]");
-              if (i) i.style.transform = "";
-            }
-          });
+      btn.addEventListener("click", function () {
+        var isOpen = btn.getAttribute("aria-expanded") === "true";
 
-          if (isOpen) {
-            item.classList.remove("open");
-            if (content) content.style.maxHeight = "0";
-            if (icon) icon.style.transform = "";
-          } else {
-            item.classList.add("open");
-            if (content) content.style.maxHeight = content.scrollHeight + "px";
-            if (icon) icon.style.transform = "rotate(180deg)";
+        // Close all other accordion items in the same parent section
+        var section = btn.closest("section") || btn.closest("div");
+        section.querySelectorAll("button[aria-expanded]").forEach(function (otherBtn) {
+          if (otherBtn !== btn) {
+            otherBtn.setAttribute("aria-expanded", "false");
+            var otherContent = otherBtn.parentElement.querySelector(".overflow-hidden");
+            if (otherContent) otherContent.style.maxHeight = "0";
+            var otherIcon = otherBtn.querySelector("svg");
+            if (otherIcon) otherIcon.classList.remove("rotate-180");
           }
         });
+
+        if (isOpen) {
+          btn.setAttribute("aria-expanded", "false");
+          content.style.maxHeight = "0";
+          if (icon) icon.classList.remove("rotate-180");
+        } else {
+          btn.setAttribute("aria-expanded", "true");
+          content.style.maxHeight = content.scrollHeight + "px";
+          if (icon) icon.classList.add("rotate-180");
+        }
       });
+
+      // Set initial state from HTML
+      var initialOpen = btn.getAttribute("aria-expanded") === "true";
+      if (initialOpen) {
+        content.style.maxHeight = content.scrollHeight + "px";
+      } else {
+        content.style.maxHeight = "0";
+      }
     });
   });
 
