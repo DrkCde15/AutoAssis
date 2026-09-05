@@ -98,6 +98,7 @@
       if (res.user) {
         storeUser(res.user);
       }
+      return res;
     },
     // Authenticated fetch
     authFetch: async function (input, init) {

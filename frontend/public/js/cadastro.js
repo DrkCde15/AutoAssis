@@ -35,8 +35,19 @@
     e.preventDefault();
     errorDiv.classList.add('hidden');
 
+    var nome = document.getElementById('name').value.trim();
+    var email = document.getElementById('email').value.trim();
+    var confirmEmail = document.getElementById('confirm-email').value.trim();
     var password = document.getElementById('password').value;
+    var confirmEmailInput = document.getElementById('confirm-email');
     var password2 = document.getElementById('password2').value;
+
+    if (confirmEmailInput && email !== confirmEmail) {
+      errorDiv.textContent = 'Os e-mails não coincidem.';
+      errorDiv.classList.remove('hidden');
+      return;
+    }
+
     if (password !== password2) {
       errorDiv.textContent = 'As senhas não coincidem.';
       errorDiv.classList.remove('hidden');
@@ -50,12 +61,14 @@
 
     try {
       await auth.register({
-        name: document.getElementById('name').value,
-        email: document.getElementById('email').value,
+        nome: nome,
+        email: email,
+        confirm_email: confirmEmail,
         password: password,
+        confirm_password: password2,
         turnstile_token: token
       });
-      window.location.href = '/';
+      window.location.href = '/login?conta criada';
     } catch(err) {
       errorDiv.textContent = err.message || 'Erro ao criar conta. Tente novamente.';
       errorDiv.classList.remove('hidden');

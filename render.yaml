@@ -5,7 +5,7 @@
 # O docker-compose.yml e' apenas para desenvolvimento local.
 
 services:
-  # 1) Web API (Flask + gunicorn) com frontend Next.js estatico
+  # 1) Web API (Flask + gunicorn) com frontend estatico
   - type: web
     name: autoassist-backend
     runtime: python
@@ -13,7 +13,7 @@ services:
     region: virginia
     rootDir: backend
     buildCommand: bash build.sh
-    startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT
+    startCommand: gunicorn app:app -c gunicorn.conf.py --bind 0.0.0.0:$PORT
     healthCheckPath: /health
     envVars:
       - key: FLASK_ENV

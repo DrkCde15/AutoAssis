@@ -5,19 +5,70 @@
   "use strict";
 
   document.addEventListener("DOMContentLoaded", function () {
+    // --- Inject drawer styles ---
+    var style = document.createElement("style");
+    style.textContent = [
+      '[data-mobile-drawer] {',
+      '  background-color: var(--color-primary, #09090b) !important;',
+      '  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;',
+      '}',
+      '[data-mobile-backdrop] {',
+      '  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;',
+      '}',
+      '[data-mobile-drawer] a[data-auth-link] {',
+      '  animation: drawerFadeIn 0.2s ease-out both;',
+      '}',
+      '@keyframes drawerFadeIn {',
+      '  from { opacity: 0; transform: translateX(8px); }',
+      '  to { opacity: 1; transform: translateX(0); }',
+      '}',
+      '[data-mobile-drawer] {',
+      '  width: 85vw !important;',
+      '  max-width: 18rem !important;',
+      '}',
+      '@media (min-width: 380px) {',
+      '  [data-mobile-drawer] { width: 75vw !important; }',
+      '}',
+      '@media (min-width: 480px) {',
+      '  [data-mobile-drawer] { width: 70vw !important; }',
+      '}',
+      'header nav img[alt="AutoAssist"] {',
+      '  height: 3rem;',
+      '}',
+      '@media (min-width: 768px) {',
+      '  header nav img[alt="AutoAssist"] { height: 5.5rem; }',
+      '}'
+    ].join("\n");
+    document.head.appendChild(style);
+
     var hamburger = document.querySelector("[data-hamburger]");
     var drawer = document.querySelector("[data-mobile-drawer]");
-    var backdrop = document.querySelector("[data-mobile-backdrop]");
-
     if (!hamburger || !drawer) return;
+
+    // --- Create backdrop if missing ---
+    var backdrop = document.querySelector("[data-mobile-backdrop]");
+    if (!backdrop) {
+      backdrop = document.createElement("div");
+      backdrop.setAttribute("data-mobile-backdrop", "true");
+      backdrop.className = "fixed inset-0 z-[1299] bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 md:hidden";
+      document.body.appendChild(backdrop);
+    }
+
+    // --- Fix X button ---
+    var closeBtn = drawer.querySelector("button[aria-label='Fechar menu']");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", closeDrawer);
+    }
+
+    // --- Solid background (override any transparency) ---
+    drawer.classList.remove("bg-primary/80", "bg-primary/90", "backdrop-blur-xl");
+    drawer.style.backgroundColor = "";
 
     function openDrawer() {
       drawer.classList.add("translate-x-0");
       drawer.classList.remove("translate-x-full");
-      if (backdrop) {
-        backdrop.classList.remove("pointer-events-none", "opacity-0");
-        backdrop.classList.add("pointer-events-auto", "opacity-100");
-      }
+      backdrop.classList.remove("pointer-events-none", "opacity-0");
+      backdrop.classList.add("pointer-events-auto", "opacity-100");
       document.body.style.overflow = "hidden";
       hamburger.setAttribute("aria-expanded", "true");
       hamburger.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
@@ -26,10 +77,8 @@
     function closeDrawer() {
       drawer.classList.remove("translate-x-0");
       drawer.classList.add("translate-x-full");
-      if (backdrop) {
-        backdrop.classList.add("pointer-events-none", "opacity-0");
-        backdrop.classList.remove("pointer-events-auto", "opacity-100");
-      }
+      backdrop.classList.add("pointer-events-none", "opacity-0");
+      backdrop.classList.remove("pointer-events-auto", "opacity-100");
       document.body.style.overflow = "";
       hamburger.setAttribute("aria-expanded", "false");
       hamburger.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>';
@@ -44,10 +93,7 @@
     }
 
     hamburger.addEventListener("click", toggleDrawer);
-
-    if (backdrop) {
-      backdrop.addEventListener("click", closeDrawer);
-    }
+    backdrop.addEventListener("click", closeDrawer);
 
     // Close on ESC
     document.addEventListener("keydown", function (e) {
@@ -61,31 +107,38 @@
       link.addEventListener("click", closeDrawer);
     });
 
-    // Close drawer on outside click
-    document.addEventListener("click", function (e) {
-      if (
-        drawer.classList.contains("translate-x-0") &&
-        !drawer.contains(e.target) &&
-        !hamburger.contains(e.target)
-      ) {
-        closeDrawer();
-      }
-    });
-
     // Desktop: ensure drawer is hidden on md+
     var mql = window.matchMedia("(min-width: 768px)");
     function handleViewport(e) {
       if (e.matches) {
         closeDrawer();
-        if (backdrop) backdrop.style.display = "none";
+        backdrop.style.display = "none";
         drawer.style.display = "none";
       } else {
-        if (backdrop) backdrop.style.display = "";
+        backdrop.style.display = "";
         drawer.style.display = "";
       }
     }
     mql.addEventListener("change", handleViewport);
     handleViewport(mql);
+
+    // --- Active page indicator ---
+    markActivePage(drawer);
+    markActivePage(document.querySelector("header nav"));
+
+    function markActivePage(container) {
+      if (!container) return;
+      var path = window.location.pathname.replace(/\/$/, "") || "/";
+      container.querySelectorAll("a").forEach(function (a) {
+        var href = a.getAttribute("href");
+        if (!href) return;
+        var cleanHref = href.replace(/\/$/, "") || "/";
+        if (cleanHref === path) {
+          a.classList.add("bg-white/5", "text-primary");
+          a.classList.remove("text-secondary");
+        }
+      });
+    }
 
     // --- Auth-aware navbar ---
     updateNavbar();
@@ -102,10 +155,15 @@
       // Mobile drawer nav links
       var drawerLinks = drawer.querySelector("div.flex.flex-col.gap-1") || drawer;
       toggleAuthLinks(drawerLinks, isAuth);
+
+      // Hide/show footer auth section based on auth state
+      var footerAuth = drawer.querySelector("div.shrink-0.border-t");
+      if (footerAuth) {
+        footerAuth.style.display = isAuth ? "none" : "";
+      }
     }
 
     function toggleAuthLinks(container, isAuth) {
-      // Find Entrar and Criar Conta links
       var links = container.querySelectorAll("a");
       var entrarLink = null;
       var criarLink = null;
@@ -117,11 +175,9 @@
       });
 
       if (isAuth) {
-        // Hide Entrar/Criar Conta
         if (entrarLink) entrarLink.style.display = "none";
         if (criarLink) criarLink.style.display = "none";
 
-        // Check if auth links already exist
         if (!container.querySelector("[data-auth-link]")) {
           var user = window.auth.getUser();
           var name = user ? (user.nome || user.name || "Perfil") : "Perfil";
@@ -129,73 +185,47 @@
           var navClass = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 text-secondary hover:bg-white/5 hover:text-primary";
           var iconClass = "lucide h-4 w-4";
 
-          // Dashboard link
-          var dashLink = document.createElement("a");
-          dashLink.href = "/dashboard";
-          dashLink.setAttribute("data-auth-link", "1");
-          dashLink.className = navClass;
-          dashLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg></span>Dashboard';
+          var links_data = [
+            { href: "/dashboard", label: "Dashboard", icon: '<rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect>' },
+            { href: "/anotacoes", label: "Anotações", icon: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>' },
+            { href: "/eventos", label: "Eventos", icon: '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line>' },
+            { href: "/maps", label: "Mapas", icon: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>' },
+            { href: "/biblioteca", label: "Biblioteca", icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>' },
+            { href: "/perfil", label: "Perfil", icon: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>' }
+          ];
 
-          // Anotações link
-          var anotLink = document.createElement("a");
-          anotLink.href = "/anotacoes";
-          anotLink.setAttribute("data-auth-link", "1");
-          anotLink.className = navClass;
-          anotLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></span>Anotações';
+          var refNode = entrarLink || criarLink;
+          links_data.forEach(function (item) {
+            var el = document.createElement("a");
+            el.href = item.href;
+            el.setAttribute("data-auth-link", "1");
+            el.className = navClass;
+            el.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '">' + item.icon + '</svg></span>' + item.label;
+            if (refNode) container.insertBefore(el, refNode);
+            else container.appendChild(el);
+          });
 
-          // Eventos link
-          var eventosLink = document.createElement("a");
-          eventosLink.href = "/eventos";
-          eventosLink.setAttribute("data-auth-link", "1");
-          eventosLink.className = navClass;
-          eventosLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg></span>Eventos';
-
-          // Maps link
-          var mapsLink = document.createElement("a");
-          mapsLink.href = "/maps";
-          mapsLink.setAttribute("data-auth-link", "1");
-          mapsLink.className = navClass;
-          mapsLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>Mapas';
-
-          // Biblioteca link
-          var bibLink = document.createElement("a");
-          bibLink.href = "/biblioteca";
-          bibLink.setAttribute("data-auth-link", "1");
-          bibLink.className = navClass;
-          bibLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span>Biblioteca';
-
-          // Perfil link
-          var perfilLink = document.createElement("a");
-          perfilLink.href = "/perfil";
-          perfilLink.setAttribute("data-auth-link", "1");
-          perfilLink.className = navClass;
-          perfilLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + iconClass + '"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>Perfil';
+          // Separator before Sair
+          var sep = document.createElement("div");
+          sep.setAttribute("data-auth-link", "1");
+          sep.className = "my-1 border-t border-border/50";
+          container.appendChild(sep);
 
           // Sair link
           var sairLink = document.createElement("a");
           sairLink.href = "#";
           sairLink.setAttribute("data-auth-link", "1");
-          sairLink.className = "rounded-lg px-3 py-2 text-sm font-medium text-red-400 transition-colors duration-150 hover:bg-red-500/10 hover:text-red-300";
-          sairLink.textContent = "Sair";
+          sairLink.className = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-400 transition-colors duration-150 hover:bg-red-500/10 hover:text-red-300";
+          sairLink.innerHTML = '<span class="shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide h-4 w-4"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg></span>Sair';
           sairLink.addEventListener("click", function (e) {
             e.preventDefault();
             window.auth.logout();
           });
-
-          // Insert before the first hidden link or at end
-          var refNode = entrarLink || criarLink;
-          [dashLink, anotLink, eventosLink, mapsLink, bibLink, perfilLink].forEach(function(el) {
-            if (refNode) container.insertBefore(el, refNode);
-            else container.appendChild(el);
-          });
           container.appendChild(sairLink);
         }
       } else {
-        // Show Entrar/Criar Conta
         if (entrarLink) entrarLink.style.display = "";
         if (criarLink) criarLink.style.display = "";
-
-        // Remove auth links
         container.querySelectorAll("[data-auth-link]").forEach(function (el) {
           el.remove();
         });

@@ -304,7 +304,16 @@
       .then(function (res) {
         toast("Perfil atualizado com sucesso!", "success");
         if (res.success) {
-          auth.setAuth(auth.getToken(), res);
+          var safeUser = {
+            id: res.id,
+            nome: res.nome,
+            email: res.email,
+            is_premium: res.is_premium,
+            plano: res.plano,
+            avatar_url: res.avatar_url,
+            created_at: res.created_at
+          };
+          auth.setAuth(auth.getToken(), safeUser);
         }
       })
       .catch(function (err) {

@@ -121,10 +121,19 @@
     sidebarHeader.className = "flex items-center justify-between p-4 border-b border-border";
     sidebarHeader.innerHTML =
       '<h2 class="text-sm font-semibold text-primary">Conversas</h2>' +
-      '<button type="button" id="chat-new-btn" class="rounded-lg bg-accent/10 p-1.5 text-accent hover:bg-accent/20 transition-colors" title="Nova conversa">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>' +
-      '</button>';
+      '<div class="flex items-center gap-1">' +
+        '<button type="button" id="chat-new-btn" class="rounded-lg bg-accent/10 p-1.5 text-accent hover:bg-accent/20 transition-colors" title="Nova conversa">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>' +
+        '</button>' +
+        '<button type="button" id="chat-close-sidebar" class="lg:hidden rounded-lg p-1.5 text-secondary hover:bg-white/5 transition-colors" title="Fechar">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>' +
+        '</button>' +
+      '</div>';
     sidebarEl.appendChild(sidebarHeader);
+
+    // Close sidebar button handler
+    var closeSidebarBtn = document.getElementById("chat-close-sidebar");
+    if (closeSidebarBtn) closeSidebarBtn.addEventListener("click", closeSidebar);
 
     var searchWrap = document.createElement("div");
     searchWrap.className = "px-3 py-2";
@@ -156,13 +165,37 @@
     toggleBtn.type = "button";
     toggleBtn.className = "lg:hidden rounded-lg p-2 text-secondary hover:bg-white/5 transition-colors";
     toggleBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>';
+
+    // Sidebar backdrop (mobile)
+    var sidebarBackdrop = document.createElement("div");
+    sidebarBackdrop.className = "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 lg:hidden";
+    document.body.appendChild(sidebarBackdrop);
+
+    function openSidebar() {
+      sidebarEl.classList.remove("hidden");
+      sidebarEl.classList.add("flex", "absolute", "z-50", "inset-0");
+      sidebarBackdrop.classList.remove("pointer-events-none", "opacity-0");
+      sidebarBackdrop.classList.add("pointer-events-auto", "opacity-100");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeSidebar() {
+      sidebarEl.classList.add("hidden");
+      sidebarEl.classList.remove("flex", "absolute", "z-50", "inset-0");
+      sidebarBackdrop.classList.add("pointer-events-none", "opacity-0");
+      sidebarBackdrop.classList.remove("pointer-events-auto", "opacity-100");
+      document.body.style.overflow = "";
+    }
+
     toggleBtn.addEventListener("click", function () {
-      sidebarEl.classList.toggle("hidden");
-      sidebarEl.classList.toggle("flex");
-      sidebarEl.classList.toggle("absolute");
-      sidebarEl.classList.toggle("z-50");
-      sidebarEl.classList.toggle("inset-0");
+      if (sidebarEl.classList.contains("hidden")) {
+        openSidebar();
+      } else {
+        closeSidebar();
+      }
     });
+
+    sidebarBackdrop.addEventListener("click", closeSidebar);
     chatHeader.appendChild(toggleBtn);
 
     var headerInfo = document.createElement("div");
@@ -315,7 +348,7 @@
     // Timestamp
     if (msg.timestamp) {
       var timeEl = document.createElement("div");
-      timeEl.className = "mt-1 text-[10px] text-muted " + (isUser ? "text-right" : "");
+      timeEl.className = "mt-1 text-[11px] text-muted " + (isUser ? "text-right" : "");
       timeEl.textContent = formatTime(msg.timestamp);
       bubble.appendChild(timeEl);
     }
@@ -464,9 +497,8 @@
         fetchChatHistory(conv.session_id);
         updateSessionLabel(title);
         // Close sidebar on mobile
-        if (sidebarEl && window.innerWidth < 1024) {
-          sidebarEl.classList.add("hidden");
-          sidebarEl.classList.remove("flex", "absolute", "z-50", "inset-0");
+        if (window.innerWidth < 1024) {
+          closeSidebar();
         }
       });
 

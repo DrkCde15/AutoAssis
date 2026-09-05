@@ -86,13 +86,11 @@ O **AutoAssist IA** é um ecossistema de inteligência artificial de última ger
 
 | Tecnologia           | Função                                                     |
 | :------------------- | :--------------------------------------------------------- |
-| **Next.js**          | Framework React com App Router, SSG (output: export).      |
-| **React 19**         | UI library com hooks e server components.                  |
-| **Tailwind CSS v4**  | Utility-first CSS com design system customizado.           |
-| **Framer Motion**    | Animações com respeito a `prefers-reduced-motion`.         |
-| **DOMPurify + Marked**| Renderização segura de Markdown e sanitização de HTML.    |
+| **HTML/CSS/JS**      | Frontend estático vanilla servido pelo Flask.              |
+| **Tailwind CSS**     | Utility-first CSS com design system customizado.           |
+| **Lucide Icons**     | Ícones leves via SVG inline.                               |
 | **Web Speech API**   | Captura e processamento de voz nativo no navegador.        |
-| **Lucide React**     | Ícones leves e consistentes.                               |
+| **DOMPurify**        | Sanitização de HTML contra XSS.                            |
 
 ---
 
@@ -106,24 +104,38 @@ AutoAssist/
 │   ├── scripts/                   # Treinamento do ML
 │   ├── services/                  # IA e Lógica (NOG IA, Vision, Maintenance, Web Scraping, Automotive Events)
 │   ├── utils/                     # Cache Redis, e-mail, tasks assíncronas e cron auth
+│   ├── tests/                     # Testes unitários (unittest)
 │   ├── app.py                     # Entry-point (Servidor Flask)
-│   ├── build.sh                   # Build do Next.js + cópia para public/
+│   ├── gunicorn.conf.py           # Configuração Gunicorn (produção)
+│   ├── build.sh                   # Instala dependências Python
 │   ├── docker-compose.yml         # Redis local para desenvolvimento
 │   └── .env                       # Variáveis de ambiente (não commitar)
 ├── frontend/
-│   ├── src/
-│   │   ├── app/                   # App Router (páginas)
-│   │   │   ├── (app)/             # Rotas autenticadas (dashboard, chat, maps, etc.)
-│   │   │   ├── (auth)/            # Rotas de autenticação (login, cadastro, etc.)
-│   │   │   ├── blog/              # Blog (listing + artigos)
-│   │   │   └── ...                # Páginas públicas (planos, eventos, etc.)
-│   │   ├── components/            # Componentes React (UI, landing, auth)
-│   │   ├── lib/                   # Utilitários (auth, blog, api, analytics)
-│   │   └── globals.css            # Design tokens + animações
-│   ├── public/                    # Assets estáticos (logo, manifest) + HTMLs gerados pelo build
-│   ├── next.config.ts             # Configuração Next.js (output: export)
-│   ├── tailwind.config.ts         # Configuração Tailwind
-│   └── package.json               # Dependências Node.js
+│   └── public/                    # Frontend estático (HTML/CSS/JS)
+│       ├── index.html             # Landing page
+│       ├── login.html             # Login
+│       ├── cadastro.html          # Cadastro
+│       ├── chat.html              # Chat com NOG IA
+│       ├── dashboard.html         # Dashboard do veículo
+│       ├── perfil.html            # Perfil do usuário
+│       ├── planos.html            # Planos e preços
+│       ├── eventos.html           # Agenda de eventos automotivos
+│       ├── duvidas.html           # Perguntas frequentes
+│       ├── docs.html              # Documentação da API B2B
+│       ├── b2b.html               # B2B (diagnóstico por foto)
+│       ├── css/
+│       │   └── styles.css         # Tailwind CSS compilado
+│       ├── js/
+│       │   ├── nav.js             # Navbar + drawer mobile
+│       │   ├── auth.js            # Autenticação (login, cadastro, OAuth)
+│       │   ├── pages/
+│       │   │   ├── chat.js        # Chat com NOG IA
+│       │   │   ├── dashboard.js   # Dashboard do veículo
+│       │   │   ├── perfil.js      # Perfil do usuário
+│       │   │   ├── maps.js        # Mapa de oficinas
+│       │   │   └── ...            # Outros scripts de páginas
+│       │   └── ...
+│       └── static/                # Imagens, manifests, posts
 ├── render.yaml                    # Blueprint de deploy (Render)
 └── README.md
 ```
@@ -227,29 +239,26 @@ cd backend
 pip install -r requirements.txt
 python app.py
 
-# Frontend (desenvolvimento)
-cd frontend
-npm install
-npm run dev    # http://localhost:3000
+# Frontend é servido automaticamente pelo Flask em http://localhost:5000
+# Não é necessário Node.js ou npm
 ```
 
 ### 4. Build para Produção
 
-O frontend Next.js gera HTML estático que o Flask serve via `static_folder`:
+O `build.sh` apenas instala as dependências Python. O frontend é estático e não precisa de build:
 
 ```bash
 cd backend
 bash build.sh
-# Copia HTMLs gerados para frontend/public/
-# Flask serve tudo em http://localhost:5001
+# Flask serve frontend/public/ em http://localhost:5000
 ```
 
 ### 5. Deploy no Render
 
 O `render.yaml` configura automaticamente:
 - `rootDir: backend`
-- `buildCommand: bash build.sh` (builda Next.js + copia para public/)
-- `startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT`
+- `buildCommand: bash build.sh` (instala dependências Python)
+- `startCommand: gunicorn app:app -c gunicorn.conf.py --bind 0.0.0.0:$PORT`
 
 ### 6. Redis para desenvolvimento local
 
@@ -434,6 +443,29 @@ Registro das mudanças feitas nesta sessão de desenvolvimento:
 - **SEO técnico:** `robots.txt` + `sitemap.xml` (`https://autoassist.com.br`); `index.html`/`planos.html` com `canonical` e JSON-LD (Organization + Service).
 - **B2B cobrando:** `b2b.py` com preços (R$ 99/399/999 por mês), rota `/api/b2b/self-serve/checkout` (gera pedido Cakto + chave inativa) e ativação via webhook (`payment.py` branch `b2b_`); `b2b.html` com planos/valores e checkout. `CAKTO_B2B_CHECKOUT_URL` é opcional - se ausente, reusa `CAKTO_CHECKOUT_URL` (link do Premium, R$ 19,90); defina apenas para cobrar preços B2B distintos por tier.
 - **Conteúdo descartado:** `blog/` removido (decisão do usuário); `plan.md` P1-3 marcado como NÃO IMPLEMENTADO.
+
+### Correções de Bugs Críticos e Altos (Auditoria Completa)
+- **`cadastro.js`**: campo `name`→`nome`, adicionados `confirm_email`+`confirm_password`, redirect pós-cadastro para `/login?conta criada`.
+- **`verificacao.html`**: removido `<main>` duplicado, JS funcional com Turnstile.
+- **`redefinir-senha.html`**: fluxo completo de redefinição via token URL (`/api/auth/reset-password`).
+- **`perfil.js:307`**: filtrado `password_hash`, `2fa_secret` etc. antes de salvar em localStorage.
+- **`index.html`**: 5 links corrigidos (`/fipe`→`/chat`, `/laudo`→`/dashboard`, `/register`→`/cadastro`).
+- **`dashboard.js:185`**: `/veiculo?id=...`→`/perfil`, fallback null vehicle name com `|| ""`.
+- **`duvidas.html`**: 7 links de blog quebrados mapeados para páginas existentes.
+- **10 páginas**: título genérico "AutoAssist" → títulos específicos (perfil, chat, dashboard, etc.).
+- **`maps.js`**: `escapeHtml`→`escapeHTML` padronizado com regex consistente.
+
+### Melhorias de Responsividade e Mobile UX
+- **Drawer navbar (`nav.js`)**: `w-72`→`w-[85vw] max-w-72`, backdrop dinâmico, X funcional com `addEventListener`, separador antes de "Sair", active page indicator, fundo sólido via CSS injection, animação `cubic-bezier(0.4, 0, 0.2, 1)`, drawer hidden on desktop via `matchMedia`.
+- **Blur decorativo**: `h-[600px] w-[600px]`→responsive `200px/400px/600px` com `max-md:hidden`.
+- **Header**: `pt-28`→`pt-20 md:pt-28` em todas as páginas.
+- **Footer**: `py-16`→`py-8 sm:py-16`.
+- **Cards de formulário**: `p-8`→`p-6 sm:p-8` (login, cadastro, verificação, redefinir senha, agendamento, eventos).
+- **Blog**: headings `text-3xl`→`text-2xl sm:text-3xl md:text-4xl`, subtitles `text-lg`→`text-base sm:text-lg`.
+- **API docs/code blocks**: `p-8`→`p-4 sm:p-8`, `text-sm`→`text-xs sm:text-sm`.
+- **Logo (`nav.js`)**: `h-22`→`h-16 md:h-22`.
+- **Eventos**: `w-48`→`w-full sm:w-48` no select de UF.
+- **Chat sidebar (`chat.js`)**: backdrop escuro no mobile, botão X no header, body scroll lock, timestamp `text-[10px]`→`text-[11px]`, conversation click fecha sidebar no mobile.
 
 ---
 

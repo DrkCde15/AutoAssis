@@ -96,16 +96,16 @@
       var rating = m.avaliacao_media ? '<span class="text-yellow-500 text-xs">★ ' + Number(m.avaliacao_media).toFixed(1) + '</span>' : "";
       return '<div class="maps-card rounded-xl border border-border bg-secondary/30 p-4 cursor-pointer transition-all hover:border-accent/50 hover:bg-secondary/50" data-id="' + (m.id || "") + '" data-lat="' + (m.latitude || "") + '" data-lng="' + (m.longitude || "") + '">'
         + '<div class="flex items-start justify-between gap-2 mb-1">'
-        + '<h3 class="text-sm font-semibold text-primary leading-tight">' + escapeHtml(m.nome || "Oficina") + '</h3>'
+        + '<h3 class="text-sm font-semibold text-primary leading-tight">' + escapeHTML(m.nome || "Oficina") + '</h3>'
         + (m.is_verified ? '<span class="shrink-0 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-500">Verificada</span>' : '')
         + '</div>'
-        + (m.endereco ? '<p class="text-xs text-secondary mb-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>' + escapeHtml(m.endereco) + '</p>' : '')
-        + (m.telefone ? '<p class="text-xs text-secondary mb-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>' + escapeHtml(m.telefone) + '</p>' : '')
+        + (m.endereco ? '<p class="text-xs text-secondary mb-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>' + escapeHTML(m.endereco) + '</p>' : '')
+        + (m.telefone ? '<p class="text-xs text-secondary mb-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>' + escapeHTML(m.telefone) + '</p>' : '')
         + '<div class="flex items-center gap-2 mt-2">'
         + (dist ? '<span class="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">' + dist + '</span>' : '')
         + rating
         + '</div>'
-        + (esp ? '<p class="text-[11px] text-secondary/70 mt-2 italic">' + escapeHtml(esp) + '</p>' : '')
+        + (esp ? '<p class="text-[11px] text-secondary/70 mt-2 italic">' + escapeHTML(esp) + '</p>' : '')
         + '</div>';
     }).join("");
   }
@@ -117,10 +117,10 @@
       if (!m.latitude || !m.longitude) return;
       var esp = Array.isArray(m.especialidades) ? m.especialidades.join(", ") : (m.especialidades || "");
       var popup = '<div class="min-w-[180px]">'
-        + '<b class="text-sm">' + escapeHtml(m.nome || "Oficina") + '</b>'
-        + (m.endereco ? '<p class="text-xs text-gray-600 mt-1">' + escapeHtml(m.endereco) + '</p>' : '')
-        + (m.telefone ? '<p class="text-xs text-gray-600 mt-0.5">Tel: ' + escapeHtml(m.telefone) + '</p>' : '')
-        + (esp ? '<p class="text-xs text-gray-500 mt-0.5 italic">' + escapeHtml(esp) + '</p>' : '')
+        + '<b class="text-sm">' + escapeHTML(m.nome || "Oficina") + '</b>'
+        + (m.endereco ? '<p class="text-xs text-gray-600 mt-1">' + escapeHTML(m.endereco) + '</p>' : '')
+        + (m.telefone ? '<p class="text-xs text-gray-600 mt-0.5">Tel: ' + escapeHTML(m.telefone) + '</p>' : '')
+        + (esp ? '<p class="text-xs text-gray-500 mt-0.5 italic">' + escapeHTML(esp) + '</p>' : '')
         + (m.avaliacao_media ? '<p class="text-xs text-yellow-600 mt-0.5">★ ' + Number(m.avaliacao_media).toFixed(1) + ' (' + (m.total_avaliacoes || 0) + ')</p>' : '')
         + '</div>';
       var marker = L.marker([m.latitude, m.longitude]).addTo(map).bindPopup(popup);
@@ -232,10 +232,13 @@
     });
   }
 
-  function escapeHtml(str) {
-    var div = document.createElement("div");
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
+  function escapeHTML(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   if (document.readyState === "loading") {
