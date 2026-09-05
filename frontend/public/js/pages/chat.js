@@ -105,9 +105,27 @@
     return label;
   }
 
+  var DESKTOP_BP = 1024;
+
   // ── Build UI ──
   function buildUI() {
     var container = document.querySelector("main") || document.querySelector("body");
+
+    // Inject chat-specific responsive styles
+    if (!document.getElementById("chat-responsive-css")) {
+      var chatCss = document.createElement("style");
+      chatCss.id = "chat-responsive-css";
+      chatCss.textContent =
+        "#chat-messages { max-width: 900px; margin: 0 auto; }" +
+        "#chat-messages > div { padding-left: 0; padding-right: 0; }" +
+        "@keyframes typing-dot { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }" +
+        "@media (max-width: 640px) {" +
+          "#chat-messages { padding-left: 12px; padding-right: 12px; }" +
+          "#chat-messages > div > div:last-child { max-width: calc(100% - 44px) !important; }" +
+          "#chat-messages > div > div:last-child > div { word-break: break-word; }" +
+        "}";
+      document.head.appendChild(chatCss);
+    }
 
     // Main wrapper
     chatWrapper = document.createElement("div");
@@ -115,7 +133,7 @@
 
     // ── Sidebar ──
     sidebarEl = document.createElement("aside");
-    sidebarEl.className = "hidden lg:flex flex-col w-80 border-r border-border bg-primary/50 shrink-0";
+    sidebarEl.className = "flex flex-col w-80 border-r border-border bg-primary/50 shrink-0";
 
     var sidebarHeader = document.createElement("div");
     sidebarHeader.className = "flex items-center justify-between p-4 border-b border-border";
@@ -125,7 +143,7 @@
         '<button type="button" id="chat-new-btn" class="rounded-lg bg-accent/10 p-1.5 text-accent hover:bg-accent/20 transition-colors" title="Nova conversa">' +
           '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>' +
         '</button>' +
-        '<button type="button" id="chat-close-sidebar" class="lg:hidden rounded-lg p-1.5 text-secondary hover:bg-white/5 transition-colors" title="Fechar">' +
+        '<button type="button" id="chat-close-sidebar" class="rounded-lg p-1.5 text-secondary hover:bg-white/5 transition-colors" title="Fechar">' +
           '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>' +
         '</button>' +
       '</div>';
@@ -160,35 +178,70 @@
     var chatHeader = document.createElement("div");
     chatHeader.className = "flex items-center gap-3 border-b border-border bg-primary/30 px-4 py-3 shrink-0";
 
-    // Sidebar toggle (mobile)
+    // Sidebar toggle (mobile only)
     var toggleBtn = document.createElement("button");
     toggleBtn.type = "button";
-    toggleBtn.className = "lg:hidden rounded-lg p-2 text-secondary hover:bg-white/5 transition-colors";
+    toggleBtn.className = "rounded-lg p-2 text-secondary hover:bg-white/5 transition-colors";
     toggleBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"></line><line x1="3" x2="21" y1="12" y2="12"></line><line x1="3" x2="21" y1="18" y2="18"></line></svg>';
 
     // Sidebar backdrop (mobile)
     var sidebarBackdrop = document.createElement("div");
-    sidebarBackdrop.className = "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 lg:hidden";
+    sidebarBackdrop.className = "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300";
     document.body.appendChild(sidebarBackdrop);
 
+    function isDesktop() {
+      return window.innerWidth >= DESKTOP_BP;
+    }
+
     function openSidebar() {
-      sidebarEl.classList.remove("hidden");
-      sidebarEl.classList.add("flex", "absolute", "z-50", "inset-0");
+      sidebarEl.style.display = "";
+      sidebarEl.classList.add("absolute", "z-50");
+      sidebarEl.style.top = "64px";
+      sidebarEl.style.left = "0";
+      sidebarEl.style.bottom = "0";
+      sidebarEl.style.right = "";
       sidebarBackdrop.classList.remove("pointer-events-none", "opacity-0");
       sidebarBackdrop.classList.add("pointer-events-auto", "opacity-100");
       document.body.style.overflow = "hidden";
     }
 
     function closeSidebar() {
-      sidebarEl.classList.add("hidden");
-      sidebarEl.classList.remove("flex", "absolute", "z-50", "inset-0");
+      sidebarEl.classList.remove("absolute", "z-50");
+      sidebarEl.style.top = "";
+      sidebarEl.style.left = "";
+      sidebarEl.style.bottom = "";
+      sidebarEl.style.right = "";
+      sidebarEl.style.display = "none";
       sidebarBackdrop.classList.add("pointer-events-none", "opacity-0");
       sidebarBackdrop.classList.remove("pointer-events-auto", "opacity-100");
       document.body.style.overflow = "";
     }
 
+    function syncViewport() {
+      if (isDesktop()) {
+        sidebarEl.style.display = "";
+        sidebarEl.classList.remove("absolute", "z-50");
+        sidebarEl.style.top = "";
+        sidebarEl.style.left = "";
+        sidebarEl.style.bottom = "";
+        sidebarEl.style.right = "";
+        sidebarBackdrop.classList.add("pointer-events-none", "opacity-0");
+        sidebarBackdrop.classList.remove("pointer-events-auto", "opacity-100");
+        sidebarBackdrop.style.display = "none";
+        toggleBtn.style.display = "none";
+        vehicleWrap.style.display = "flex";
+        document.body.style.overflow = "";
+      } else {
+        sidebarEl.style.display = "none";
+        sidebarBackdrop.style.display = "";
+        toggleBtn.style.display = "";
+        vehicleWrap.style.display = "none";
+      }
+    }
+
     toggleBtn.addEventListener("click", function () {
-      if (sidebarEl.classList.contains("hidden")) {
+      if (sidebarEl.style.display === "none" || sidebarEl.style.display === "") {
+        if (isDesktop()) return;
         openSidebar();
       } else {
         closeSidebar();
@@ -207,7 +260,8 @@
 
     // Vehicle selector
     var vehicleWrap = document.createElement("div");
-    vehicleWrap.className = "hidden sm:flex items-center gap-2";
+    vehicleWrap.className = "items-center gap-2";
+    vehicleWrap.style.display = "none";
     vehicleSelect = document.createElement("select");
     vehicleSelect.id = "chat-vehicle-select";
     vehicleSelect.className = "rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-secondary focus:outline-none focus:ring-2 focus:ring-accent/50 max-w-[200px]";
@@ -218,21 +272,17 @@
     vehicleWrap.appendChild(vehicleSelect);
     chatHeader.appendChild(vehicleWrap);
 
-    // Attach button
-    var attachBtn = document.createElement("button");
-    attachBtn.type = "button";
-    attachBtn.className = "rounded-lg p-2 text-secondary hover:bg-white/5 hover:text-primary transition-colors";
-    attachBtn.title = "Anexar arquivo";
-    attachBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>';
-    attachBtn.addEventListener("click", function () { fileInput.click(); });
-    chatHeader.appendChild(attachBtn);
+    // Init viewport-dependent visibility
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
 
+    // Attach button
     mainEl.appendChild(chatHeader);
 
     // Messages area
     messagesEl = document.createElement("div");
     messagesEl.id = "chat-messages";
-    messagesEl.className = "flex-1 overflow-y-auto px-4 py-6 space-y-1";
+    messagesEl.className = "flex-1 overflow-y-auto px-4 py-6 space-y-4";
     mainEl.appendChild(messagesEl);
 
     // Attachment preview (hidden by default)
@@ -255,6 +305,77 @@
     var inputRow = document.createElement("div");
     inputRow.className = "flex items-end gap-2 max-w-4xl mx-auto";
 
+    // Action button (plus icon) with dropdown
+    var actionWrap = document.createElement("div");
+    actionWrap.className = "relative shrink-0";
+
+    var actionBtn = document.createElement("button");
+    actionBtn.type = "button";
+    actionBtn.className = "rounded-xl p-3 text-secondary border border-border bg-card hover:bg-white/5 hover:text-primary transition-colors";
+    actionBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>';
+    actionWrap.appendChild(actionBtn);
+
+    // Dropdown menu
+    var actionMenu = document.createElement("div");
+    actionMenu.className = "absolute bottom-full left-0 mb-2 w-52 rounded-xl border border-border bg-card shadow-xl opacity-0 pointer-events-none transition-all duration-200 translate-y-2 z-50";
+    actionMenu.innerHTML =
+      '<div class="py-1">' +
+        '<button type="button" class="chat-action-item flex w-full items-center gap-3 px-4 py-2.5 text-sm text-secondary hover:bg-accent/10 hover:text-primary transition-colors" data-action="photo">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>' +
+          '<span>Enviar foto</span>' +
+        '</button>' +
+        '<button type="button" class="chat-action-item flex w-full items-center gap-3 px-4 py-2.5 text-sm text-secondary hover:bg-accent/10 hover:text-primary transition-colors" data-action="file">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>' +
+          '<span>Enviar arquivo</span>' +
+        '</button>' +
+        '<div class="my-1 border-t border-border"></div>' +
+        '<button type="button" class="chat-action-item flex w-full items-center gap-3 px-4 py-2.5 text-sm text-secondary hover:bg-accent/10 hover:text-primary transition-colors" data-action="report">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>' +
+          '<span>Baixar laudo</span>' +
+        '</button>' +
+      '</div>';
+    actionWrap.appendChild(actionMenu);
+
+    // Toggle dropdown
+    actionBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var isOpen = !actionMenu.classList.contains("opacity-0");
+      if (isOpen) {
+        actionMenu.classList.add("opacity-0", "pointer-events-none", "translate-y-2");
+        actionMenu.classList.remove("opacity-100", "pointer-events-auto", "translate-y-0");
+      } else {
+        actionMenu.classList.remove("opacity-0", "pointer-events-none", "translate-y-2");
+        actionMenu.classList.add("opacity-100", "pointer-events-auto", "translate-y-0");
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener("click", function () {
+      actionMenu.classList.add("opacity-0", "pointer-events-none", "translate-y-2");
+      actionMenu.classList.remove("opacity-100", "pointer-events-auto", "translate-y-0");
+    });
+
+    // Action handlers
+    var actionItems = actionMenu.querySelectorAll(".chat-action-item");
+    for (var ai = 0; ai < actionItems.length; ai++) {
+      (function (item) {
+        item.addEventListener("click", function () {
+          var action = item.getAttribute("data-action");
+          actionMenu.classList.add("opacity-0", "pointer-events-none", "translate-y-2");
+          actionMenu.classList.remove("opacity-100", "pointer-events-auto", "translate-y-0");
+          if (action === "photo") {
+            fileInput.accept = "image/jpeg,image/png,image/webp,image/gif";
+            fileInput.click();
+          } else if (action === "file") {
+            fileInput.accept = "application/pdf,text/plain,text/csv,text/markdown,application/json";
+            fileInput.click();
+          } else if (action === "report") {
+            downloadChatReport();
+          }
+        });
+      })(actionItems[ai]);
+    }
+
     textareaEl = document.createElement("textarea");
     textareaEl.id = "chat-textarea";
     textareaEl.rows = 1;
@@ -269,6 +390,7 @@
     sendBtn.className = "rounded-xl bg-accent p-3 text-white transition-colors hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed shrink-0";
     sendBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="11" y1="2" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
 
+    inputRow.appendChild(actionWrap);
     inputRow.appendChild(textareaEl);
     inputRow.appendChild(sendBtn);
     inputArea.appendChild(inputRow);
@@ -282,18 +404,18 @@
   function showTyping() {
     if (typingEl) return;
     typingEl = document.createElement("div");
-    typingEl.className = "flex items-start gap-3 max-w-[85%] md:max-w-[70%]";
+    typingEl.className = "flex items-end gap-2 justify-start";
     typingEl.innerHTML =
-      '<div class="shrink-0 mt-1">' +
-        '<div class="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>' +
+      '<div class="shrink-0">' +
+        '<div class="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 overflow-hidden">' +
+          '<img src="/logo2.png" alt="NOG" class="h-full w-full object-cover" />' +
         '</div>' +
       '</div>' +
-      '<div class="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3">' +
+      '<div class="rounded-2xl rounded-bl-md border border-border bg-card px-4 py-3">' +
         '<div class="flex items-center gap-1.5">' +
-          '<span class="h-2 w-2 rounded-full bg-muted animate-bounce" style="animation-delay:0ms"></span>' +
-          '<span class="h-2 w-2 rounded-full bg-muted animate-bounce" style="animation-delay:150ms"></span>' +
-          '<span class="h-2 w-2 rounded-full bg-muted animate-bounce" style="animation-delay:300ms"></span>' +
+          '<span class="h-2 w-2 rounded-full bg-muted" style="animation: typing-dot 1.4s infinite ease-in-out; animation-delay:0ms"></span>' +
+          '<span class="h-2 w-2 rounded-full bg-muted" style="animation: typing-dot 1.4s infinite ease-in-out; animation-delay:200ms"></span>' +
+          '<span class="h-2 w-2 rounded-full bg-muted" style="animation: typing-dot 1.4s infinite ease-in-out; animation-delay:400ms"></span>' +
         '</div>' +
       '</div>';
     messagesEl.appendChild(typingEl);
@@ -312,52 +434,61 @@
     if (!msg) return;
     var isUser = msg.role === "user";
 
+    // Wrapper: flex row with avatar + bubble, gap 8px
     var wrapper = document.createElement("div");
-    wrapper.className = "flex items-start gap-3 " + (isUser ? "flex-row-reverse max-w-[85%] md:max-w-[70%] ml-auto" : "max-w-[85%] md:max-w-[70%]");
+    wrapper.className = "flex items-end gap-2 " + (isUser ? "justify-end" : "justify-start");
 
     // Avatar
     var avatar = document.createElement("div");
-    avatar.className = "shrink-0 mt-1";
+    avatar.className = "shrink-0";
     if (isUser) {
       avatar.innerHTML =
-        '<div class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700 text-xs font-bold text-zinc-300">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' +
+        '<div class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' +
         '</div>';
     } else {
       avatar.innerHTML =
-        '<div class="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>' +
+        '<div class="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 overflow-hidden">' +
+          '<img src="/logo2.png" alt="NOG" class="h-full w-full object-cover" />' +
         '</div>';
     }
     wrapper.appendChild(avatar);
 
+    // Bubble container: controls max-width
+    var bubbleWrap = document.createElement("div");
+    bubbleWrap.className = isUser ? "flex flex-col items-end max-w-[75%]" : "flex flex-col items-start max-w-[80%]";
+    bubbleWrap.style.maxWidth = "75%";
+    bubbleWrap.style.width = "fit-content";
+
     // Bubble
     var bubble = document.createElement("div");
     bubble.className = isUser
-      ? "rounded-2xl rounded-tr-md border border-border bg-accent/10 px-4 py-3 text-sm text-primary"
-      : "rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3 text-sm text-primary";
+      ? "rounded-2xl rounded-br-md border border-border bg-accent/10 px-4 py-2.5 text-sm text-primary"
+      : "rounded-2xl rounded-bl-md border border-border bg-card px-4 py-2.5 text-sm text-primary";
+    bubble.style.width = "fit-content";
+    bubble.style.maxWidth = "100%";
 
-    // Content (supports markdown-like bold and lists)
+    // Content
     var contentHtml = nl2br(msg.content);
-    // Simple bold: **text**
     contentHtml = contentHtml.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    // Simple italic: *text*
     contentHtml = contentHtml.replace(/\*(.+?)\*/g, "<em>$1</em>");
     bubble.innerHTML = contentHtml;
 
-    // Timestamp
+    bubbleWrap.appendChild(bubble);
+
+    // Timestamp: inside bubbleWrap, below bubble
     if (msg.timestamp) {
       var timeEl = document.createElement("div");
-      timeEl.className = "mt-1 text-[11px] text-muted " + (isUser ? "text-right" : "");
+      timeEl.className = "mt-1 text-[10px] text-muted px-1 " + (isUser ? "text-right" : "text-left");
       timeEl.textContent = formatTime(msg.timestamp);
-      bubble.appendChild(timeEl);
+      bubbleWrap.appendChild(timeEl);
     }
 
     // Videos
     if (msg.videos && msg.videos.length > 0) {
       var videosDiv = document.createElement("div");
-      videosDiv.className = "mt-3 space-y-2 border-t border-border pt-3";
-      videosDiv.innerHTML = '<p class="text-xs font-medium text-muted mb-2">Videos relacionados</p>';
+      videosDiv.className = "mt-2 space-y-1.5 rounded-xl border border-border p-3";
+      videosDiv.innerHTML = '<p class="text-xs font-medium text-muted mb-1.5">Videos relacionados</p>';
       msg.videos.forEach(function (v) {
         var videoLink = document.createElement("a");
         videoLink.href = v.url || "#";
@@ -369,14 +500,14 @@
           '<span class="truncate">' + escapeHTML(v.title || v.url || "Video") + '</span>';
         videosDiv.appendChild(videoLink);
       });
-      bubble.appendChild(videosDiv);
+      bubbleWrap.appendChild(videosDiv);
     }
 
     // Links
     if (msg.links && msg.links.length > 0) {
       var linksDiv = document.createElement("div");
-      linksDiv.className = "mt-3 space-y-2 border-t border-border pt-3";
-      linksDiv.innerHTML = '<p class="text-xs font-medium text-muted mb-2">Links uteis</p>';
+      linksDiv.className = "mt-2 space-y-1.5 rounded-xl border border-border p-3";
+      linksDiv.innerHTML = '<p class="text-xs font-medium text-muted mb-1.5">Links uteis</p>';
       msg.links.forEach(function (l) {
         var linkEl = document.createElement("a");
         linkEl.href = l.url || "#";
@@ -388,10 +519,10 @@
           '<span class="truncate">' + escapeHTML(l.title || l.name || l.url || "Link") + '</span>';
         linksDiv.appendChild(linkEl);
       });
-      bubble.appendChild(linksDiv);
+      bubbleWrap.appendChild(linksDiv);
     }
 
-    wrapper.appendChild(bubble);
+    wrapper.appendChild(bubbleWrap);
 
     if (prepend && messagesEl.firstChild) {
       messagesEl.insertBefore(wrapper, messagesEl.firstChild);
@@ -459,6 +590,47 @@
     }
   }
 
+  // ── Download chat report ──
+  function downloadChatReport() {
+    var messages = state.messages || [];
+    if (messages.length === 0) {
+      addSystemMessage("Nenhuma mensagem para gerar laudo.");
+      return;
+    }
+
+    var lines = [];
+    lines.push("=== LAUDO DA CONVERSA - NOG AutoAssist ===");
+    lines.push("Data: " + new Date().toLocaleString("pt-BR"));
+    lines.push("Sessão: " + (state.activeSessionId || "Nova conversa"));
+    lines.push("Veículo: " + (state.selectedVehicle || "Não informado"));
+    lines.push("");
+    lines.push("--- MENSAGENS ---");
+    lines.push("");
+
+    for (var i = 0; i < messages.length; i++) {
+      var m = messages[i];
+      var role = m.role === "user" ? "Você" : "NOG";
+      var time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+      lines.push("[" + time + "] " + role + ":");
+      lines.push(m.content || "");
+      lines.push("");
+    }
+
+    lines.push("--- FIM DO LAUDO ---");
+
+    var blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "laudo-conversa-" + new Date().toISOString().slice(0, 10) + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    addSystemMessage("Laudo baixado com sucesso.");
+  }
+
   // ── Conversations sidebar ──
   function renderConversations() {
     if (!conversationsList) return;
@@ -473,47 +645,65 @@
     }
 
     state.conversations.forEach(function (conv) {
-      var item = document.createElement("button");
-      item.type = "button";
-      var isActive = conv.session_id === state.activeSessionId;
-      item.className = "w-full text-left px-4 py-3 border-b border-border transition-colors " +
-        (isActive ? "bg-accent/10 border-l-2 border-l-accent" : "hover:bg-white/5");
-
+      var sessionId = conv.session_id || "";
       var title = conv.title || "Nova conversa";
       var preview = conv.preview || "";
       var count = conv.count || 0;
+      var isActive = sessionId === state.activeSessionId;
+
+      var item = document.createElement("div");
+      item.className = "w-full px-4 py-3 border-b border-border transition-colors " +
+        (isActive ? "bg-accent/10 border-l-2 border-l-accent" : "hover:bg-white/5");
+      item.setAttribute("data-session-id", sessionId);
+      item.setAttribute("data-conv-title", title);
 
       item.innerHTML =
-        '<div class="flex items-start justify-between gap-2">' +
-          '<div class="min-w-0">' +
+        '<div class="flex items-center gap-2">' +
+          '<div class="flex-1 min-w-0 cursor-pointer" data-action="load">' +
             '<p class="text-sm font-medium text-primary truncate">' + escapeHTML(title) + '</p>' +
             '<p class="text-xs text-muted truncate mt-0.5">' + escapeHTML(preview) + '</p>' +
           '</div>' +
-          '<span class="shrink-0 text-[10px] text-muted bg-zinc-800 rounded-full px-1.5 py-0.5">' + count + '</span>' +
+          '<div class="flex items-center gap-1 shrink-0">' +
+            '<span class="text-[10px] text-muted bg-zinc-800 rounded-full px-1.5 py-0.5">' + count + '</span>' +
+            '<button type="button" data-action="delete" class="relative z-10 flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors" style="pointer-events:auto;cursor:pointer;">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>' +
+            '</button>' +
+          '</div>' +
         '</div>';
-
-      item.addEventListener("click", function () {
-        state.activeSessionId = conv.session_id || null;
-        fetchChatHistory(conv.session_id);
-        updateSessionLabel(title);
-        // Close sidebar on mobile
-        if (window.innerWidth < 1024) {
-          closeSidebar();
-        }
-      });
 
       conversationsList.appendChild(item);
     });
+  }
 
-    // Delete session buttons
-    var delBtns = conversationsList.querySelectorAll("[data-delete-session]");
-    for (var i = 0; i < delBtns.length; i++) {
-      delBtns[i].addEventListener("click", function (e) {
+  // Event delegation for conversations list
+  function setupConversationsDelegation() {
+    if (!conversationsList) return;
+    conversationsList.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-action='delete']");
+      if (btn) {
+        e.preventDefault();
         e.stopPropagation();
-        var sid = this.getAttribute("data-delete-session");
-        deleteSession(sid);
-      });
-    }
+        var card = btn.closest("[data-session-id]");
+        if (card) {
+          var sid = card.getAttribute("data-session-id");
+          deleteSession(sid || null);
+        }
+        return;
+      }
+
+      var loadTarget = e.target.closest("[data-action='load']");
+      if (loadTarget) {
+        var card = loadTarget.closest("[data-session-id]");
+        if (card) {
+          var sid = card.getAttribute("data-session-id");
+          var title = card.getAttribute("data-conv-title") || "Nova conversa";
+          state.activeSessionId = sid || null;
+          fetchChatHistory(sid || null);
+          updateSessionLabel(title);
+          if (window.innerWidth < 1024) closeSidebar();
+        }
+      }
+    });
   }
 
   function updateSessionLabel(title) {
@@ -797,6 +987,7 @@
 
   function fetchChatHistory(sessionId) {
     messagesEl.innerHTML = "";
+    emptyStateEl = null;
     state.messages = [];
 
     showTyping();
@@ -875,6 +1066,7 @@
         if (state.activeSessionId === sessionId) {
           state.activeSessionId = null;
           messagesEl.innerHTML = "";
+          emptyStateEl = null;
           renderEmptyState();
           updateSessionLabel("Nova conversa");
         }
@@ -888,6 +1080,9 @@
 
   // ── Event listeners ──
   function bindEvents() {
+    // Event delegation for conversations list (delete + load)
+    setupConversationsDelegation();
+
     // Textarea auto-resize + Enter to send
     textareaEl.addEventListener("input", function () {
       autoResize();
@@ -915,6 +1110,7 @@
       newBtn.addEventListener("click", function () {
         state.activeSessionId = null;
         messagesEl.innerHTML = "";
+        emptyStateEl = null;
         renderEmptyState();
         updateSessionLabel("Nova conversa");
         renderConversations();
